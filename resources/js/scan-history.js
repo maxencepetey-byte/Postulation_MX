@@ -10,6 +10,7 @@
     const packsSection = document.getElementById("packsSection");
     const packsGrid = document.getElementById("packsGrid");
     const hiddenSecteur = document.getElementById("packSecteurHidden");
+    const hiddenGmailSecteur = document.getElementById("gmailSecteurHidden");
 
     if (!select || !tbody) return;
 
@@ -19,8 +20,9 @@
     let abortController = null;
 
     function syncHidden() {
-      if (!hiddenSecteur) return;
-      hiddenSecteur.value = select.value || "";
+      const v = select.value || "";
+      if (hiddenSecteur) hiddenSecteur.value = v;
+      if (hiddenGmailSecteur) hiddenGmailSecteur.value = v;
     }
 
     async function refresh() {

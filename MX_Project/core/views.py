@@ -531,6 +531,8 @@ def _safe_format(text: str, ctx: dict) -> str:
 
 def _slugify_loose(s: str) -> str:
     s = (s or "").lower()
+    # ligatures fréquentes en français
+    s = s.replace("œ", "oe").replace("æ", "ae")
     s = unicodedata.normalize("NFKD", s)
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
     s = re.sub(r"[\s_]+", " ", s).strip()
@@ -556,26 +558,7 @@ def _read_filefield_bytes(ff) -> bytes:
             pass
 
 
-def _lm_from_latest_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tuple[str, bytes] | None:
-    """
-    Récupère la LM PDF depuis le dernier ZIP `PACK_LM` (en se basant sur le nom du fichier).
-    Retourne (filename, bytes) ou None si introuvable.
-    """
-    qs = DocumentUtilisateur.objects.filter(utilisateur=user, type_doc="PACK_LM").order_by("-date_upload")
-    if secteur_nom:
-        # Si les packs sont taggés par secteur, on préfère le secteur demandé
-        by_sector = qs.filter(secteur_nom=secteur_nom)
-        pack = by_sector.first() or qs.first()
-    else:
-        pack = qs.first()
-    if not pack:
-        return None
-
-    try:
-        zip_bytes = _read_filefield_bytes(pack.fichier)
-    except Exception:
-        return None
-
+def _lm_from_pack_zip_bytes(zip_bytes: bytes, ent_name: str) -> tuple[str, bytes] | None:
     needle = _slugify_loose(ent_name)
     # tokens pour un matching robuste (ignore stopwords/forme juridique)
     stop = {
@@ -636,6 +619,87 @@ def _lm_from_latest_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tu
     except Exception:
         return None
 
+    return None
+
+
+def _lm_candidates_from_pack_zip_bytes(zip_bytes: bytes, ent_name: str, limit: int = 5) -> list[str]:
+    """
+    Renvoie une liste de noms de PDF "candidats" (top N) pour debug UX.
+    """
+    needle = _slugify_loose(ent_name)
+    stop = {
+        "sa",
+        "sarl",
+        "gmbh",
+        "suisse",
+        "geneve",
+        "genève",
+        "des",
+        "de",
+        "du",
+        "la",
+        "le",
+        "les",
+        "et",
+        "the",
+        "a",
+    }
+    tokens = [t for t in needle.split("_") if t and t not in stop]
+    tokens_long = [t for t in tokens if len(t) >= 3]
+    scored: list[tuple[int, int, str]] = []
+    try:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
+            for name in zf.namelist():
+                base = os.path.basename(name)
+                if not base.lower().endswith(".pdf"):
+                    continue
+                base_slug = _slugify_loose(base)
+                compact = base_slug.replace("_", "")
+                hits = 0
+                if tokens_long:
+                    hits = sum(1 for t in tokens_long if t in compact)
+                if hits <= 0:
+                    continue
+                score = hits * 100 - abs(len(compact) - len(needle.replace("_", "")))
+                scored.append((score, hits, base))
+    except Exception:
+        return []
+
+    scored.sort(reverse=True)
+    out: list[str] = []
+    for score, hits, base in scored[: max(1, limit)]:
+        out.append(f"{base} (match {hits})")
+    return out
+
+
+def _lm_from_any_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tuple[str, bytes] | None:
+    """
+    Cherche la LM dans tous les ZIP `PACK_LM` (du plus récent au plus ancien).
+    Si un secteur est fourni, on priorise les packs taggés avec ce secteur.
+    """
+    qs = DocumentUtilisateur.objects.filter(utilisateur=user, type_doc="PACK_LM").order_by("-date_upload")
+    if secteur_nom:
+        qs = qs.order_by()  # reset ordering for union-like concat (Django limitation)
+        preferred = DocumentUtilisateur.objects.filter(
+            utilisateur=user, type_doc="PACK_LM", secteur_nom=secteur_nom
+        ).order_by("-date_upload")
+        fallback = DocumentUtilisateur.objects.filter(utilisateur=user, type_doc="PACK_LM").exclude(
+            secteur_nom=secteur_nom
+        ).order_by("-date_upload")
+        packs = list(preferred) + list(fallback)
+    else:
+        packs = list(qs)
+
+    for pack in packs:
+        try:
+            zip_bytes = _read_filefield_bytes(pack.fichier)
+        except Exception:
+            continue
+        if not zip_bytes:
+            continue
+        found = _lm_from_pack_zip_bytes(zip_bytes, ent_name)
+        if found:
+            return found
     return None
 
 
@@ -1038,13 +1102,33 @@ def creer_brouillons_gmail(request):
         )
         return redirect("settings_page")
 
+    secteur = (request.POST.get("secteur") or "").strip()
+    if not secteur:
+        messages.error(request, "Sélectionne d’abord un secteur sur le dashboard avant de créer des brouillons Gmail.")
+        return redirect("dashboard")
+
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
 
-    if not DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc="PACK_LM").exists():
+    pack_doc = (
+        DocumentUtilisateur.objects.filter(
+            utilisateur=request.user,
+            type_doc="PACK_LM",
+            secteur_nom=secteur,
+        )
+        .order_by("-date_upload")
+        .first()
+    )
+    if not pack_doc:
         messages.error(
             request,
-            "Aucun pack de LM trouvé. Génère d’abord un Pack 500 (ZIP) avant de créer des brouillons Gmail.",
+            f"Aucun pack de LM trouvé pour le secteur '{secteur}'. Génère d’abord un Pack 500 (ZIP) pour ce secteur.",
         )
+        return redirect("dashboard")
+
+    try:
+        pack_zip_bytes = _read_filefield_bytes(pack_doc.fichier)
+    except Exception:
+        messages.error(request, "Impossible de lire le ZIP du pack (storage). Ré-ouvre/ré-upload le pack puis réessaye.")
         return redirect("dashboard")
 
     cv_doc = (
@@ -1081,6 +1165,7 @@ def creer_brouillons_gmail(request):
             utilisateur=request.user,
             est_dans_paquet=False,
         )
+        .filter(secteur_activite=secteur)
         .exclude(email="")
         .order_by("id")[:500]
     )
@@ -1136,13 +1221,15 @@ def creer_brouillons_gmail(request):
                 f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
             )
 
-        # Récupère la LM depuis le dernier pack ZIP (obligatoire)
-        found = _lm_from_latest_pack_zip(request.user, ent.nom, secteur_nom)
+        # Récupère la LM depuis le ZIP du pack sélectionné (obligatoire)
+        found = _lm_from_pack_zip_bytes(pack_zip_bytes, ent.nom)
         if not found:
+            candidates = _lm_candidates_from_pack_zip_bytes(pack_zip_bytes, ent.nom, limit=3)
             messages.error(
                 request,
                 f"LM introuvable dans le pack pour l’entreprise '{ent.nom}'. "
-                "Vérifie que le PDF dans le ZIP contient bien le nom de l’entreprise.",
+                + ("Candidats trouvés: " + ", ".join(candidates) + ". " if candidates else "")
+                + "Vérifie que le PDF dans le ZIP contient bien le nom de l’entreprise.",
             )
             return redirect("dashboard")
         lm_name, lm_pdf = found

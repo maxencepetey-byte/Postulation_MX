@@ -80,6 +80,7 @@
                             {% if gmail_connected %}
                                 <form action="{% url 'creer_brouillons_gmail' %}" method="POST" class="mb-2">
                                     {% csrf_token %}
+                                    <input type="hidden" name="secteur" id="gmailSecteurHidden" value="">
                                     <button type="submit" class="btn btn-gmail w-100 py-2 btn-mx">
                                         <i class="bi bi-google me-2"></i> Créer 500 brouillons Gmail
                                     </button>
