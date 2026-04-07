@@ -15,7 +15,6 @@ DEBUG = config('DJANGO_DEBUG', default=False, cast=bool)
    # 'DJANGO_ALLOWED_HOSTS',
    # default='localhost,127.0.0.1'
 #).split(',')
-
 # Remplace par ton vrai nom de domaine Render
 ALLOWED_HOSTS = [
     'postulation-mx.onrender.com', 
