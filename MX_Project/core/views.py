@@ -30,6 +30,7 @@ from django.contrib.staticfiles import finders
 from django.utils import timezone
 from decouple import config
 from django.contrib import messages
+import logging
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -49,6 +50,7 @@ from .models import (
 )
 from .forms import ProfilForm
 
+logger = logging.getLogger(__name__)
 SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREPRISE_ETABLISSEMENT/MapServer/0"
 
 NOGA_MAP = {
@@ -1264,7 +1266,20 @@ def creer_brouillons_gmail(request):
 def telecharger_lm(request, ent_id):
     ent = get_object_or_404(EntrepriseCible, id=ent_id, utilisateur=request.user)
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
-    return HttpResponse(generer_pdf_lm(profil, ent), content_type='application/pdf')
+    try:
+        pdf_bytes = generer_pdf_lm(profil, ent)
+    except Exception:
+        logger.exception("telecharger_lm failed user=%s ent_id=%s", request.user.id, ent_id)
+        return HttpResponse(
+            "Erreur lors de la génération du PDF. Regarde les logs Render pour le détail.",
+            status=500,
+            content_type="text/plain; charset=utf-8",
+        )
+
+    resp = HttpResponse(pdf_bytes, content_type="application/pdf")
+    safe_name = _slugify_loose(ent.nom or "lettre")
+    resp["Content-Disposition"] = f'inline; filename="LM_{safe_name}.pdf"'
+    return resp
 
 
 @login_required
