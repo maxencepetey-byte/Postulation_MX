@@ -13,6 +13,7 @@ import secrets
 from datetime import timedelta
 from urllib.parse import urlencode
 import zipfile
+import unicodedata
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -530,9 +531,29 @@ def _safe_format(text: str, ctx: dict) -> str:
 
 def _slugify_loose(s: str) -> str:
     s = (s or "").lower()
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
     s = re.sub(r"[\s_]+", " ", s).strip()
     s = re.sub(r"[^a-z0-9 ]+", "", s)
     return s.replace(" ", "_")
+
+
+def _read_filefield_bytes(ff) -> bytes:
+    try:
+        ff.open("rb")
+    except Exception:
+        pass
+    try:
+        try:
+            ff.seek(0)
+        except Exception:
+            pass
+        return ff.read()
+    finally:
+        try:
+            ff.close()
+        except Exception:
+            pass
 
 
 def _lm_from_latest_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tuple[str, bytes] | None:
@@ -551,7 +572,7 @@ def _lm_from_latest_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tu
         return None
 
     try:
-        zip_bytes = pack.fichier.read()
+        zip_bytes = _read_filefield_bytes(pack.fichier)
     except Exception:
         return None
 
