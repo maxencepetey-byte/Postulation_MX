@@ -1,0 +1,9 @@
+{% if packs_docs %}
+  {% for doc in packs_docs %}
+    <a href="{{ doc.fichier.url }}" target="_blank" class="btn btn-pack p-3 text-center rounded d-block text-decoration-none">
+      <i class="bi bi-folder-zip fs-4 text-warning"></i>
+      <div class="small fw-bold text-dark mt-1">{{ doc.nom_affichage }}</div>
+    </a>
+  {% endfor %}
+{% endif %}
+

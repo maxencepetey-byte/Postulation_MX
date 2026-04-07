@@ -1,0 +1,31 @@
+{% for ent in entreprises %}
+<tr>
+  <td class="ps-4">
+    <div class="fw-bold text-dark">{{ ent.nom }}</div>
+    <div class="text-muted" style="font-size: 0.7rem;"><i class="bi bi-envelope-at me-1"></i>{{ ent.email }}</div>
+  </td>
+  <td>
+    {% if "Social" in ent.secteur_activite %}
+      <span class="badge bg-info-subtle text-info border border-info-subtle">{{ ent.secteur_activite }}</span>
+    {% elif "Luxe" in ent.secteur_activite %}
+      <span class="badge bg-dark-subtle text-dark border border-dark-subtle">{{ ent.secteur_activite }}</span>
+    {% else %}
+      <span class="badge badge-secteur">{{ ent.secteur_activite }}</span>
+    {% endif %}
+  </td>
+  <td><span class="text-muted fw-bold">#{{ ent.numero_pack }}</span></td>
+  <td>
+    {% if ent.est_dans_paquet %}
+      <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check2-all me-1"></i>Traité</span>
+    {% else %}
+      <span class="badge bg-light text-muted border"><i class="bi bi-hourglass-split me-1"></i>En attente</span>
+    {% endif %}
+  </td>
+  <td>
+    <a href="{% url 'telecharger_lm' ent.id %}" class="btn btn-sm btn-outline-dark" title="Générer PDF unique"><i class="bi bi-file-pdf"></i></a>
+  </td>
+</tr>
+{% empty %}
+<tr><td colspan="5" class="text-center py-5 text-muted">Aucune entreprise pour ce secteur.</td></tr>
+{% endfor %}
+

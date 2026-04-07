@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MX | Démarrage</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/login.css' %}">
+</head>
+<body>
+  <div class="login-card">
+    <div class="logo-mx">M<span>X</span></div>
+    <h5 class="text-center mb-2 text-muted">Bienvenue</h5>
+    <p class="small text-muted text-center mb-4">
+      Choisis les secteurs qui t’intéressent. Le scan démarre en arrière-plan dès validation.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      {% for code,label in secteurs %}
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="secteurs" id="s{{ code }}" value="{{ code }}">
+          <label class="form-check-label small" for="s{{ code }}">{{ label }}</label>
+        </div>
+      {% endfor %}
+
+      <div class="d-grid mt-4">
+        <button type="submit" class="btn btn-mx w-100 py-2">Lancer mon premier scan</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>
+

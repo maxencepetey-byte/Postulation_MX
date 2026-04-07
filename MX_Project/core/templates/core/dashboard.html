@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MX | Explorateur de Données</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}{% if static_version %}?v={{ static_version }}{% endif %}">
+</head>
+<body>
+    <div class="animated-bg">
+        <div class="orbe orbe-1"></div>
+        <div class="orbe orbe-2"></div>
+        <div class="orbe orbe-3"></div>
+    </div>
+
+    <nav class="navbar navbar-mx sticky-top">
+        <div class="container-fluid">
+            <a href="{% url 'dashboard' %}" class="logo-mx">M<span>X</span></a>
+            <div class="d-flex align-items-center gap-3">
+                <div class="text-end d-none d-sm-block">
+                    <div class="fw-bold small">{{ request.user.username }}</div>
+                </div>
+                <a href="{% url 'settings_page' %}" class="btn btn-sm btn-light border px-3">
+                    <i class="bi bi-person-vcard-fill text-primary"></i> <span class="small fw-bold">Profil & LM</span>
+                </a>
+                <form action="{% url 'logout' %}" method="POST" class="m-0 p-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-link text-danger small p-0" title="Se déconnecter">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4 px-md-5">
+        <div class="row">
+            <div class="col-lg-3 mb-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body p-4">
+                        <h6 class="section-title mb-4"><i class="bi bi-folder-fill me-2"></i>Documents</h6>
+
+                        <div class="list-group list-group-flush mb-4">
+                            {% for doc in tous_les_docs %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent border-light">
+                                <div class="text-truncate" style="max-width: 140px;">
+                                    <div class="fw-bold small">{{ doc.nom_affichage }}</div>
+                                    <span class="badge badge-secteur">{{ doc.get_type_doc_display }}</span>
+                                </div>
+                                <a href="{{ doc.fichier.url }}" target="_blank" class="text-primary"><i class="bi bi-eye"></i></a>
+                            </div>
+                            {% empty %}
+                            <div class="alert alert-light text-center small py-2">Aucun document</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="hr-text">Nouveau CV/Doc</div>
+                        <form action="{% url 'upload_cv' %}" method="POST" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <input type="text" name="nom_doc" class="form-control form-control-sm mb-2" placeholder="Nom du doc" required>
+                            <input type="file" name="cv_file" class="form-control form-control-sm mb-3" accept=".pdf" required>
+                            <button type="submit" class="btn btn-dark btn-sm w-100 btn-mx">Charger</button>
+                        </form>
+
+                        <div class="hr-text">Action groupée</div>
+                        <div class="mb-2">
+                            {% if gmail_connected %}
+                                <form action="{% url 'creer_brouillons_gmail' %}" method="POST" class="mb-2">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-gmail w-100 py-2 btn-mx">
+                                        <i class="bi bi-google me-2"></i> Créer 500 brouillons Gmail
+                                    </button>
+                                </form>
+                                <form action="{% url 'gmail_disconnect' %}" method="POST" class="m-0">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-secondary w-100 py-2 btn-mx">
+                                        <i class="bi bi-plug"></i> Déconnecter Gmail
+                                    </button>
+                                </form>
+                            {% else %}
+                                <a href="{% url 'gmail_connect' %}" class="btn btn-gmail w-100 py-2 btn-mx">
+                                    <i class="bi bi-google me-2"></i> Connecter Gmail
+                                </a>
+                            {% endif %}
+                        </div>
+                        <form action="{% url 'generer_pack_500_lm' %}" method="POST" class="mb-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="secteur" id="packSecteurHidden" value="">
+                            <button type="submit" class="btn btn-dark w-100 py-2 btn-mx">
+                                <i class="bi bi-folder-zip me-2"></i> Générer 500 LM
+                            </button>
+                        </form>
+
+                        <div class="text-center mt-3">
+                            <a href="{% url 'supprimer_documents' %}" class="text-danger small text-decoration-none" onclick="return confirm('Vider ?')">
+                                <i class="bi bi-trash3"></i> Vider documents
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-9">
+                <div class="card mb-4 shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <h6 class="section-title mb-4">SITG Genève : Scan Massif (2000+)</h6>
+                        <form action="{% url 'lancer_scan' %}" method="GET">
+                            <div class="row g-2 mb-4">
+                                <div class="col-md-3">
+                                    <div class="p-2 border rounded bg-white h-100">
+                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="62"><label class="form-check-label">Informatique (62)</label></div>
+                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="71"><label class="form-check-label">Architecture (71)</label></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="p-2 border rounded bg-white h-100">
+                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="64"><label class="form-check-label">Banques (64)</label></div>
+                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="86"><label class="form-check-label">Santé (86)</label></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="p-2 border rounded bg-white h-100">
+                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="43"><label class="form-check-label">Bâtiment (43)</label></div>
+                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="47"><label class="form-check-label">Horlogerie/Luxe (47)</label></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="p-2 border rounded bg-white h-100 border-info">
+                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="88"><label class="form-check-label text-info fw-bold">Social (88)</label></div>
+                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="87"><label class="form-check-label text-info fw-bold">Hébergement (87)</label></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="packsSection" {% if not packs_docs %}style="display:none;"{% endif %}>
+                                <div class="hr-text">Dossiers de traitement par Packs de 500</div>
+                                <div id="packsGrid" class="pack-grid mb-4">
+                                    {% include "partials/packs_cards.html" with packs_docs=packs_docs %}
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="form-check form-switch small">
+                                    <input class="form-check-input" type="checkbox" checked disabled>
+                                    <label class="form-check-label text-muted italic">Vérification MX active</label>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'supprimer_tout' %}" class="btn btn-link text-danger text-decoration-none small">Vider liste</a>
+                                    <button type="submit" class="btn btn-primary btn-mx shadow-sm px-5">Lancer Scan Illimité</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-3 flex-wrap">
+                            <h6 class="section-title mb-0">Base de données ({{ total_entreprises }} entrées)</h6>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="small text-muted fw-bold">Historique par secteur</span>
+                                <select
+                                    id="secteurSelect"
+                                    class="form-select form-select-sm"
+                                    style="width: 220px;"
+                                    data-url="{% url 'entreprises_filtrer_secteur' %}"
+                                >
+                                    {% for s in secteurs_uniques %}
+                                        <option value="{{ s }}">{{ s }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr class="small text-muted text-uppercase" style="font-size: 0.65rem;">
+                                    <th class="ps-4">Entreprise & Contact</th>
+                                    <th>Secteur</th>
+                                    <th>Pack Id</th>
+                                    <th>Statut</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="entreprisesTbody" class="small">
+                                {% include "partials/entreprises_table.html" with entreprises=entreprises %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if entreprises.has_other_pages %}
+                    <div class="card-footer bg-white py-3 border-0">
+                        <nav class="d-flex justify-content-center">
+                            <ul class="pagination pagination-sm mb-0">
+                                {% if entreprises.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ entreprises.previous_page_number }}">Précédent</a></li>{% endif %}
+                                <li class="page-item active"><span class="page-link">{{ entreprises.number }}</span></li>
+                                {% if entreprises.has_next %}<li class="page-item"><a class="page-link" href="?page={{ entreprises.next_page_number }}">Suivant</a></li>{% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/scan-history.min.js' %}{% if static_version %}?v={{ static_version }}{% endif %}"></script>
+</body>
+</html>
