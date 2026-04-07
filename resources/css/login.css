@@ -5,6 +5,7 @@ body {
   align-items: center;
   justify-content: center;
   font-family: "Inter", sans-serif;
+  padding: 24px;
 }
 
 .login-card {
@@ -17,11 +18,57 @@ body {
   max-width: 400px;
 }
 
+.login-card form p {
+  margin: 0 0 12px 0;
+}
+
+.login-card form p label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #313d4f;
+  margin-bottom: 6px;
+}
+
+.login-card form p input {
+  width: 100%;
+  display: block;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(49, 61, 79, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  outline: none;
+}
+
+.login-card form p input:focus {
+  border-color: rgba(13, 110, 253, 0.6);
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.12);
+}
+
+.login-card .errorlist {
+  list-style: none;
+  padding-left: 0;
+  margin: 0 0 12px 0;
+  color: #dc3545;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .btn-mx {
   background: #0d6efd;
   color: white;
   border-radius: 8px;
   font-weight: 600;
+  border: none;
+}
+
+.btn-mx:hover {
+  filter: brightness(0.95);
+  color: white;
+}
+
+.btn-mx:focus {
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.18);
 }
 
 .logo-mx {
@@ -35,3 +82,8 @@ body {
   color: #0d6efd;
 }
 
+@media (max-width: 420px) {
+  .login-card {
+    padding: 28px;
+  }
+}
