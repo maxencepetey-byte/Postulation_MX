@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: mx-project
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python MX_Project/manage.py collectstatic --noinput && python MX_Project/manage.py migrate
+    startCommand: gunicorn MX_Project.wsgi:application --chdir MX_Project
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "mx-project.onrender.com"

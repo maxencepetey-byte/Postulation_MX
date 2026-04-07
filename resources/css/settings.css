@@ -1,0 +1,152 @@
+:root {
+  --mx-main: #212529;
+  --mx-accent: #0d6efd;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- FOND ANIMÉ (Identique au Dashboard) --- */
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: #f0f2f5;
+  font-family: "Inter", sans-serif;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.animated-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background: linear-gradient(135deg, #f0f2f5 0%, #e2e8f0 100%);
+  overflow: hidden;
+}
+
+.orbe {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.3;
+  animation: move 20s infinite alternate;
+}
+
+.orbe-1 {
+  width: 400px;
+  height: 400px;
+  background: var(--mx-accent);
+  top: -100px;
+  right: -100px;
+}
+
+.orbe-2 {
+  width: 350px;
+  height: 350px;
+  background: #a855f7;
+  bottom: -50px;
+  left: -50px;
+  animation-delay: -5s;
+}
+
+@keyframes move {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(50px, 50px) scale(1.1);
+  }
+}
+
+/* --- UI & GLASSMORPHISM --- */
+.navbar-mx {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 1rem 2rem;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+  transition: var(--transition);
+}
+
+.logo-mx {
+  font-weight: 800;
+  letter-spacing: -1px;
+  font-size: 1.5rem;
+  color: var(--mx-main);
+  text-decoration: none;
+}
+
+.logo-mx span {
+  color: var(--mx-accent);
+}
+
+.section-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--mx-accent);
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding-bottom: 8px;
+  margin-top: 2rem;
+}
+
+/* --- FORMULAIRES STYLE --- */
+.form-control {
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.6rem 0.8rem;
+  transition: var(--transition);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.form-control:focus {
+  background: #fff;
+  border-color: var(--mx-accent);
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.1);
+}
+
+label {
+  color: #495057;
+  margin-bottom: 0.3rem;
+}
+
+.btn-save {
+  background: linear-gradient(135deg, var(--mx-accent) 0%, #6366f1 100%);
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem;
+  transition: var(--transition);
+}
+
+.btn-save:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+  filter: brightness(1.1);
+}
+
+/* Animation d'entrée */
+.fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

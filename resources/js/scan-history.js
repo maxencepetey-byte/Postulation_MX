@@ -1,0 +1,69 @@
+(function () {
+  function ready(fn) {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn);
+    else fn();
+  }
+
+  ready(() => {
+    const select = document.getElementById("secteurSelect");
+    const tbody = document.getElementById("entreprisesTbody");
+    const packsSection = document.getElementById("packsSection");
+    const packsGrid = document.getElementById("packsGrid");
+    const hiddenSecteur = document.getElementById("packSecteurHidden");
+
+    if (!select || !tbody) return;
+
+    const url = select.dataset.url;
+    if (!url) return;
+
+    let abortController = null;
+
+    function syncHidden() {
+      if (!hiddenSecteur) return;
+      hiddenSecteur.value = select.value || "";
+    }
+
+    async function refresh() {
+      syncHidden();
+
+      const secteur = select.value || "";
+      const targetUrl = `${url}?secteur=${encodeURIComponent(secteur)}`;
+
+      if (abortController) abortController.abort();
+      abortController = new AbortController();
+
+      try {
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="text-center py-4 text-muted">Chargement…</td></tr>';
+
+        const res = await fetch(targetUrl, {
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json",
+          },
+          signal: abortController.signal,
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        if (typeof data.tbody === "string") tbody.innerHTML = data.tbody;
+        if (typeof data.packs === "string") {
+          const html = data.packs.trim();
+          if (packsGrid) packsGrid.innerHTML = html;
+          if (packsSection) packsSection.style.display = html ? "" : "none";
+        }
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="text-center py-4 text-danger">Erreur de chargement.</td></tr>';
+        if (packsGrid) packsGrid.innerHTML = "";
+        if (packsSection) packsSection.style.display = "none";
+      }
+    }
+
+    syncHidden();
+    select.addEventListener("change", refresh);
+    if (select.value) refresh();
+  });
+})();
