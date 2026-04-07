@@ -577,6 +577,9 @@ def _lm_from_latest_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tu
         return None
 
     needle = _slugify_loose(ent_name)
+    # tokens pour un matching plus robuste (tirets/espaces/accents)
+    tokens = [t for t in needle.split("_") if t and t not in {"sa", "sarl", "gmbh", "suisse", "geneve", "genève"}]
+    tokens_long = [t for t in tokens if len(t) >= 3]
     try:
         with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
             # Cherche un PDF dont le nom contient le nom de l'entreprise (slug loose)
@@ -584,7 +587,19 @@ def _lm_from_latest_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tu
                 base = os.path.basename(name)
                 if not base.lower().endswith(".pdf"):
                     continue
-                if needle and needle in _slugify_loose(base):
+                base_slug = _slugify_loose(base)
+
+                # 1) match direct (ancien comportement)
+                if needle and needle in base_slug:
+                    return base, zf.read(name)
+
+                # 2) match sans underscores (ex: "pcshop" vs "pc_shop")
+                if needle and needle.replace("_", "") in base_slug.replace("_", ""):
+                    return base, zf.read(name)
+
+                # 3) match par tokens (tous les mots significatifs présents)
+                #    ex: "bms_pc_shop" doit matcher "LM_BMS-PCSHOP.pdf"
+                if tokens_long and all(t in base_slug.replace("_", "") for t in tokens_long):
                     return base, zf.read(name)
     except Exception:
         return None
