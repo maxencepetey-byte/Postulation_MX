@@ -577,12 +577,30 @@ def _lm_from_latest_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tu
         return None
 
     needle = _slugify_loose(ent_name)
-    # tokens pour un matching plus robuste (tirets/espaces/accents)
-    tokens = [t for t in needle.split("_") if t and t not in {"sa", "sarl", "gmbh", "suisse", "geneve", "genève"}]
+    # tokens pour un matching robuste (ignore stopwords/forme juridique)
+    stop = {
+        "sa",
+        "sarl",
+        "gmbh",
+        "suisse",
+        "geneve",
+        "genève",
+        "des",
+        "de",
+        "du",
+        "la",
+        "le",
+        "les",
+        "et",
+        "the",
+        "a",
+    }
+    tokens = [t for t in needle.split("_") if t and t not in stop]
     tokens_long = [t for t in tokens if len(t) >= 3]
     try:
         with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
-            # Cherche un PDF dont le nom contient le nom de l'entreprise (slug loose)
+            # Cherche le meilleur PDF du pack (nom proche du nom entreprise)
+            best: tuple[int, int, str] | None = None  # (score, token_hits, filename)
             for name in zf.namelist():
                 base = os.path.basename(name)
                 if not base.lower().endswith(".pdf"):
@@ -597,10 +615,24 @@ def _lm_from_latest_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tu
                 if needle and needle.replace("_", "") in base_slug.replace("_", ""):
                     return base, zf.read(name)
 
-                # 3) match par tokens (tous les mots significatifs présents)
-                #    ex: "bms_pc_shop" doit matcher "LM_BMS-PCSHOP.pdf"
-                if tokens_long and all(t in base_slug.replace("_", "") for t in tokens_long):
-                    return base, zf.read(name)
+                # 3) scoring par recouvrement de tokens (tolérant)
+                if tokens_long:
+                    compact = base_slug.replace("_", "")
+                    hits = sum(1 for t in tokens_long if t in compact)
+                    if hits <= 0:
+                        continue
+                    # score: privilégie + de hits, puis plus proche de la longueur du nom
+                    score = hits * 100 - abs(len(compact) - len(needle.replace("_", "")))
+                    cand = (score, hits, name)
+                    if best is None or cand > best:
+                        best = cand
+
+            # seuil: au moins 2 tokens matchés (ou 1 si un seul token significatif)
+            if best is not None:
+                _score, hits, best_name = best
+                min_hits = 2 if len(tokens_long) >= 2 else 1
+                if hits >= min_hits:
+                    return os.path.basename(best_name), zf.read(best_name)
     except Exception:
         return None
 
