@@ -12,6 +12,7 @@ import base64
 import secrets
 from datetime import timedelta
 from urllib.parse import urlencode
+import zipfile
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -27,6 +28,7 @@ from django.template.loader import render_to_string
 from django.contrib.staticfiles import finders
 from django.utils import timezone
 from decouple import config
+from django.contrib import messages
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -533,6 +535,42 @@ def _slugify_loose(s: str) -> str:
     return s.replace(" ", "_")
 
 
+def _lm_from_latest_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tuple[str, bytes] | None:
+    """
+    Récupère la LM PDF depuis le dernier ZIP `PACK_LM` (en se basant sur le nom du fichier).
+    Retourne (filename, bytes) ou None si introuvable.
+    """
+    qs = DocumentUtilisateur.objects.filter(utilisateur=user, type_doc="PACK_LM").order_by("-date_upload")
+    if secteur_nom:
+        # Si les packs sont taggés par secteur, on préfère le secteur demandé
+        by_sector = qs.filter(secteur_nom=secteur_nom)
+        pack = by_sector.first() or qs.first()
+    else:
+        pack = qs.first()
+    if not pack:
+        return None
+
+    try:
+        zip_bytes = pack.fichier.read()
+    except Exception:
+        return None
+
+    needle = _slugify_loose(ent_name)
+    try:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
+            # Cherche un PDF dont le nom contient le nom de l'entreprise (slug loose)
+            for name in zf.namelist():
+                base = os.path.basename(name)
+                if not base.lower().endswith(".pdf"):
+                    continue
+                if needle and needle in _slugify_loose(base):
+                    return base, zf.read(name)
+    except Exception:
+        return None
+
+    return None
+
+
 # ---------------------------------------------------------------------------
 # HISTORIQUE
 # ---------------------------------------------------------------------------
@@ -925,10 +963,21 @@ def creer_brouillons_gmail(request):
     """
     try:
         access_token = _gmail_get_access_token(request.user)
-    except Exception:
+    except Exception as e:
+        messages.error(
+            request,
+            "Connexion Gmail invalide ou expirée. Merci de reconnecter Gmail dans la page Réglages.",
+        )
         return redirect("settings_page")
 
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+
+    if not DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc="PACK_LM").exists():
+        messages.error(
+            request,
+            "Aucun pack de LM trouvé. Génère d’abord un Pack 500 (ZIP) avant de créer des brouillons Gmail.",
+        )
+        return redirect("dashboard")
 
     cv_doc = (
         DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc="CV")
@@ -936,6 +985,7 @@ def creer_brouillons_gmail(request):
         .first()
     )
     if not cv_doc:
+        messages.error(request, "Aucun CV trouvé. Ajoute un document de type CV avant de créer des brouillons.")
         return redirect("dashboard")
 
     other_docs = list(
@@ -948,6 +998,7 @@ def creer_brouillons_gmail(request):
     try:
         cv_bytes = cv_doc.fichier.read()
     except Exception:
+        messages.error(request, "Impossible de lire ton CV (storage). Ré-uploade le fichier puis réessaye.")
         return redirect("dashboard")
 
     other_attachments: list[tuple[str, bytes, str]] = []
@@ -966,8 +1017,10 @@ def creer_brouillons_gmail(request):
         .order_by("id")[:500]
     )
     if not entreprises:
+        messages.info(request, "Aucune entreprise à traiter (toutes déjà traitées ou sans email).")
         return redirect("dashboard")
 
+    created = 0
     for ent in entreprises:
         secteur_nom = (ent.secteur_activite or "Général").strip()
         tpl = (
@@ -1015,9 +1068,16 @@ def creer_brouillons_gmail(request):
                 f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
             )
 
-        # Génère une LM PDF dédiée à l'entreprise (toujours cohérente avec les templates)
-        lm_pdf = generer_pdf_lm(profil, ent)
-        lm_name = f"LM_{ent.nom.replace(' ', '_').replace('/', '-')}.pdf"
+        # Récupère la LM depuis le dernier pack ZIP (obligatoire)
+        found = _lm_from_latest_pack_zip(request.user, ent.nom, secteur_nom)
+        if not found:
+            messages.error(
+                request,
+                f"LM introuvable dans le pack pour l’entreprise '{ent.nom}'. "
+                "Vérifie que le PDF dans le ZIP contient bien le nom de l’entreprise.",
+            )
+            return redirect("dashboard")
+        lm_name, lm_pdf = found
 
         attachments: list[tuple[str, bytes, str]] = [
             (lm_name, lm_pdf, "application/pdf"),
@@ -1026,12 +1086,18 @@ def creer_brouillons_gmail(request):
         ]
 
         raw = _build_mime_message(ent.email, subject, body, attachments)
-        _gmail_create_draft(access_token, raw)
+        try:
+            _gmail_create_draft(access_token, raw)
+        except Exception as e:
+            messages.error(request, f"Erreur Gmail API (ex: scope/token). Détails: {str(e)[:200]}")
+            return redirect("settings_page")
 
         ent.est_dans_paquet = True
         ent.date_traitement = now()
         ent.save(update_fields=["est_dans_paquet", "date_traitement"])
+        created += 1
 
+    messages.success(request, f"{created} brouillon(s) créé(s) dans Gmail.")
     return redirect("dashboard")
 
 

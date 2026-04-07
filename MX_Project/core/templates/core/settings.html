@@ -63,6 +63,14 @@
                     <form method="POST">
                         {% csrf_token %}
 
+                        {% if messages %}
+                            <div class="mb-3">
+                                {% for message in messages %}
+                                    <div class="alert alert-{{ message.tags }} small mb-2" role="alert">{{ message }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
                         {% if form.errors %}
                             <div class="alert alert-danger small">
                                 <div class="fw-bold mb-1">Le formulaire contient des erreurs.</div>
