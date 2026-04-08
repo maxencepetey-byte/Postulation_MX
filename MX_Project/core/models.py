@@ -159,3 +159,26 @@ class GmailOAuthToken(models.Model):
 
     def __str__(self):
         return f"Gmail OAuth — {self.utilisateur.username}"
+
+
+class LMMapping(models.Model):
+    """
+    Mapping direct email entreprise -> nom du PDF dans un pack ZIP.
+    Permet de retrouver la LM en O(1) sans parcourir le ZIP.
+    """
+    utilisateur = models.ForeignKey(User, on_delete=models.CASCADE, related_name="lm_mappings")
+    pack_doc = models.ForeignKey(
+        DocumentUtilisateur,
+        on_delete=models.CASCADE,
+        related_name="lm_mappings",
+        limit_choices_to={"type_doc": "PACK_LM"},
+    )
+    email_entreprise = models.EmailField()
+    nom_fichier_dans_zip = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("pack_doc", "email_entreprise")]
+
+    def __str__(self):
+        return f"LMMapping {self.email_entreprise} -> {self.nom_fichier_dans_zip}"

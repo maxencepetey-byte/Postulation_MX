@@ -47,8 +47,10 @@ from .models import (
     ScanSession,
     LettreSecteurTemplate,
     GmailOAuthToken,
+    LMMapping,
 )
 from .forms import ProfilForm
+from .lm_slug import lm_filename, find_lm_in_zip
 
 logger = logging.getLogger(__name__)
 SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREPRISE_ETABLISSEMENT/MapServer/0"
@@ -949,7 +951,7 @@ def _generer_zip(profil, entreprises):
     with zipfile.ZipFile(zip_buffer, 'w') as zf:
         for ent in entreprises:
             pdf = generer_pdf_lm(profil, ent)
-            nom = f"LM_{ent.nom.replace(' ', '_').replace('/', '-')}.pdf"
+            nom = lm_filename(ent.nom)
             zf.writestr(nom, pdf)
             ent.est_dans_paquet = True
             ent.date_traitement = now()
@@ -1024,6 +1026,22 @@ def generer_pack_500_lm(request):
     )
     doc.fichier.save(nom_zip, ContentFile(zip_bytes), save=True)
 
+    # Stocke mapping email -> nom de fichier pour lookup O(1)
+    mappings = []
+    for ent in entreprises:
+        if not ent.email:
+            continue
+        mappings.append(
+            LMMapping(
+                utilisateur=request.user,
+                pack_doc=doc,
+                email_entreprise=ent.email,
+                nom_fichier_dans_zip=lm_filename(ent.nom),
+            )
+        )
+    if mappings:
+        LMMapping.objects.bulk_create(mappings, ignore_conflicts=True)
+
     return redirect('dashboard')
 
 
@@ -1054,6 +1072,21 @@ def telecharger_pack_specifique(request, pack_num):
         secteur_nom=premier_secteur,
     )
     doc.fichier.save(nom_zip, ContentFile(zip_bytes), save=True)
+
+    mappings = []
+    for ent in entreprises:
+        if not ent.email:
+            continue
+        mappings.append(
+            LMMapping(
+                utilisateur=request.user,
+                pack_doc=doc,
+                email_entreprise=ent.email,
+                nom_fichier_dans_zip=lm_filename(ent.nom),
+            )
+        )
+    if mappings:
+        LMMapping.objects.bulk_create(mappings, ignore_conflicts=True)
 
     response = HttpResponse(zip_bytes, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{nom_zip}"'
@@ -1223,8 +1256,23 @@ def creer_brouillons_gmail(request):
                 f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
             )
 
-        # Récupère la LM depuis le ZIP du pack sélectionné (obligatoire)
-        found = _lm_from_pack_zip_bytes(pack_zip_bytes, ent.nom)
+        # Récupère la LM via mapping O(1), sinon fallback recherche dans zip (sans génération)
+        mapping = LMMapping.objects.filter(
+            utilisateur=request.user,
+            pack_doc=pack_doc,
+            email_entreprise=ent.email,
+        ).first()
+        if mapping:
+            try:
+                with zipfile.ZipFile(io.BytesIO(pack_zip_bytes), "r") as zf:
+                    lm_pdf = zf.read(mapping.nom_fichier_dans_zip)
+                    lm_name = mapping.nom_fichier_dans_zip
+                found = (lm_name, lm_pdf)
+            except Exception:
+                found = None
+        else:
+            found = find_lm_in_zip(pack_zip_bytes, ent.nom)
+
         if not found:
             candidates = _lm_candidates_from_pack_zip_bytes(pack_zip_bytes, ent.nom, limit=3)
             messages.error(
@@ -1305,3 +1353,16 @@ def supprimer_tout(request):
 def supprimer_documents(request):
     DocumentUtilisateur.objects.filter(utilisateur=request.user).delete()
     return redirect('dashboard')
+
+
+@login_required
+@require_POST
+def vider_liste_et_documents(request):
+    """
+    Action unique: vide la liste + les documents.
+    L'historique (ScanSession) est conservé.
+    """
+    EntrepriseCible.objects.filter(utilisateur=request.user).delete()
+    DocumentUtilisateur.objects.filter(utilisateur=request.user).delete()
+    messages.success(request, "Liste et documents vidés. L’historique a été conservé.")
+    return redirect("dashboard")
