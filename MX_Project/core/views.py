@@ -1393,10 +1393,22 @@ def vider_liste_et_documents(request):
     try:
         with transaction.atomic():
             EntrepriseCible.objects.filter(utilisateur=request.user).delete()
+            # DB delete first, then best-effort storage delete inside helper
             _delete_all_user_documents(request.user)
         messages.success(request, "Liste et documents (CV + packs ZIP) vidés. L’historique a été conservé.")
         return redirect("dashboard")
-    except Exception:
+    except Exception as e:
+        # Render n'affiche parfois que les access logs: on renvoie le détail aussi côté client.
         logger.exception("vider_liste_et_documents failed user=%s", request.user.id)
-        messages.error(request, "Erreur serveur pendant la suppression. Regarde les logs Render (stacktrace).")
-        return redirect("dashboard")
+        try:
+            import traceback
+
+            print("vider_liste_et_documents exception:", repr(e))
+            print(traceback.format_exc())
+        except Exception:
+            pass
+        return HttpResponse(
+            f"Erreur suppression: {type(e).__name__}: {str(e)[:500]}",
+            status=500,
+            content_type="text/plain; charset=utf-8",
+        )
