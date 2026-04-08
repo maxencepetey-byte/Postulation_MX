@@ -50,6 +50,9 @@ urlpatterns = [
     path('entreprises/filtrer-secteur', entreprises_filtrer_secteur, name='entreprises_filtrer_secteur'),
 ]
 
+# MEDIA: nécessaire en déploiement Render (sinon 404 sur les ZIP/PDF uploadés).
+# Idéalement: utiliser un storage externe (S3/Cloudinary). Ici on sert les MEDIA via Django.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += staticfiles_urlpatterns()
