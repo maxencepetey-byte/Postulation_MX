@@ -1,9 +1,14 @@
-{% if packs_docs %}
-  {% for doc in packs_docs %}
-    <a href="{{ doc.fichier.url }}" target="_blank" class="btn btn-pack p-3 text-center rounded d-block text-decoration-none">
-      <i class="bi bi-folder-zip fs-4 text-warning"></i>
-      <div class="small fw-bold text-dark mt-1">{{ doc.nom_affichage }}</div>
-    </a>
+{% if pack_infos %}
+  {% for p in pack_infos %}
+    <form action="{% url 'generer_pack_secteur_numero' p.pack_num %}" method="POST" class="m-0">
+      {% csrf_token %}
+      <input type="hidden" name="secteur" value="{{ p.secteur }}">
+      <button type="submit" class="btn btn-pack p-3 text-center rounded d-block w-100">
+        <i class="bi bi-folder-zip fs-4 text-warning"></i>
+        <div class="small fw-bold text-dark mt-1">Pack {{ p.pack_num }}</div>
+        <div class="small text-muted">{{ p.count }} entreprise(s)</div>
+      </button>
+    </form>
   {% endfor %}
 {% endif %}
 

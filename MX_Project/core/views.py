@@ -468,10 +468,7 @@ def dashboard(request):
         .distinct()
         .order_by("secteur_activite")
     )
-    packs_docs = DocumentUtilisateur.objects.filter(
-        utilisateur=request.user,
-        type_doc='PACK_LM',
-    ).order_by('-date_upload')
+    # packs: affichés dynamiquement selon le secteur sélectionné (via AJAX)
 
     static_version = None
     try:
@@ -487,7 +484,6 @@ def dashboard(request):
         'tous_les_docs': tous_les_docs,
         'sessions_recentes': sessions,
         'secteurs_uniques': secteurs_uniques,
-        'packs_docs': packs_docs,
         "gmail_connected": GmailOAuthToken.objects.filter(utilisateur=request.user).exists(),
         'static_version': static_version,
     })
@@ -512,16 +508,25 @@ def entreprises_filtrer_secteur(request):
         request=request,
     )
 
-    packs_docs = DocumentUtilisateur.objects.filter(
-        utilisateur=request.user,
-        type_doc='PACK_LM',
-    ).order_by('-date_upload')
+    pack_infos = []
     if secteur:
-        packs_docs = packs_docs.filter(secteur_nom=secteur)
+        total = EntrepriseCible.objects.filter(
+            utilisateur=request.user,
+            est_dans_paquet=False,
+            secteur_activite=secteur,
+        ).exclude(email="").count()
+        pack_count = (total + 499) // 500
+        for i in range(1, pack_count + 1):
+            start = (i - 1) * 500
+            remaining = max(0, total - start)
+            cnt = min(500, remaining)
+            if cnt <= 0:
+                continue
+            pack_infos.append({"pack_num": i, "count": cnt, "secteur": secteur})
 
     packs_html = render_to_string(
         "partials/packs_cards.html",
-        {"packs_docs": packs_docs},
+        {"pack_infos": pack_infos},
         request=request,
     )
 
@@ -1095,6 +1100,56 @@ def generer_pack_500_lm(request):
     doc.fichier.save(nom_zip, ContentFile(zip_bytes), save=True)
 
     return redirect('dashboard')
+
+
+@login_required
+@require_POST
+def generer_pack_secteur_numero(request, pack_num: int):
+    """
+    Génère UN pack (par secteur) à la demande quand l'utilisateur clique sur "Pack N".
+    Numérotation redémarre à 1 pour chaque secteur.
+    """
+    secteur = (request.POST.get("secteur") or "").strip()
+    if not secteur or pack_num < 1:
+        return redirect("dashboard")
+
+    qs = (
+        EntrepriseCible.objects.filter(
+            utilisateur=request.user,
+            est_dans_paquet=False,
+            secteur_activite=secteur,
+        )
+        .exclude(email="")
+        .order_by("id")
+    )
+    offset = (pack_num - 1) * 500
+    entreprises = list(qs[offset : offset + 500])
+    if not entreprises:
+        return redirect("dashboard")
+
+    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    zip_bytes = _generer_zip(profil, entreprises)
+
+    secteur_clean = secteur.replace(" ", "_").replace("/", "-")
+    nom_base = f"MX_SCAN_{secteur_clean}_PACK_{pack_num}"
+    nom_zip = f"{nom_base}.zip"
+
+    # Remplace le doc existant pour ce pack/secteur (évite doublons)
+    DocumentUtilisateur.objects.filter(
+        utilisateur=request.user,
+        type_doc="PACK_LM",
+        secteur_nom=secteur,
+        nom_affichage=nom_base,
+    ).delete()
+
+    doc = DocumentUtilisateur(
+        utilisateur=request.user,
+        nom_affichage=nom_base,
+        type_doc="PACK_LM",
+        secteur_nom=secteur,
+    )
+    doc.fichier.save(nom_zip, ContentFile(zip_bytes), save=True)
+    return redirect("dashboard")
 
 
 @login_required

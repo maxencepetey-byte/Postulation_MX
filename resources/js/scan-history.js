@@ -9,7 +9,6 @@
     const tbody = document.getElementById("entreprisesTbody");
     const packsSection = document.getElementById("packsSection");
     const packsGrid = document.getElementById("packsGrid");
-    const hiddenSecteur = document.getElementById("packSecteurHidden");
     const hiddenGmailSecteur = document.getElementById("gmailSecteurHidden");
 
     if (!select || !tbody) return;
@@ -21,7 +20,6 @@
 
     function syncHidden() {
       const v = select.value || "";
-      if (hiddenSecteur) hiddenSecteur.value = v;
       if (hiddenGmailSecteur) hiddenGmailSecteur.value = v;
     }
 

@@ -11,6 +11,7 @@ from core.views import (
     telecharger_pack_specifique,
     entreprises_filtrer_secteur,
     generer_pack_500_lm,
+    generer_pack_secteur_numero,
     logout_view,
     onboarding,
     gmail_connect,
@@ -40,6 +41,7 @@ urlpatterns = [
     path('download-all-zip/', telecharger_toutes_lm, name='telecharger_toutes_lm'),
     path('download-pack/<int:pack_num>/', telecharger_pack_specifique, name='telecharger_pack_specifique'),
     path('packs/generer-500/', generer_pack_500_lm, name='generer_pack_500_lm'),
+    path('packs/generer/<int:pack_num>/', generer_pack_secteur_numero, name='generer_pack_secteur_numero'),
 
     # Nettoyage & Gmail
     path('delete-all/', supprimer_tout, name='supprimer_tout'),

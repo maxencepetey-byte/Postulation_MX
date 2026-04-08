@@ -97,13 +97,9 @@
                                 </a>
                             {% endif %}
                         </div>
-                        <form action="{% url 'generer_pack_500_lm' %}" method="POST" class="mb-2">
-                            {% csrf_token %}
-                            <input type="hidden" name="secteur" id="packSecteurHidden" value="">
-                            <button type="submit" class="btn btn-dark w-100 py-2 btn-mx">
-                                <i class="bi bi-folder-zip me-2"></i> Générer 500 LM
-                            </button>
-                        </form>
+                        <div class="alert alert-light small">
+                            Les packs (500) sont créés uniquement quand tu cliques sur un pack dans la section “Dossiers de traitement”.
+                        </div>
 
                         <div class="text-center mt-3">
                             <form action="{% url 'vider_liste_et_documents' %}" method="POST" class="m-0">
@@ -153,10 +149,10 @@
                                 </div>
                             </div>
 
-                            <div id="packsSection" {% if not packs_docs %}style="display:none;"{% endif %}>
+                            <div id="packsSection" style="display:none;">
                                 <div class="hr-text">Dossiers de traitement par Packs de 500</div>
                                 <div id="packsGrid" class="pack-grid mb-4">
-                                    {% include "partials/packs_cards.html" with packs_docs=packs_docs %}
+                                    {% include "partials/packs_cards.html" with pack_infos=None %}
                                 </div>
                             </div>
 

@@ -87,7 +87,7 @@ class DashboardTests(BaseAuthTestCase):
         resp = self.client.get(reverse("dashboard"))
         self.assertEqual(resp.status_code, 200)
         self.assertIn("secteurs_uniques", resp.context)
-        self.assertIn("packs_docs", resp.context)
+        # packs are now computed dynamically per selected sector via AJAX
 
     def test_first_login_redirects_to_onboarding(self):
         resp = self.client.get(reverse("dashboard"))
