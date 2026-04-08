@@ -62,17 +62,30 @@ def _delete_all_user_documents(user) -> int:
     Supprime les DocumentUtilisateur + les fichiers physiques associés.
     Retourne le nombre de documents supprimés.
     """
-    docs = list(DocumentUtilisateur.objects.filter(utilisateur=user))
+    docs = list(DocumentUtilisateur.objects.filter(utilisateur=user).only("id", "fichier"))
+    file_names = []
     for d in docs:
         try:
-            if getattr(d, "fichier", None):
-                d.fichier.delete(save=False)
-        except Exception:
-            pass
-        try:
-            d.delete()
+            if getattr(d, "fichier", None) and getattr(d.fichier, "name", ""):
+                file_names.append(d.fichier.name)
         except Exception:
             continue
+
+    # 1) DB d'abord: garantit disparition immédiate du dashboard
+    DocumentUtilisateur.objects.filter(utilisateur=user).delete()
+
+    # 2) Fichiers ensuite (best-effort)
+    try:
+        from django.core.files.storage import default_storage
+
+        for name in file_names:
+            try:
+                default_storage.delete(name)
+            except Exception:
+                continue
+    except Exception:
+        pass
+
     return len(docs)
 
 
@@ -1378,5 +1391,5 @@ def vider_liste_et_documents(request):
     """
     EntrepriseCible.objects.filter(utilisateur=request.user).delete()
     _delete_all_user_documents(request.user)
-    messages.success(request, "Liste et documents vidés. L’historique a été conservé.")
+    messages.success(request, "Liste et documents (CV + packs ZIP) vidés. L’historique a été conservé.")
     return redirect("dashboard")
