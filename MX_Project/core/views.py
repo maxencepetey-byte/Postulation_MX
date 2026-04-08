@@ -1297,7 +1297,7 @@ def upload_cv(request):
 @login_required
 def supprimer_tout(request):
     EntrepriseCible.objects.filter(utilisateur=request.user).delete()
-    ScanSession.objects.filter(utilisateur=request.user).delete()
+    # On garde l'historique (ScanSession) même si l'utilisateur vide sa liste
     return redirect('dashboard')
 
 
