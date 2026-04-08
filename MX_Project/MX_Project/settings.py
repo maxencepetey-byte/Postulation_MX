@@ -104,7 +104,9 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# En déploiement (Render), le filesystem peut être éphémère.
+# Utilise un disque persistant et pointe MEDIA_ROOT dessus (ex: /var/data/media).
+MEDIA_ROOT = config("DJANGO_MEDIA_ROOT", default=str(BASE_DIR / "media"))
 
 # --- Taille max upload (sécurité supplémentaire niveau Django) ---
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5 Mo
