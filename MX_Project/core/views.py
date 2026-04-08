@@ -32,6 +32,7 @@ from decouple import config
 from django.contrib import messages
 import logging
 from django.db import transaction
+from django.db import connection
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -73,6 +74,18 @@ def _delete_all_user_documents(user) -> int:
             continue
 
     # 1) DB d'abord: garantit disparition immédiate du dashboard
+    # IMPORTANT: ancienne table `core_lmmapping` (prod) peut référencer pack_doc_id
+    # et empêcher la suppression via FK. On purge cette table si elle existe.
+    try:
+        tables = set(connection.introspection.table_names())
+        if "core_lmmapping" in tables and file_names:
+            doc_ids = list(DocumentUtilisateur.objects.filter(utilisateur=user).values_list("id", flat=True))
+            if doc_ids:
+                with connection.cursor() as cur:
+                    cur.execute("DELETE FROM core_lmmapping WHERE pack_doc_id = ANY(%s)", [doc_ids])
+    except Exception:
+        pass
+
     DocumentUtilisateur.objects.filter(utilisateur=user).delete()
 
     # 2) Fichiers ensuite (best-effort)
