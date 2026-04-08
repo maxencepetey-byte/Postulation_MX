@@ -55,6 +55,28 @@ SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREP
 
 
 # ---------------------------------------------------------------------------
+# Delete helpers (storage-safe)
+# ---------------------------------------------------------------------------
+def _delete_all_user_documents(user) -> int:
+    """
+    Supprime les DocumentUtilisateur + les fichiers physiques associés.
+    Retourne le nombre de documents supprimés.
+    """
+    docs = list(DocumentUtilisateur.objects.filter(utilisateur=user))
+    for d in docs:
+        try:
+            if getattr(d, "fichier", None):
+                d.fichier.delete(save=False)
+        except Exception:
+            pass
+        try:
+            d.delete()
+        except Exception:
+            continue
+    return len(docs)
+
+
+# ---------------------------------------------------------------------------
 # LM filename by email (source of truth)
 # ---------------------------------------------------------------------------
 def _email_to_pdf_name(email: str) -> str:
@@ -1333,6 +1355,7 @@ def upload_cv(request):
 
 
 @login_required
+@require_POST
 def supprimer_tout(request):
     EntrepriseCible.objects.filter(utilisateur=request.user).delete()
     # On garde l'historique (ScanSession) même si l'utilisateur vide sa liste
@@ -1340,8 +1363,9 @@ def supprimer_tout(request):
 
 
 @login_required
+@require_POST
 def supprimer_documents(request):
-    DocumentUtilisateur.objects.filter(utilisateur=request.user).delete()
+    _delete_all_user_documents(request.user)
     return redirect('dashboard')
 
 
@@ -1353,6 +1377,6 @@ def vider_liste_et_documents(request):
     L'historique (ScanSession) est conservé.
     """
     EntrepriseCible.objects.filter(utilisateur=request.user).delete()
-    DocumentUtilisateur.objects.filter(utilisateur=request.user).delete()
+    _delete_all_user_documents(request.user)
     messages.success(request, "Liste et documents vidés. L’historique a été conservé.")
     return redirect("dashboard")
