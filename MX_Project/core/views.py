@@ -47,13 +47,32 @@ from .models import (
     ScanSession,
     LettreSecteurTemplate,
     GmailOAuthToken,
-    LMMapping,
 )
 from .forms import ProfilForm
-from .lm_slug import lm_filename, find_lm_in_zip
 
 logger = logging.getLogger(__name__)
 SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREPRISE_ETABLISSEMENT/MapServer/0"
+
+
+# ---------------------------------------------------------------------------
+# LM filename by email (source of truth)
+# ---------------------------------------------------------------------------
+def _email_to_pdf_name(email: str) -> str:
+    """
+    Convertit une adresse email en nom de fichier PDF déterministe.
+    Même email → toujours même nom de fichier → 0 matching flou nécessaire.
+    """
+    import unicodedata as _ud
+
+    e = (email or "").strip().lower()
+    # Normaliser les accents éventuels
+    e = _ud.normalize("NFKD", e)
+    e = "".join(c for c in e if not _ud.combining(c))
+    # Garder uniquement les caractères valides dans un nom de fichier
+    e = re.sub(r"[^a-z0-9@._+\-]", "_", e)
+    e = e.replace("@", "_AT_")
+    e = re.sub(r"_+", "_", e).strip("_")
+    return f"LM_{e}.pdf"
 
 NOGA_MAP = {
     '62': 'Informatique',
@@ -951,7 +970,7 @@ def _generer_zip(profil, entreprises):
     with zipfile.ZipFile(zip_buffer, 'w') as zf:
         for ent in entreprises:
             pdf = generer_pdf_lm(profil, ent)
-            nom = lm_filename(ent.nom)
+            nom = _email_to_pdf_name(ent.email)  # clé = email, pas nom entreprise
             zf.writestr(nom, pdf)
             ent.est_dans_paquet = True
             ent.date_traitement = now()
@@ -1026,22 +1045,6 @@ def generer_pack_500_lm(request):
     )
     doc.fichier.save(nom_zip, ContentFile(zip_bytes), save=True)
 
-    # Stocke mapping email -> nom de fichier pour lookup O(1)
-    mappings = []
-    for ent in entreprises:
-        if not ent.email:
-            continue
-        mappings.append(
-            LMMapping(
-                utilisateur=request.user,
-                pack_doc=doc,
-                email_entreprise=ent.email,
-                nom_fichier_dans_zip=lm_filename(ent.nom),
-            )
-        )
-    if mappings:
-        LMMapping.objects.bulk_create(mappings, ignore_conflicts=True)
-
     return redirect('dashboard')
 
 
@@ -1072,21 +1075,6 @@ def telecharger_pack_specifique(request, pack_num):
         secteur_nom=premier_secteur,
     )
     doc.fichier.save(nom_zip, ContentFile(zip_bytes), save=True)
-
-    mappings = []
-    for ent in entreprises:
-        if not ent.email:
-            continue
-        mappings.append(
-            LMMapping(
-                utilisateur=request.user,
-                pack_doc=doc,
-                email_entreprise=ent.email,
-                nom_fichier_dans_zip=lm_filename(ent.nom),
-            )
-        )
-    if mappings:
-        LMMapping.objects.bulk_create(mappings, ignore_conflicts=True)
 
     response = HttpResponse(zip_bytes, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{nom_zip}"'
@@ -1209,6 +1197,7 @@ def creer_brouillons_gmail(request):
         return redirect("dashboard")
 
     created = 0
+    skipped: list[str] = []
     for ent in entreprises:
         secteur_nom = (ent.secteur_activite or "Général").strip()
         tpl = (
@@ -1256,33 +1245,29 @@ def creer_brouillons_gmail(request):
                 f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
             )
 
-        # Récupère la LM via mapping O(1), sinon fallback recherche dans zip (sans génération)
-        mapping = LMMapping.objects.filter(
-            utilisateur=request.user,
-            pack_doc=pack_doc,
-            email_entreprise=ent.email,
-        ).first()
-        if mapping:
-            try:
-                with zipfile.ZipFile(io.BytesIO(pack_zip_bytes), "r") as zf:
-                    lm_pdf = zf.read(mapping.nom_fichier_dans_zip)
-                    lm_name = mapping.nom_fichier_dans_zip
-                found = (lm_name, lm_pdf)
-            except Exception:
-                found = None
-        else:
-            found = find_lm_in_zip(pack_zip_bytes, ent.nom)
-
-        if not found:
-            candidates = _lm_candidates_from_pack_zip_bytes(pack_zip_bytes, ent.nom, limit=3)
-            messages.error(
-                request,
-                f"LM introuvable dans le pack pour l’entreprise '{ent.nom}'. "
-                + ("Candidats trouvés: " + ", ".join(candidates) + ". " if candidates else "")
-                + "Vérifie que le PDF dans le ZIP contient bien le nom de l’entreprise.",
-            )
-            return redirect("dashboard")
-        lm_name, lm_pdf = found
+        # Recherche directe par email — O(1), 0 matching flou
+        expected_pdf_name = _email_to_pdf_name(ent.email)
+        try:
+            with zipfile.ZipFile(io.BytesIO(pack_zip_bytes), "r") as _zf:
+                if expected_pdf_name in _zf.namelist():
+                    lm_name = expected_pdf_name
+                    lm_pdf = _zf.read(expected_pdf_name)
+                else:
+                    # Fallback : ancien pack généré avec nommage par nom d'entreprise
+                    found = _lm_from_pack_zip_bytes(pack_zip_bytes, ent.nom)
+                    if not found:
+                        skipped.append(f"{ent.nom} ({ent.email})")
+                        logger.warning(
+                            "LM introuvable pour '%s' (%s) — ni par email ni par nom.",
+                            ent.nom,
+                            ent.email,
+                        )
+                        continue  # skip cette entreprise, continue le batch
+                    lm_name, lm_pdf = found
+        except Exception as _e:
+            logger.error("Erreur lecture ZIP pour '%s': %s", ent.nom, _e)
+            skipped.append(f"{ent.nom} ({ent.email})")
+            continue
 
         attachments: list[tuple[str, bytes, str]] = [
             (lm_name, lm_pdf, "application/pdf"),
@@ -1302,7 +1287,12 @@ def creer_brouillons_gmail(request):
         ent.save(update_fields=["est_dans_paquet", "date_traitement"])
         created += 1
 
-    messages.success(request, f"{created} brouillon(s) créé(s) dans Gmail.")
+    msg = f"{created} brouillon(s) créé(s) dans Gmail."
+    if skipped:
+        noms = ", ".join(skipped[:10])
+        suite = f" ... et {len(skipped) - 10} autres." if len(skipped) > 10 else ""
+        msg += f" Attention: {len(skipped)} LM absente(s) du pack (ignorées) : {noms}{suite}"
+    messages.success(request, msg)
     return redirect("dashboard")
 
 
