@@ -31,6 +31,7 @@ from django.utils import timezone
 from decouple import config
 from django.contrib import messages
 import logging
+from django.db import transaction
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -1389,7 +1390,13 @@ def vider_liste_et_documents(request):
     Action unique: vide la liste + les documents.
     L'historique (ScanSession) est conservé.
     """
-    EntrepriseCible.objects.filter(utilisateur=request.user).delete()
-    _delete_all_user_documents(request.user)
-    messages.success(request, "Liste et documents (CV + packs ZIP) vidés. L’historique a été conservé.")
-    return redirect("dashboard")
+    try:
+        with transaction.atomic():
+            EntrepriseCible.objects.filter(utilisateur=request.user).delete()
+            _delete_all_user_documents(request.user)
+        messages.success(request, "Liste et documents (CV + packs ZIP) vidés. L’historique a été conservé.")
+        return redirect("dashboard")
+    except Exception:
+        logger.exception("vider_liste_et_documents failed user=%s", request.user.id)
+        messages.error(request, "Erreur serveur pendant la suppression. Regarde les logs Render (stacktrace).")
+        return redirect("dashboard")
