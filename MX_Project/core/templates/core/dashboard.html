@@ -106,9 +106,16 @@
                         </form>
 
                         <div class="text-center mt-3">
-                            <a href="{% url 'supprimer_documents' %}" class="text-danger small text-decoration-none" onclick="return confirm('Vider ?')">
-                                <i class="bi bi-trash3"></i> Vider documents
-                            </a>
+                            <form action="{% url 'vider_liste_et_documents' %}" method="POST" class="m-0">
+                                {% csrf_token %}
+                                <button
+                                    type="submit"
+                                    class="btn btn-link text-danger small p-0 text-decoration-none"
+                                    onclick="return confirm('Vider la liste ET les documents ? (Historique conservé)')"
+                                >
+                                    <i class="bi bi-trash3"></i> Vider (liste + documents)
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -159,7 +166,7 @@
                                     <label class="form-check-label text-muted italic">Vérification MX active</label>
                                 </div>
                                 <div class="d-flex gap-2">
-                                    <a href="{% url 'supprimer_tout' %}" class="btn btn-link text-danger text-decoration-none small">Vider liste</a>
+                                    <!-- bouton unique dans la sidebar -->
                                     <button type="submit" class="btn btn-primary btn-mx shadow-sm px-5">Lancer Scan Illimité</button>
                                 </div>
                             </div>

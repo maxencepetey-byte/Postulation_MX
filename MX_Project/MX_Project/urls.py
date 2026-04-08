@@ -16,6 +16,7 @@ from core.views import (
     gmail_connect,
     gmail_callback,
     gmail_disconnect,
+    vider_liste_et_documents,
 )
 
 urlpatterns = [
@@ -43,6 +44,7 @@ urlpatterns = [
     # Nettoyage & Gmail
     path('delete-all/', supprimer_tout, name='supprimer_tout'),
     path('delete-docs/', supprimer_documents, name='supprimer_documents'),
+    path('vider/', vider_liste_et_documents, name='vider_liste_et_documents'),
     path('gmail-drafts/', creer_brouillons_gmail, name='creer_brouillons_gmail'),
     path("gmail/connect/", gmail_connect, name="gmail_connect"),
     path("gmail/callback/", gmail_callback, name="gmail_callback"),
