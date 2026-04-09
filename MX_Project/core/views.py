@@ -23,6 +23,7 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.utils.timezone import now
 from django.db import IntegrityError
+from django.db.models import Max
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.template.loader import render_to_string
@@ -510,19 +511,17 @@ def entreprises_filtrer_secteur(request):
 
     pack_infos = []
     if secteur:
-        total = EntrepriseCible.objects.filter(
+        qs_pack = EntrepriseCible.objects.filter(
             utilisateur=request.user,
             est_dans_paquet=False,
             secteur_activite=secteur,
-        ).exclude(email="").count()
-        pack_count = (total + 499) // 500
-        for i in range(1, pack_count + 1):
-            start = (i - 1) * 500
-            remaining = max(0, total - start)
-            cnt = min(500, remaining)
-            if cnt <= 0:
-                continue
-            pack_infos.append({"pack_num": i, "count": cnt, "secteur": secteur})
+        ).exclude(email="")
+
+        max_pack = qs_pack.aggregate(m=Max("numero_pack")).get("m") or 0
+        for i in range(1, int(max_pack) + 1):
+            cnt = qs_pack.filter(numero_pack=i).count()
+            if cnt:
+                pack_infos.append({"pack_num": i, "count": cnt, "secteur": secteur})
 
     packs_html = render_to_string(
         "partials/packs_cards.html",
@@ -834,11 +833,21 @@ def lancer_scan(request):
     API_URL = f"{SERVICE_URL}/query"
     total_ajoutes = 0
     total_doublons = 0
-    total_user_initial = EntrepriseCible.objects.filter(utilisateur=request.user).count()
+    # Numérotation par secteur: chaque secteur redémarre à Pack 1.
+    # On garde une base par secteur pour rester stable avec les anciens scans.
+    base_par_secteur: dict[str, int] = {}
+    ajoutes_par_secteur: dict[str, int] = {}
 
     for s in secteurs:
         offset = 0
         limit = 1000
+        secteur_nom = NOGA_MAP.get(s[:2], "Général")
+        if secteur_nom not in base_par_secteur:
+            base_par_secteur[secteur_nom] = EntrepriseCible.objects.filter(
+                utilisateur=request.user,
+                secteur_activite=secteur_nom,
+            ).count()
+            ajoutes_par_secteur[secteur_nom] = 0
 
         while True:
             params = {
@@ -862,9 +871,9 @@ def lancer_scan(request):
                     if not mail or not verifier_email_existence(mail):
                         continue
 
-                    # Numéro de pack par tranches de 500, stable et sans requête DB par ligne
-                    total_courant = total_user_initial + total_ajoutes
-                    pack_id = (total_courant // 500) + 1
+                    # Numéro de pack par secteur (tranches de 500)
+                    total_courant_secteur = base_par_secteur[secteur_nom] + ajoutes_par_secteur[secteur_nom]
+                    pack_id = (total_courant_secteur // 500) + 1
 
                     try:
                         EntrepriseCible.objects.create(
@@ -874,10 +883,11 @@ def lancer_scan(request):
                             nom=nom,
                             email=mail,
                             numero_pack=pack_id,
-                            secteur_activite=NOGA_MAP.get(s[:2], 'Général'),
+                            secteur_activite=secteur_nom,
                             adresse=f"{attr.get('phys_rue', '')} {attr.get('phys_numrue', '')}".strip(),
                         )
                         total_ajoutes += 1
+                        ajoutes_par_secteur[secteur_nom] += 1
                     except IntegrityError:
                         # unique_together (utilisateur, email) déclenché = doublon évité
                         total_doublons += 1
@@ -1113,17 +1123,16 @@ def generer_pack_secteur_numero(request, pack_num: int):
     if not secteur or pack_num < 1:
         return redirect("dashboard")
 
-    qs = (
+    entreprises = list(
         EntrepriseCible.objects.filter(
             utilisateur=request.user,
             est_dans_paquet=False,
             secteur_activite=secteur,
+            numero_pack=pack_num,
         )
         .exclude(email="")
-        .order_by("id")
+        .order_by("id")[:500]
     )
-    offset = (pack_num - 1) * 500
-    entreprises = list(qs[offset : offset + 500])
     if not entreprises:
         return redirect("dashboard")
 
