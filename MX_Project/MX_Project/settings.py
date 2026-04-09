@@ -108,6 +108,9 @@ MEDIA_URL = '/media/'
 # Utilise un disque persistant et pointe MEDIA_ROOT dessus (ex: /var/data/media).
 MEDIA_ROOT = config("DJANGO_MEDIA_ROOT", default=str(BASE_DIR / "media"))
 
+# Token pour protéger l'endpoint de sync (appelé par cron-job.org)
+CRON_SYNC_TOKEN = config("CRON_SYNC_TOKEN", default="")
+
 # --- Taille max upload (sécurité supplémentaire niveau Django) ---
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5 Mo
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024

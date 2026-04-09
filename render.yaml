@@ -10,3 +10,17 @@ services:
         value: "False"
       - key: DJANGO_ALLOWED_HOSTS
         value: "mx-project.onrender.com"
+
+  # Cron Job : sync du registre SITG toutes les 24h (3h du matin, heure Suisse = 1h UTC)
+  - type: cron
+    name: mx-sync-registre
+    env: python
+    plan: free
+    schedule: "0 1 * * *"   # 01:00 UTC = 03:00 Europe/Zurich (heure d'été)
+    buildCommand: pip install -r requirements.txt
+    startCommand: python MX_Project/manage.py sync_registre
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "False"
+      # Assure-toi que DATABASE_URL, DJANGO_SECRET_KEY etc. sont définis
+      # dans les "Environment Variables" de ton service Render (partagées automatiquement)

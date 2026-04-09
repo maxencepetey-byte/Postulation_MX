@@ -60,7 +60,15 @@
                                     <div class="fw-bold small">{{ doc.nom_affichage }}</div>
                                     <span class="badge badge-secteur">{{ doc.get_type_doc_display }}</span>
                                 </div>
-                                <a href="{{ doc.fichier.url }}" target="_blank" class="text-primary"><i class="bi bi-eye"></i></a>
+                                <div class="d-flex align-items-center gap-2">
+                                    <a href="{{ doc.fichier.url }}" target="_blank" class="text-primary"><i class="bi bi-eye"></i></a>
+                                    <form action="{% url 'delete_document' doc.id %}" method="POST" class="m-0">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-link p-0 text-danger" onclick="return confirm('Supprimer ce document ?')">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                             {% empty %}
                             <div class="alert alert-light text-center small py-2">Aucun document</div>

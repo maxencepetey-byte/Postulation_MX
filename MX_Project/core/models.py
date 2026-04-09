@@ -58,6 +58,7 @@ class DocumentUtilisateur(models.Model):
     type_doc = models.CharField(max_length=10, choices=TYPES_DOC, default='CV')
     date_upload = models.DateTimeField(auto_now_add=True)
     fichier = models.FileField(upload_to='cv_storage/', validators=[validate_file])
+    used_for_gmail = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.nom_affichage} ({self.utilisateur.username})"
@@ -159,3 +160,25 @@ class GmailOAuthToken(models.Model):
 
     def __str__(self):
         return f"Gmail OAuth — {self.utilisateur.username}"
+
+
+class EntrepriseReferentiel(models.Model):
+    """
+    Référentiel global (cache local) du registre SITG.
+    Une entreprise n'existe qu'une seule fois ici, indépendamment des utilisateurs.
+    """
+    id_sitg = models.BigIntegerField(null=True, blank=True, unique=True)
+    raison_sociale = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
+    code_noga = models.CharField(max_length=20, blank=True, default="")
+    adresse = models.TextField(blank=True, default="")
+    date_update = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["code_noga"]),
+            models.Index(fields=["email"]),
+        ]
+
+    def __str__(self):
+        return f"{self.raison_sociale} <{self.email}>"

@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
-from core.models import EntrepriseCible, ScanSession, Recherche, ProfilUtilisateur
+from core.models import EntrepriseCible, ScanSession, Recherche, ProfilUtilisateur, EntrepriseReferentiel
 from core.views import verifier_email_existence, get_accroche
 
 
@@ -164,15 +164,19 @@ class PackGenerationTests(BaseAuthTestCase):
 
 
 class ScanFlowTests(BaseAuthTestCase):
-    @patch("core.views.verifier_email_existence", return_value=True)
-    @patch("core.views.requests.get")
-    def test_lancer_scan_creates_session_and_entreprises(self, mock_get, _mock_email):
-        mock_get.return_value.json.return_value = {
-            "features": [
-                {"attributes": {"raison_sociale": "RS1", "email": "x1@example.com", "phys_rue": "Rue", "phys_numrue": "1"}},
-                {"attributes": {"raison_sociale": "RS2", "email": "x2@example.com", "phys_rue": "Rue", "phys_numrue": "2"}},
-            ]
-        }
+    def test_lancer_scan_creates_session_and_entreprises(self):
+        EntrepriseReferentiel.objects.create(
+            raison_sociale="RS1",
+            email="x1@example.com",
+            code_noga="62",
+            adresse="Rue 1",
+        )
+        EntrepriseReferentiel.objects.create(
+            raison_sociale="RS2",
+            email="x2@example.com",
+            code_noga="62",
+            adresse="Rue 2",
+        )
         Recherche.objects.get_or_create(utilisateur=self.user, secteur_noga="SCAN_GENEVE")
 
         resp = self.client.get(reverse("lancer_scan"), {"secteurs": ["62"]})
@@ -218,3 +222,10 @@ class GmailOAuthTests(TestCase):
         self.assertEqual(r.status_code, 302)
         self.user.refresh_from_db()
         self.assertEqual(self.user.gmail_oauth.refresh_token, "rt")
+
+
+class CronSyncRegistreTests(SimpleTestCase):
+    def test_cron_sync_registre_forbidden_without_token(self):
+        # CRON_SYNC_TOKEN vide => endpoint doit refuser
+        resp = self.client.get(reverse("cron_sync_registre"))
+        self.assertEqual(resp.status_code, 403)

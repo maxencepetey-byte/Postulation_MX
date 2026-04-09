@@ -18,6 +18,8 @@ from core.views import (
     gmail_callback,
     gmail_disconnect,
     vider_liste_et_documents,
+    delete_document,
+    cron_sync_registre,
 )
 
 urlpatterns = [
@@ -34,6 +36,7 @@ urlpatterns = [
     path('onboarding/', onboarding, name='onboarding'),
     path('scan/', lancer_scan, name='lancer_scan'),
     path('upload-cv/', upload_cv, name='upload_cv'),
+    path('delete-doc/<int:doc_id>/', delete_document, name='delete_document'),
     path('telecharger-lm/<int:ent_id>/', telecharger_lm, name='telecharger_lm'),
     path('settings/', settings_page, name='settings_page'),
 
@@ -52,6 +55,9 @@ urlpatterns = [
     path("gmail/callback/", gmail_callback, name="gmail_callback"),
     path("gmail/disconnect/", gmail_disconnect, name="gmail_disconnect"),
     path('entreprises/filtrer-secteur', entreprises_filtrer_secteur, name='entreprises_filtrer_secteur'),
+
+    # Cron job (token-protected): déclenche sync_registre
+    path("cron/sync-registre/", cron_sync_registre, name="cron_sync_registre"),
 ]
 
 # MEDIA: nécessaire en déploiement Render (sinon 404 sur les ZIP/PDF uploadés).

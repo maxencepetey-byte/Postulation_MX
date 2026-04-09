@@ -16,15 +16,16 @@ import zipfile
 import unicodedata
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, logout
 from django.core.paginator import Paginator
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.utils.timezone import now
 from django.db import IntegrityError
 from django.db.models import Max
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.contrib.staticfiles import finders
@@ -34,6 +35,7 @@ from django.contrib import messages
 import logging
 from django.db import transaction
 from django.db import connection
+from django.core.management import call_command
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -456,7 +458,7 @@ def dashboard(request):
     total_entreprises = entreprises_list.count()
     paginator = Paginator(entreprises_list, 50)
     page_obj = paginator.get_page(request.GET.get('page'))
-    tous_les_docs = DocumentUtilisateur.objects.filter(utilisateur=request.user)
+    tous_les_docs = DocumentUtilisateur.objects.filter(utilisateur=request.user).order_by("-date_upload")
     sessions = ScanSession.objects.filter(utilisateur=request.user)[:5]
     secteurs_uniques = list(
         EntrepriseCible.objects.filter(
@@ -518,10 +520,30 @@ def entreprises_filtrer_secteur(request):
         ).exclude(email="")
 
         max_pack = qs_pack.aggregate(m=Max("numero_pack")).get("m") or 0
+        secteur_clean = secteur.replace(" ", "_").replace("/", "-")
+        docs = {
+            d.nom_affichage: d
+            for d in DocumentUtilisateur.objects.filter(
+                utilisateur=request.user,
+                type_doc="PACK_LM",
+                secteur_nom=secteur,
+            )
+        }
         for i in range(1, int(max_pack) + 1):
             cnt = qs_pack.filter(numero_pack=i).count()
-            if cnt:
-                pack_infos.append({"pack_num": i, "count": cnt, "secteur": secteur})
+            if not cnt:
+                continue
+            nom_base = f"MX_SCAN_{secteur_clean}_PACK_{i}"
+            doc = docs.get(nom_base)
+            pack_infos.append(
+                {
+                    "pack_num": i,
+                    "count": cnt,
+                    "secteur": secteur,
+                    "doc_url": (doc.fichier.url if doc else ""),
+                    "is_used": bool(getattr(doc, "used_for_gmail", False)) if doc else False,
+                }
+            )
 
     packs_html = render_to_string(
         "partials/packs_cards.html",
@@ -830,7 +852,9 @@ def lancer_scan(request):
         utilisateur=request.user, secteur_noga="SCAN_GENEVE"
     )
 
-    API_URL = f"{SERVICE_URL}/query"
+    # On ne requête plus le SITG ici: on utilise le référentiel global.
+    from core.models import EntrepriseReferentiel
+
     total_ajoutes = 0
     total_doublons = 0
     # Numérotation par secteur: chaque secteur redémarre à Pack 1.
@@ -839,8 +863,6 @@ def lancer_scan(request):
     ajoutes_par_secteur: dict[str, int] = {}
 
     for s in secteurs:
-        offset = 0
-        limit = 1000
         secteur_nom = NOGA_MAP.get(s[:2], "Général")
         if secteur_nom not in base_par_secteur:
             base_par_secteur[secteur_nom] = EntrepriseCible.objects.filter(
@@ -848,56 +870,32 @@ def lancer_scan(request):
                 secteur_activite=secteur_nom,
             ).count()
             ajoutes_par_secteur[secteur_nom] = 0
+        # Entreprises du référentiel pour ce secteur (code NOGA préfixe)
+        qs = (
+            EntrepriseReferentiel.objects.filter(code_noga__startswith=s)
+            .only("raison_sociale", "email", "adresse")
+            .order_by("raison_sociale")
+        )
 
-        while True:
-            params = {
-                'where': f"code_noga LIKE '{s}%'",
-                'outFields': '*',
-                'f': 'json',
-                'resultRecordCount': limit,
-                'resultOffset': offset,
-            }
+        for ref in qs.iterator(chunk_size=2000):
+            # Numéro de pack par secteur (tranches de 500)
+            total_courant_secteur = base_par_secteur[secteur_nom] + ajoutes_par_secteur[secteur_nom]
+            pack_id = (total_courant_secteur // 500) + 1
             try:
-                r = requests.get(API_URL, params=params, timeout=20).json()
-                features = r.get('features', [])
-                if not features:
-                    break
-
-                for feat in features:
-                    attr = {k.lower(): v for k, v in feat['attributes'].items()}
-                    nom = attr.get('raison_sociale') or ''
-                    mail = (attr.get('email') or '').strip()
-
-                    if not mail or not verifier_email_existence(mail):
-                        continue
-
-                    # Numéro de pack par secteur (tranches de 500)
-                    total_courant_secteur = base_par_secteur[secteur_nom] + ajoutes_par_secteur[secteur_nom]
-                    pack_id = (total_courant_secteur // 500) + 1
-
-                    try:
-                        EntrepriseCible.objects.create(
-                            recherche=recherche,
-                            scan_session=session,
-                            utilisateur=request.user,
-                            nom=nom,
-                            email=mail,
-                            numero_pack=pack_id,
-                            secteur_activite=secteur_nom,
-                            adresse=f"{attr.get('phys_rue', '')} {attr.get('phys_numrue', '')}".strip(),
-                        )
-                        total_ajoutes += 1
-                        ajoutes_par_secteur[secteur_nom] += 1
-                    except IntegrityError:
-                        # unique_together (utilisateur, email) déclenché = doublon évité
-                        total_doublons += 1
-
-                if len(features) < limit:
-                    break
-                offset += limit
-
-            except Exception:
-                break
+                EntrepriseCible.objects.create(
+                    recherche=recherche,
+                    scan_session=session,
+                    utilisateur=request.user,
+                    nom=ref.raison_sociale,
+                    email=ref.email,
+                    numero_pack=pack_id,
+                    secteur_activite=secteur_nom,
+                    adresse=ref.adresse or "",
+                )
+                total_ajoutes += 1
+                ajoutes_par_secteur[secteur_nom] += 1
+            except IntegrityError:
+                total_doublons += 1
 
     # Mise à jour des compteurs de la session
     session.nb_entreprises = total_ajoutes
@@ -905,6 +903,61 @@ def lancer_scan(request):
     session.save()
 
     return redirect('dashboard')
+
+
+# ---------------------------------------------------------------------------
+# CRON (SYNC RÉFÉRENTIEL GLOBAL)
+# ---------------------------------------------------------------------------
+
+@require_GET
+def cron_sync_registre(request):
+    """
+    Endpoint appelé par cron-job.org pour lancer `sync_registre`.
+    Protection: token dans l'URL (?token=...).
+
+    Lance le sync en arrière-plan pour éviter les timeouts HTTP.
+    """
+    token = (request.GET.get("token") or "").strip()
+    expected = (getattr(settings, "CRON_SYNC_TOKEN", "") or "").strip()
+    if not expected or token != expected:
+        return HttpResponseForbidden("Forbidden")
+
+    secteurs = request.GET.getlist("secteurs")  # ex: ?secteurs=62&secteurs=64
+    min_new_raw = (request.GET.get("min_new") or "500").strip()
+    since_hours_raw = (request.GET.get("since_hours") or "24").strip()
+    dry_run = (request.GET.get("dry_run") or "").strip().lower() in ("1", "true", "yes")
+
+    try:
+        min_new = int(min_new_raw)
+    except Exception:
+        return HttpResponseBadRequest("min_new must be an integer")
+
+    try:
+        since_hours = int(since_hours_raw)
+    except Exception:
+        return HttpResponseBadRequest("since_hours must be an integer")
+
+    def _run():
+        try:
+            kwargs = {"min_new": min_new, "dry_run": dry_run, "since_hours": since_hours}
+            if secteurs:
+                kwargs["secteurs"] = secteurs
+            call_command("sync_registre", **kwargs)
+            logger.info(
+                "cron_sync_registre finished (secteurs=%s, min_new=%s, since_hours=%s, dry_run=%s)",
+                secteurs,
+                min_new,
+                since_hours,
+                dry_run,
+            )
+        except Exception:
+            logger.exception("cron_sync_registre failed")
+
+    threading.Thread(target=_run, daemon=True).start()
+    return JsonResponse(
+        {"status": "started", "secteurs": secteurs, "min_new": min_new, "since_hours": since_hours, "dry_run": dry_run},
+        status=202,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1406,6 +1459,13 @@ def creer_brouillons_gmail(request):
         suite = f" ... et {len(skipped) - 10} autres." if len(skipped) > 10 else ""
         msg += f" Attention: {len(skipped)} LM absente(s) du pack (ignorées) : {noms}{suite}"
     messages.success(request, msg)
+    # Si on a réussi à créer des brouillons, le pack est considéré "utilisé"
+    if created > 0:
+        try:
+            pack_doc.used_for_gmail = True
+            pack_doc.save(update_fields=["used_for_gmail"])
+        except Exception:
+            pass
     return redirect("dashboard")
 
 
@@ -1443,6 +1503,20 @@ def upload_cv(request):
             fichier=request.FILES['cv_file'],
         )
     return redirect('dashboard')
+
+
+@login_required
+@require_POST
+def delete_document(request, doc_id: int):
+    doc = get_object_or_404(DocumentUtilisateur, id=doc_id, utilisateur=request.user)
+    try:
+        if getattr(doc, "fichier", None):
+            doc.fichier.delete(save=False)
+    except Exception:
+        pass
+    doc.delete()
+    messages.success(request, "Document supprimé.")
+    return redirect("dashboard")
 
 
 @login_required

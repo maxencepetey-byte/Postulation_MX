@@ -166,3 +166,8 @@ body {
   border-color: var(--mx-accent);
 }
 
+.btn-pack.pack-used {
+  border-color: #198754;
+  background: rgba(25, 135, 84, 0.08);
+}
+
