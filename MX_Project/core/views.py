@@ -902,6 +902,10 @@ def lancer_scan(request):
     session.nb_doublons_evites = total_doublons
     session.save()
 
+    # Après scan: on pré-sélectionne le secteur dans le dashboard (historique + packs)
+    secteur_default = (noms_secteurs[0] if noms_secteurs else "").strip()
+    if secteur_default:
+        return redirect(f"/?{urlencode({'secteur': secteur_default})}")
     return redirect('dashboard')
 
 

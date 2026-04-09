@@ -16,6 +16,14 @@
     const url = select.dataset.url;
     if (!url) return;
 
+    // Si le dashboard est appelé avec ?secteur=... (ex: après lancer_scan),
+    // on pré-sélectionne ce secteur et on charge l'historique + packs associés.
+    const presetSecteur = new URLSearchParams(window.location.search).get("secteur");
+    if (presetSecteur) {
+      const hasOption = Array.from(select.options).some((o) => o.value === presetSecteur);
+      if (hasOption) select.value = presetSecteur;
+    }
+
     let abortController = null;
 
     function syncHidden() {
