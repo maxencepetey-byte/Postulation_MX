@@ -20,6 +20,7 @@ from core.views import (
     vider_liste_et_documents,
     delete_document,
     cron_sync_registre,
+    cron_sync_view,
 )
 
 urlpatterns = [
@@ -58,6 +59,7 @@ urlpatterns = [
 
     # Cron job (token-protected): déclenche sync_registre
     path("cron/sync-registre/", cron_sync_registre, name="cron_sync_registre"),
+    path('tasks/sync-data/', cron_sync_view, name='cron_sync'),
 ]
 
 # MEDIA: nécessaire en déploiement Render (sinon 404 sur les ZIP/PDF uploadés).

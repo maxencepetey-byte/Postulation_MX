@@ -4,7 +4,13 @@
       <a href="{{ p.doc_url }}" target="_blank" class="btn btn-pack p-3 text-center rounded d-block w-100 {% if p.is_used %}pack-used{% endif %}">
         <i class="bi bi-folder-zip fs-4 {% if p.is_used %}text-success{% else %}text-warning{% endif %}"></i>
         <div class="small fw-bold text-dark mt-1">Pack {{ p.pack_num }}</div>
-        <div class="small text-muted">{{ p.count }} entreprise(s)</div>
+        <div class="small text-muted">
+          {% if p.is_used %}
+            0/500
+          {% else %}
+            500
+          {% endif %}
+        </div>
       </a>
     {% else %}
       <form action="{% url 'generer_pack_secteur_numero' p.pack_num %}" method="POST" class="m-0">
@@ -13,7 +19,9 @@
         <button type="submit" class="btn btn-pack p-3 text-center rounded d-block w-100">
           <i class="bi bi-folder-zip fs-4 text-warning"></i>
           <div class="small fw-bold text-dark mt-1">Pack {{ p.pack_num }}</div>
-          <div class="small text-muted">{{ p.count }} entreprise(s)</div>
+          <div class="small text-muted">
+            500
+          </div>
         </button>
       </form>
     {% endif %}

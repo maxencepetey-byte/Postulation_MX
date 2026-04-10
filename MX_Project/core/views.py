@@ -513,13 +513,14 @@ def entreprises_filtrer_secteur(request):
 
     pack_infos = []
     if secteur:
-        qs_pack = EntrepriseCible.objects.filter(
+        qs_pack_all = EntrepriseCible.objects.filter(
             utilisateur=request.user,
-            est_dans_paquet=False,
             secteur_activite=secteur,
         ).exclude(email="")
 
-        max_pack = qs_pack.aggregate(m=Max("numero_pack")).get("m") or 0
+        qs_pack_remaining = qs_pack_all.filter(est_dans_paquet=False)
+
+        max_pack = qs_pack_all.aggregate(m=Max("numero_pack")).get("m") or 0
         secteur_clean = secteur.replace(" ", "_").replace("/", "-")
         docs = {
             d.nom_affichage: d
@@ -530,15 +531,19 @@ def entreprises_filtrer_secteur(request):
             )
         }
         for i in range(1, int(max_pack) + 1):
-            cnt = qs_pack.filter(numero_pack=i).count()
-            if not cnt:
-                continue
             nom_base = f"MX_SCAN_{secteur_clean}_PACK_{i}"
             doc = docs.get(nom_base)
+            total_cnt = qs_pack_all.filter(numero_pack=i).count()
+            remaining_cnt = qs_pack_remaining.filter(numero_pack=i).count()
+
+            # On affiche le pack s'il y a des entreprises dedans OU s'il existe déjà un ZIP sauvegardé.
+            if not total_cnt and not doc:
+                continue
             pack_infos.append(
                 {
                     "pack_num": i,
-                    "count": cnt,
+                    "count": total_cnt,
+                    "remaining": remaining_cnt,
                     "secteur": secteur,
                     "doc_url": (doc.fichier.url if doc else ""),
                     "is_used": bool(getattr(doc, "used_for_gmail", False)) if doc else False,
@@ -963,6 +968,30 @@ def cron_sync_registre(request):
         status=202,
     )
 
+    import os
+import threading
+from django.http import HttpResponse, HttpResponseForbidden
+from django.core.management import call_command
+
+def cron_sync_view(request):
+    # Sécurité par Token
+    token_recu = request.GET.get('token')
+    token_attendu = os.environ.get('CRON_SYNC_TOKEN')
+
+    if not token_recu or token_recu != token_attendu:
+        return HttpResponseForbidden("Token invalide.")
+
+    # Lancement du scan dans un thread séparé (Arrière-plan)
+    def run_task():
+        # Appelle la commande de management définie plus haut
+        call_command('sync_registre')
+
+    thread = threading.Thread(target=run_task)
+    thread.start()
+
+    # Réponse immédiate (Render ne coupera pas la connexion)
+    return HttpResponse("Scan démarré en tâche de fond.", status=200)
+
 
 # ---------------------------------------------------------------------------
 # GÉNÉRATION PDF
@@ -1200,13 +1229,16 @@ def generer_pack_secteur_numero(request, pack_num: int):
     nom_base = f"MX_SCAN_{secteur_clean}_PACK_{pack_num}"
     nom_zip = f"{nom_base}.zip"
 
-    # Remplace le doc existant pour ce pack/secteur (évite doublons)
-    DocumentUtilisateur.objects.filter(
+    # Si le pack existe déjà: on ne le supprime pas / ne le régénère pas.
+    existing = DocumentUtilisateur.objects.filter(
         utilisateur=request.user,
         type_doc="PACK_LM",
         secteur_nom=secteur,
         nom_affichage=nom_base,
-    ).delete()
+    ).first()
+    if existing:
+        messages.info(request, "Pack déjà généré.")
+        return redirect(f"/?{urlencode({'secteur': secteur})}")
 
     doc = DocumentUtilisateur(
         utilisateur=request.user,
@@ -1215,7 +1247,8 @@ def generer_pack_secteur_numero(request, pack_num: int):
         secteur_nom=secteur,
     )
     doc.fichier.save(nom_zip, ContentFile(zip_bytes), save=True)
-    return redirect("dashboard")
+    messages.success(request, "Pack généré et ajouté à tes documents.")
+    return redirect(f"/?{urlencode({'secteur': secteur})}")
 
 
 @login_required
