@@ -762,6 +762,68 @@ def settings_page(request):
                 tpl.paragraph_4 = (request.POST.get("paragraph_4") or "").strip()
                 tpl.conclusion = (request.POST.get("salutation") or "").strip()
                 tpl.save()
+            messages.success(request, "✅ Profil et template sauvegardés avec succès !")
+            return redirect('settings_page')  # ← redirige vers settings pour voir les données rechargées
+        else:
+            # Affiche les erreurs de validation pour debug
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"Erreur — {field} : {error}")
+    else:
+        form = ProfilForm(instance=profil, required_fields=required_fields)
+
+    return render(request, 'core/settings.html', {
+        'form': form,
+        'profil': profil,
+        'secteurs_templates': secteurs_templates,
+        'templates_json': templates_json,
+        'default_template_secteur': default_template_secteur,
+        "gmail_connected": GmailOAuthToken.objects.filter(utilisateur=request.user).exists(),
+    })
+    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    secteurs_codes = [c for c in (profil.onboarding_secteurs or "").split(",") if c]
+    required_fields = ["prenom_lm", "nom_lm", "email_lm"]
+
+    # Secteurs disponibles pour templates (avec bouton "Général")
+    secteurs_templates = ["Général"] + sorted(set(list(NOGA_MAP.values())))
+    default_template_secteur = "Général"
+    templates_qs = LettreSecteurTemplate.objects.filter(utilisateur=request.user)
+    templates_by_secteur = {t.secteur_nom: t for t in templates_qs}
+    templates_json = json.dumps(
+        {
+            t.secteur_nom: {
+                "objet": t.objet,
+                "salutation": t.salutation,
+                "paragraph_1": t.paragraph_1,
+                "paragraph_2": t.paragraph_2,
+                "paragraph_3": t.paragraph_3,
+                "paragraph_4": t.paragraph_4,
+                "conclusion": t.conclusion,
+            }
+            for t in templates_qs
+        },
+        ensure_ascii=False,
+    )
+
+    if request.method == 'POST':
+        form = ProfilForm(request.POST, instance=profil, required_fields=required_fields)
+        if form.is_valid():
+            form.save()
+            # Sauvegarde template lettre pour le secteur sélectionné
+            secteur_tpl = (request.POST.get("template_secteur") or default_template_secteur).strip()
+            if secteur_tpl:
+                tpl, _ = LettreSecteurTemplate.objects.get_or_create(
+                    utilisateur=request.user,
+                    secteur_nom=secteur_tpl,
+                )
+                tpl.objet = (request.POST.get("objet") or "").strip()
+                tpl.salutation = (request.POST.get("introduction") or "").strip()
+                tpl.paragraph_1 = (request.POST.get("paragraph_1") or "").strip()
+                tpl.paragraph_2 = (request.POST.get("paragraph_2") or "").strip()
+                tpl.paragraph_3 = (request.POST.get("paragraph_3") or "").strip()
+                tpl.paragraph_4 = (request.POST.get("paragraph_4") or "").strip()
+                tpl.conclusion = (request.POST.get("salutation") or "").strip()
+                tpl.save()
             return redirect('dashboard')
     else:
         form = ProfilForm(instance=profil, required_fields=required_fields)
