@@ -1449,165 +1449,169 @@ def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
 @require_POST
 def creer_brouillons_gmail(request):
     """
-    Crée des brouillons Gmail par lots de 25 pour éviter le timeout HTTP de Render (30s).
-    Chaque clic traite les 25 prochaines entreprises non traitées.
-    L'utilisateur re-clique jusqu'à ce qu'il n'y ait plus rien à traiter.
+    Lance la création des brouillons Gmail en arrière-plan (thread daemon).
+    Retourne immédiatement au dashboard — même pattern que lancer_scan et cron_sync_registre.
+    Zéro timeout Render, zéro modification de modèle.
     """
+    # ── Validation rapide AVANT de lancer le thread ──
     try:
         access_token = _gmail_get_access_token(request.user)
-    except Exception as e:
-        messages.error(
-            request,
-            "Connexion Gmail invalide ou expirée. Merci de reconnecter Gmail dans la page Réglages.",
-        )
+    except Exception:
+        messages.error(request, "Connexion Gmail invalide ou expirée. Merci de reconnecter Gmail dans Réglages.")
         return redirect("settings_page")
 
     secteur = (request.POST.get("secteur") or "").strip()
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
 
-    # ── Entreprises à traiter — LIMITE 25 par appel ──
-    qs_ent = EntrepriseCible.objects.filter(
-        utilisateur=request.user,
-        est_dans_paquet=False,
-    ).exclude(email="")
+    qs_ent = EntrepriseCible.objects.filter(utilisateur=request.user, est_dans_paquet=False).exclude(email="")
     if secteur:
         qs_ent = qs_ent.filter(secteur_activite=secteur)
-
-    total_restant = qs_ent.count()
-    entreprises = list(qs_ent.order_by("id")[:25])
-
-    if not entreprises:
-        messages.info(request, "✅ Tous les brouillons ont été créés.")
+    if not qs_ent.exists():
+        messages.info(request, "Aucune entreprise à traiter (toutes déjà traitées ou sans email).")
         return redirect("dashboard")
 
-    # ── CV obligatoire ──
-    cv_doc = (
-        DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc="CV")
-        .order_by("-date_upload")
-        .first()
-    )
+    cv_doc = DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc="CV").order_by("-date_upload").first()
     if not cv_doc:
         messages.error(request, "Aucun CV trouvé. Ajoute un document de type CV dans Réglages avant de créer des brouillons.")
         return redirect("settings_page")
 
-    other_docs = list(
-        DocumentUtilisateur.objects.filter(utilisateur=request.user)
-        .exclude(type_doc__in=["PACK_LM"])
-        .exclude(id=cv_doc.id)
-        .order_by("-date_upload")
-    )
-
-    try:
-        cv_bytes = _read_filefield_bytes(cv_doc.fichier)
-    except Exception:
-        messages.error(request, "Impossible de lire ton CV (storage). Ré-uploade le fichier puis réessaye.")
-        return redirect("settings_page")
-
-    # Pré-charger les annexes UNE FOIS avant la boucle
-    other_attachments: list[tuple[str, bytes, str]] = []
-    for d in other_docs:
+    # ── Lancement en arrière-plan ──
+    def _run_brouillons(user_id, secteur, access_token):
+        import django
+        from django.contrib.auth.models import User
         try:
-            other_attachments.append((os.path.basename(d.fichier.name), _read_filefield_bytes(d.fichier), "application/pdf"))
-        except Exception:
-            continue
+            user = User.objects.get(id=user_id)
+            profil, _ = ProfilUtilisateur.objects.get_or_create(user=user)
 
-    # ── Création des brouillons (lot de 25) ──
-    created = 0
-    skipped: list[str] = []
+            qs = EntrepriseCible.objects.filter(utilisateur=user, est_dans_paquet=False).exclude(email="")
+            if secteur:
+                qs = qs.filter(secteur_activite=secteur)
+            entreprises = list(qs.order_by("id")[:500])
 
-    for ent in entreprises:
-        secteur_nom = (ent.secteur_activite or "Général").strip()
-        tpl = (
-            LettreSecteurTemplate.objects.filter(utilisateur=request.user, secteur_nom=secteur_nom).first()
-            or LettreSecteurTemplate.objects.filter(utilisateur=request.user, secteur_nom="Général").first()
-        )
+            cv_doc = DocumentUtilisateur.objects.filter(utilisateur=user, type_doc="CV").order_by("-date_upload").first()
+            if not cv_doc:
+                logger.error("brouillons_bg: CV introuvable pour user %s", user_id)
+                return
 
-        accroche = get_accroche(profil, ent.secteur_activite)
-        ctx = {
-            "accroche": accroche,
-            "entreprise": ent.nom,
-            "secteur": secteur_nom,
-            "ville": profil.ville or "Genève",
-            "prenom": profil.prenom_lm or "",
-            "nom": profil.nom_lm or "",
-        }
-
-        base_subject = _safe_format((tpl.objet if tpl else "") or "Candidature spontanée", ctx).strip()
-        subject = f"{base_subject} — {ent.nom}".strip()
-
-        if tpl and (tpl.salutation or tpl.paragraph_1 or tpl.paragraph_2 or tpl.paragraph_3 or tpl.paragraph_4 or tpl.conclusion):
-            intro = _safe_format(tpl.salutation or "Madame, Monsieur,", ctx).strip()
-            paras = [
-                _safe_format(tpl.paragraph_1, ctx).strip(),
-                _safe_format(tpl.paragraph_2, ctx).strip(),
-                _safe_format(tpl.paragraph_3, ctx).strip(),
-                _safe_format(tpl.paragraph_4, ctx).strip(),
-            ]
-            closing = _safe_format(
-                tpl.conclusion or "Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.",
-                ctx,
-            ).strip()
-            signature = f"{profil.prenom_lm or ''} {profil.nom_lm or ''}".strip()
-            body = "\n\n".join([p for p in [intro, *paras, closing, signature] if p])
-        else:
-            body = (
-                f"Madame, Monsieur,\n\n"
-                f"C'est avec un vif intérêt que je me permets de vous adresser ma candidature. "
-                f"En effet, je suis particulièrement attiré par {accroche}.\n\n"
-                f"Souhaitant intégrer une structure dynamique telle que la vôtre, je suis convaincu "
-                f"que mon expérience et ma motivation sauront répondre à vos exigences.\n\n"
-                f"Vous trouverez ci-joint mon dossier complet. Je reste à votre entière disposition "
-                f"pour un entretien.\n\n"
-                f"Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.\n\n"
-                f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
+            other_docs = list(
+                DocumentUtilisateur.objects.filter(utilisateur=user)
+                .exclude(type_doc__in=["PACK_LM"])
+                .exclude(id=cv_doc.id)
+                .order_by("-date_upload")
             )
 
-        # Générer la LM directement depuis la DB
-        try:
-            lm_pdf = generer_pdf_lm(profil, ent)
-            lm_name = _email_to_pdf_name(ent.email)
-        except Exception as e:
-            logger.warning("Échec génération PDF pour '%s' (%s): %s", ent.nom, ent.email, str(e)[:200])
-            skipped.append(f"{ent.nom} ({ent.email})")
-            continue
+            try:
+                cv_bytes = _read_filefield_bytes(cv_doc.fichier)
+            except Exception as e:
+                logger.error("brouillons_bg: impossible de lire le CV: %s", e)
+                return
 
-        attachments: list[tuple[str, bytes, str]] = [
-            (lm_name, lm_pdf, "application/pdf"),
-            (os.path.basename(cv_doc.fichier.name), cv_bytes, "application/pdf"),
-            *other_attachments,
-        ]
+            other_attachments: list[tuple[str, bytes, str]] = []
+            for d in other_docs:
+                try:
+                    other_attachments.append((os.path.basename(d.fichier.name), _read_filefield_bytes(d.fichier), "application/pdf"))
+                except Exception:
+                    continue
 
-        raw = _build_mime_message(ent.email, subject, body, attachments)
-        try:
-            _gmail_create_draft(access_token, raw)
-        except Exception as e:
-            err_str = str(e)
-            if "401" in err_str or "403" in err_str or "invalid_grant" in err_str.lower():
-                messages.error(request, f"Erreur d'authentification Gmail. Reconnectez Gmail dans Réglages. Détails: {err_str[:200]}")
-                return redirect("settings_page")
-            logger.warning("Gmail draft failed for '%s' (%s): %s", ent.nom, ent.email, err_str[:200])
-            skipped.append(f"{ent.nom} ({ent.email}) [erreur API]")
-            continue
+            created = 0
+            skipped = 0
 
-        ent.est_dans_paquet = True
-        ent.date_traitement = now()
-        ent.save(update_fields=["est_dans_paquet", "date_traitement"])
-        created += 1
+            for ent in entreprises:
+                secteur_nom = (ent.secteur_activite or "Général").strip()
+                tpl = (
+                    LettreSecteurTemplate.objects.filter(utilisateur=user, secteur_nom=secteur_nom).first()
+                    or LettreSecteurTemplate.objects.filter(utilisateur=user, secteur_nom="Général").first()
+                )
 
-    restant_apres = total_restant - created
-    msg = f"✅ {created} brouillon(s) créé(s)."
-    if restant_apres > 0:
-        msg += f" Il reste encore {restant_apres} entreprises — recliquez sur « Créer Brouillons » pour continuer."
-    else:
-        msg += " Tous les brouillons sont créés !"
+                accroche = get_accroche(profil, ent.secteur_activite)
+                ctx = {
+                    "accroche": accroche,
+                    "entreprise": ent.nom,
+                    "secteur": secteur_nom,
+                    "ville": profil.ville or "Genève",
+                    "prenom": profil.prenom_lm or "",
+                    "nom": profil.nom_lm or "",
+                }
 
-    if skipped:
-        noms = ", ".join(skipped[:5])
-        suite = f" ... et {len(skipped) - 5} autres." if len(skipped) > 5 else ""
-        msg += f" Ignorées ({len(skipped)}) : {noms}{suite}"
+                base_subject = _safe_format((tpl.objet if tpl else "") or "Candidature spontanée", ctx).strip()
+                subject = f"{base_subject} — {ent.nom}".strip()
 
-    messages.success(request, msg)
+                if tpl and (tpl.salutation or tpl.paragraph_1 or tpl.paragraph_2 or tpl.paragraph_3 or tpl.paragraph_4 or tpl.conclusion):
+                    intro = _safe_format(tpl.salutation or "Madame, Monsieur,", ctx).strip()
+                    paras = [
+                        _safe_format(tpl.paragraph_1, ctx).strip(),
+                        _safe_format(tpl.paragraph_2, ctx).strip(),
+                        _safe_format(tpl.paragraph_3, ctx).strip(),
+                        _safe_format(tpl.paragraph_4, ctx).strip(),
+                    ]
+                    closing = _safe_format(
+                        tpl.conclusion or "Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.",
+                        ctx,
+                    ).strip()
+                    signature = f"{profil.prenom_lm or ''} {profil.nom_lm or ''}".strip()
+                    body = "\n\n".join([p for p in [intro, *paras, closing, signature] if p])
+                else:
+                    body = (
+                        f"Madame, Monsieur,\n\n"
+                        f"C'est avec un vif intérêt que je me permets de vous adresser ma candidature. "
+                        f"En effet, je suis particulièrement attiré par {accroche}.\n\n"
+                        f"Souhaitant intégrer une structure dynamique telle que la vôtre, je suis convaincu "
+                        f"que mon expérience et ma motivation sauront répondre à vos exigences.\n\n"
+                        f"Vous trouverez ci-joint mon dossier complet. Je reste à votre entière disposition "
+                        f"pour un entretien.\n\n"
+                        f"Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.\n\n"
+                        f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
+                    )
+
+                try:
+                    lm_pdf = generer_pdf_lm(profil, ent)
+                    lm_name = _email_to_pdf_name(ent.email)
+                except Exception as e:
+                    logger.warning("brouillons_bg: PDF failed '%s': %s", ent.email, e)
+                    skipped += 1
+                    continue
+
+                attachments = [
+                    (lm_name, lm_pdf, "application/pdf"),
+                    (os.path.basename(cv_doc.fichier.name), cv_bytes, "application/pdf"),
+                    *other_attachments,
+                ]
+
+                raw = _build_mime_message(ent.email, subject, body, attachments)
+                try:
+                    _gmail_create_draft(access_token, raw)
+                except Exception as e:
+                    err_str = str(e)
+                    if "401" in err_str or "403" in err_str or "invalid_grant" in err_str.lower():
+                        logger.error("brouillons_bg: auth error, stopping. %s", err_str[:200])
+                        break
+                    logger.warning("brouillons_bg: draft failed '%s': %s", ent.email, err_str[:200])
+                    skipped += 1
+                    continue
+
+                ent.est_dans_paquet = True
+                ent.date_traitement = now()
+                ent.save(update_fields=["est_dans_paquet", "date_traitement"])
+                created += 1
+
+            logger.info("brouillons_bg: terminé — %d créés, %d ignorés (user %s)", created, skipped, user_id)
+
+        except Exception:
+            logger.exception("brouillons_bg: exception non gérée (user %s)", user_id)
+
+    threading.Thread(
+        target=_run_brouillons,
+        args=(request.user.id, secteur, access_token),
+        daemon=True,
+    ).start()
+
+    nb = qs_ent.count()
+    messages.success(
+        request,
+        f"⏳ Création de {nb} brouillon(s) lancée en arrière-plan. "
+        f"Rafraîchis le dashboard dans quelques minutes pour voir la progression."
+    )
     return redirect("dashboard")
+
 # ---------------------------------------------------------------------------
 # ACTIONS CRUD
 # ---------------------------------------------------------------------------
