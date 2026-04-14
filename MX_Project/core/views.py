@@ -1449,8 +1449,9 @@ def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
 @require_POST
 def creer_brouillons_gmail(request):
     """
-    Crée jusqu'à 500 brouillons Gmail (API) pour les entreprises non traitées.
-    Génère chaque LM à la volée depuis la DB — plus de dépendance au ZIP pré-généré.
+    Crée des brouillons Gmail par lots de 25 pour éviter le timeout HTTP de Render (30s).
+    Chaque clic traite les 25 prochaines entreprises non traitées.
+    L'utilisateur re-clique jusqu'à ce qu'il n'y ait plus rien à traiter.
     """
     try:
         access_token = _gmail_get_access_token(request.user)
@@ -1464,17 +1465,19 @@ def creer_brouillons_gmail(request):
     secteur = (request.POST.get("secteur") or "").strip()
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
 
-    # ── Entreprises à traiter ──
+    # ── Entreprises à traiter — LIMITE 25 par appel ──
     qs_ent = EntrepriseCible.objects.filter(
         utilisateur=request.user,
         est_dans_paquet=False,
     ).exclude(email="")
     if secteur:
         qs_ent = qs_ent.filter(secteur_activite=secteur)
-    entreprises = list(qs_ent.order_by("id")[:500])
+
+    total_restant = qs_ent.count()
+    entreprises = list(qs_ent.order_by("id")[:25])
 
     if not entreprises:
-        messages.info(request, "Aucune entreprise à traiter (toutes déjà traitées ou sans email).")
+        messages.info(request, "✅ Tous les brouillons ont été créés.")
         return redirect("dashboard")
 
     # ── CV obligatoire ──
@@ -1508,7 +1511,7 @@ def creer_brouillons_gmail(request):
         except Exception:
             continue
 
-    # ── Création des brouillons ──
+    # ── Création des brouillons (lot de 25) ──
     created = 0
     skipped: list[str] = []
 
@@ -1559,7 +1562,7 @@ def creer_brouillons_gmail(request):
                 f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
             )
 
-        # Générer la LM directement depuis la DB (plus de dépendance au ZIP)
+        # Générer la LM directement depuis la DB
         try:
             lm_pdf = generer_pdf_lm(profil, ent)
             lm_name = _email_to_pdf_name(ent.email)
@@ -1591,13 +1594,19 @@ def creer_brouillons_gmail(request):
         ent.save(update_fields=["est_dans_paquet", "date_traitement"])
         created += 1
 
-    msg = f"{created} brouillon(s) créé(s) dans Gmail."
-    if skipped:
-        noms = ", ".join(skipped[:10])
-        suite = f" ... et {len(skipped) - 10} autres." if len(skipped) > 10 else ""
-        msg += f" Attention: {len(skipped)} ignorée(s) : {noms}{suite}"
-    messages.success(request, msg)
+    restant_apres = total_restant - created
+    msg = f"✅ {created} brouillon(s) créé(s)."
+    if restant_apres > 0:
+        msg += f" Il reste encore {restant_apres} entreprises — recliquez sur « Créer Brouillons » pour continuer."
+    else:
+        msg += " Tous les brouillons sont créés !"
 
+    if skipped:
+        noms = ", ".join(skipped[:5])
+        suite = f" ... et {len(skipped) - 5} autres." if len(skipped) > 5 else ""
+        msg += f" Ignorées ({len(skipped)}) : {noms}{suite}"
+
+    messages.success(request, msg)
     return redirect("dashboard")
 # ---------------------------------------------------------------------------
 # ACTIONS CRUD
