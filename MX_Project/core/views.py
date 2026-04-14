@@ -780,60 +780,6 @@ def settings_page(request):
         'default_template_secteur': default_template_secteur,
         "gmail_connected": GmailOAuthToken.objects.filter(utilisateur=request.user).exists(),
     })
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
-    secteurs_codes = [c for c in (profil.onboarding_secteurs or "").split(",") if c]
-    required_fields = ["prenom_lm", "nom_lm", "email_lm"]
-
-    # Secteurs disponibles pour templates (avec bouton "Général")
-    secteurs_templates = ["Général"] + sorted(set(list(NOGA_MAP.values())))
-    default_template_secteur = "Général"
-    templates_qs = LettreSecteurTemplate.objects.filter(utilisateur=request.user)
-    templates_by_secteur = {t.secteur_nom: t for t in templates_qs}
-    templates_json = json.dumps(
-        {
-            t.secteur_nom: {
-                "objet": t.objet,
-                "salutation": t.salutation,
-                "paragraph_1": t.paragraph_1,
-                "paragraph_2": t.paragraph_2,
-                "paragraph_3": t.paragraph_3,
-                "paragraph_4": t.paragraph_4,
-                "conclusion": t.conclusion,
-            }
-            for t in templates_qs
-        },
-        ensure_ascii=False,
-    )
-
-    if request.method == 'POST':
-        form = ProfilForm(request.POST, instance=profil, required_fields=required_fields)
-        if form.is_valid():
-            form.save()
-            # Sauvegarde template lettre pour le secteur sélectionné
-            secteur_tpl = (request.POST.get("template_secteur") or default_template_secteur).strip()
-            if secteur_tpl:
-                tpl, _ = LettreSecteurTemplate.objects.get_or_create(
-                    utilisateur=request.user,
-                    secteur_nom=secteur_tpl,
-                )
-                tpl.objet = (request.POST.get("objet") or "").strip()
-                tpl.salutation = (request.POST.get("introduction") or "").strip()
-                tpl.paragraph_1 = (request.POST.get("paragraph_1") or "").strip()
-                tpl.paragraph_2 = (request.POST.get("paragraph_2") or "").strip()
-                tpl.paragraph_3 = (request.POST.get("paragraph_3") or "").strip()
-                tpl.paragraph_4 = (request.POST.get("paragraph_4") or "").strip()
-                tpl.conclusion = (request.POST.get("salutation") or "").strip()
-                tpl.save()
-            return redirect('dashboard')
-    else:
-        form = ProfilForm(instance=profil, required_fields=required_fields)
-    return render(request, 'core/settings.html', {
-        'form': form,
-        'secteurs_templates': secteurs_templates,
-        'templates_json': templates_json,
-        'default_template_secteur': default_template_secteur,
-        "gmail_connected": GmailOAuthToken.objects.filter(utilisateur=request.user).exists(),
-    })
 
 
 def _safe_format(text: str, ctx: dict) -> str:
@@ -1502,6 +1448,7 @@ def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
 def creer_brouillons_gmail(request):
     """
     Crée jusqu'à 500 brouillons Gmail (API) pour les entreprises non traitées.
+    Le secteur est optionnel — si absent, utilise le pack le plus récent tous secteurs confondus.
     """
     try:
         access_token = _gmail_get_access_token(request.user)
@@ -1512,26 +1459,25 @@ def creer_brouillons_gmail(request):
         )
         return redirect("settings_page")
 
+    # Secteur optionnel
     secteur = (request.POST.get("secteur") or "").strip()
-    if not secteur:
-        messages.error(request, "Sélectionne d’abord un secteur sur le dashboard avant de créer des brouillons Gmail.")
-        return redirect("dashboard")
 
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
 
-    pack_doc = (
-        DocumentUtilisateur.objects.filter(
-            utilisateur=request.user,
-            type_doc="PACK_LM",
-            secteur_nom=secteur,
-        )
-        .order_by("-date_upload")
-        .first()
+    # Cherche le pack le plus récent (filtré par secteur si fourni)
+    pack_doc_qs = DocumentUtilisateur.objects.filter(
+        utilisateur=request.user,
+        type_doc="PACK_LM",
     )
+    if secteur:
+        pack_doc_qs = pack_doc_qs.filter(secteur_nom=secteur)
+
+    pack_doc = pack_doc_qs.order_by("-date_upload").first()
+
     if not pack_doc:
         messages.error(
             request,
-            f"Aucun pack de LM trouvé pour le secteur '{secteur}'. Génère d’abord un Pack 500 (ZIP) pour ce secteur.",
+            "Aucun pack de LM trouvé. Génère d'abord un Pack ZIP depuis le dashboard.",
         )
         return redirect("dashboard")
 
@@ -1570,15 +1516,15 @@ def creer_brouillons_gmail(request):
         except Exception:
             continue
 
-    entreprises = list(
-        EntrepriseCible.objects.filter(
-            utilisateur=request.user,
-            est_dans_paquet=False,
-        )
-        .filter(secteur_activite=secteur)
-        .exclude(email="")
-        .order_by("id")[:500]
-    )
+    # Entreprises à traiter — filtrées par secteur si fourni
+    qs_ent = EntrepriseCible.objects.filter(
+        utilisateur=request.user,
+        est_dans_paquet=False,
+    ).exclude(email="")
+    if secteur:
+        qs_ent = qs_ent.filter(secteur_activite=secteur)
+    entreprises = list(qs_ent.order_by("id")[:500])
+
     if not entreprises:
         messages.info(request, "Aucune entreprise à traiter (toutes déjà traitées ou sans email).")
         return redirect("dashboard")
@@ -1649,7 +1595,7 @@ def creer_brouillons_gmail(request):
                             ent.nom,
                             ent.email,
                         )
-                        continue  # skip cette entreprise, continue le batch
+                        continue
                     lm_name, lm_pdf = found
         except Exception as _e:
             logger.error("Erreur lecture ZIP pour '%s': %s", ent.nom, _e)
@@ -1680,13 +1626,15 @@ def creer_brouillons_gmail(request):
         suite = f" ... et {len(skipped) - 10} autres." if len(skipped) > 10 else ""
         msg += f" Attention: {len(skipped)} LM absente(s) du pack (ignorées) : {noms}{suite}"
     messages.success(request, msg)
-    # Si on a réussi à créer des brouillons, le pack est considéré "utilisé"
+
+    # Marquer le pack comme utilisé
     if created > 0:
         try:
             pack_doc.used_for_gmail = True
             pack_doc.save(update_fields=["used_for_gmail"])
         except Exception:
             pass
+
     return redirect("dashboard")
 
 
