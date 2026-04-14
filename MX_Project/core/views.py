@@ -1157,10 +1157,15 @@ def generer_pdf_lm(profil, ent):
 
     accroche = get_accroche(profil, ent.secteur_activite)
     secteur_nom = (ent.secteur_activite or "Général").strip()
-    tpl = (
-        LettreSecteurTemplate.objects.filter(utilisateur=ent.utilisateur, secteur_nom=secteur_nom).first()
-        or LettreSecteurTemplate.objects.filter(utilisateur=ent.utilisateur, secteur_nom="Général").first()
-    )
+
+    # ✅ FIX : ent.utilisateur est nullable → fallback sur profil.user
+    _tpl_user = ent.utilisateur or (profil.user if profil else None)
+    tpl = None
+    if _tpl_user:
+        tpl = (
+            LettreSecteurTemplate.objects.filter(utilisateur=_tpl_user, secteur_nom=secteur_nom).first()
+            or LettreSecteurTemplate.objects.filter(utilisateur=_tpl_user, secteur_nom="Général").first()
+        )
 
     ctx = {
         "accroche": accroche,
@@ -1233,12 +1238,10 @@ def generer_pdf_lm(profil, ent):
     signature = f"{profil.prenom_lm or ''} {profil.nom_lm or ''}".strip()
     if signature:
         p.setFont("Helvetica-Bold", 11)
-        # Alignée à la largeur du bloc texte (même marge droite) et remontée.
         p.drawRightString(width - 2 * cm, 6 * cm, signature)
     p.save()
     buffer.seek(0)
     return buffer.read()
-
 
 # ---------------------------------------------------------------------------
 # TÉLÉCHARGEMENTS ZIP
@@ -1520,8 +1523,9 @@ def creer_brouillons_gmail(request):
         .first()
     )
     if not cv_doc:
-        messages.error(request, "Aucun CV trouvé. Ajoute un document de type CV avant de créer des brouillons.")
-        return redirect("dashboard")
+        # ✅ FIX : redirect settings_page pour guider l'utilisateur vers l'upload
+        messages.error(request, "Aucun CV trouvé. Ajoute un document de type CV dans Réglages avant de créer des brouillons.")
+        return redirect("settings_page")
 
     other_docs = list(
         DocumentUtilisateur.objects.filter(utilisateur=request.user)
@@ -1531,15 +1535,16 @@ def creer_brouillons_gmail(request):
     )
 
     try:
-        cv_bytes = cv_doc.fichier.read()
+        cv_bytes = _read_filefield_bytes(cv_doc.fichier)
     except Exception:
         messages.error(request, "Impossible de lire ton CV (storage). Ré-uploade le fichier puis réessaye.")
-        return redirect("dashboard")
+        return redirect("settings_page")
 
+    # ✅ FIX : pré-charger les annexes UNE FOIS avant la boucle (évite N×500 lectures fichier)
     other_attachments: list[tuple[str, bytes, str]] = []
     for d in other_docs:
         try:
-            other_attachments.append((os.path.basename(d.fichier.name), d.fichier.read(), "application/pdf"))
+            other_attachments.append((os.path.basename(d.fichier.name), _read_filefield_bytes(d.fichier), "application/pdf"))
         except Exception:
             continue
 
@@ -1625,8 +1630,15 @@ def creer_brouillons_gmail(request):
         try:
             _gmail_create_draft(access_token, raw)
         except Exception as e:
-            messages.error(request, f"Erreur Gmail API (ex: scope/token). Détails: {str(e)[:200]}")
-            return redirect("settings_page")
+            err_str = str(e)
+            # ✅ FIX : erreur d'auth (401/403) → stop immédiat et redirect settings
+            if "401" in err_str or "403" in err_str or "invalid_grant" in err_str.lower():
+                messages.error(request, f"Erreur d'authentification Gmail. Reconnectez Gmail dans Réglages. Détails: {err_str[:200]}")
+                return redirect("settings_page")
+            # ✅ FIX : erreur ponctuelle → on skipe cette entreprise sans stopper les autres
+            logger.warning("Gmail draft failed for '%s' (%s): %s", ent.nom, ent.email, err_str[:200])
+            skipped.append(f"{ent.nom} ({ent.email}) [erreur API]")
+            continue
 
         ent.est_dans_paquet = True
         ent.date_traitement = now()
@@ -1637,7 +1649,7 @@ def creer_brouillons_gmail(request):
     if skipped:
         noms = ", ".join(skipped[:10])
         suite = f" ... et {len(skipped) - 10} autres." if len(skipped) > 10 else ""
-        msg += f" Attention: {len(skipped)} LM absente(s) du pack (ignorées) : {noms}{suite}"
+        msg += f" Attention: {len(skipped)} ignorée(s) : {noms}{suite}"
     messages.success(request, msg)
 
     if created > 0 and pack_doc:

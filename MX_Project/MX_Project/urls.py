@@ -21,6 +21,8 @@ from core.views import (
     delete_document,
     cron_sync_registre,
     cron_sync_view,
+    historique_scans,   
+    detail_scan,
 )
 
 urlpatterns = [
@@ -40,6 +42,11 @@ urlpatterns = [
     path('delete-doc/<int:doc_id>/', delete_document, name='delete_document'),
     path('telecharger-lm/<int:ent_id>/', telecharger_lm, name='telecharger_lm'),
     path('settings/', settings_page, name='settings_page'),
+
+
+    # Historique  
+    path('historique/', historique_scans, name='historique_scans'),
+    path('historique/<int:session_id>/', detail_scan, name='detail_scan'),
 
     # Packs & Téléchargements
     path('download-all-zip/', telecharger_toutes_lm, name='telecharger_toutes_lm'),
