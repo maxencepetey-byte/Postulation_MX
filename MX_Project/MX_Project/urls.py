@@ -21,13 +21,11 @@ from core.views import (
     delete_document,
     cron_sync_registre,
     cron_sync_view,
-    historique_scans,   
+    historique_scans,
     detail_scan,
-    gmail_progress,
 )
 
 urlpatterns = [
-    # Admin Django (fonctionnel maintenant que django.contrib.admin est dans INSTALLED_APPS)
     path('admin/', admin.site.urls),
 
     # Authentification
@@ -44,12 +42,11 @@ urlpatterns = [
     path('telecharger-lm/<int:ent_id>/', telecharger_lm, name='telecharger_lm'),
     path('settings/', settings_page, name='settings_page'),
 
-
-    # Historique  
+    # Historique
     path('historique/', historique_scans, name='historique_scans'),
     path('historique/<int:session_id>/', detail_scan, name='detail_scan'),
 
-    # Packs & Téléchargements
+    # Packs & Telecharger
     path('download-all-zip/', telecharger_toutes_lm, name='telecharger_toutes_lm'),
     path('download-pack/<int:pack_num>/', telecharger_pack_specifique, name='telecharger_pack_specifique'),
     path('packs/generer-500/', generer_pack_500_lm, name='generer_pack_500_lm'),
@@ -63,16 +60,13 @@ urlpatterns = [
     path("gmail/connect/", gmail_connect, name="gmail_connect"),
     path("gmail/callback/", gmail_callback, name="gmail_callback"),
     path("gmail/disconnect/", gmail_disconnect, name="gmail_disconnect"),
-    path("gmail/progress/", gmail_progress, name="gmail_progress"),
     path('entreprises/filtrer-secteur', entreprises_filtrer_secteur, name='entreprises_filtrer_secteur'),
 
-    # Cron job (token-protected): déclenche sync_registre
+    # Cron
     path("cron/sync-registre/", cron_sync_registre, name="cron_sync_registre"),
     path('tasks/sync-data/', cron_sync_view, name='cron_sync'),
 ]
 
-# MEDIA: nécessaire en déploiement Render (sinon 404 sur les ZIP/PDF uploadés).
-# Idéalement: utiliser un storage externe (S3/Cloudinary). Ici on sert les MEDIA via Django.
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
