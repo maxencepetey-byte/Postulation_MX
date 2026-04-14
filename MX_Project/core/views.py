@@ -760,7 +760,7 @@ def settings_page(request):
                 tpl.paragraph_2 = (request.POST.get("paragraph_2") or "").strip()
                 tpl.paragraph_3 = (request.POST.get("paragraph_3") or "").strip()
                 tpl.paragraph_4 = (request.POST.get("paragraph_4") or "").strip()
-                tpl.conclusion = (request.POST.get("salutation") or "").strip()
+                tpl.conclusion = (request.POST.get("conclusion") or "").strip()   
                 tpl.save()
             messages.success(request, "✅ Profil et template sauvegardés avec succès !")
             return redirect('settings_page')  # ← redirige vers settings pour voir les données rechargées
