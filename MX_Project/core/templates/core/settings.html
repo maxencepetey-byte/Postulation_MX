@@ -8,6 +8,31 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{% static 'css/settings.css' %}">
+    <style>
+      .group-label-tpl {
+        font-size: 0.65rem; 
+        font-weight: 800; 
+        text-transform: uppercase;
+        letter-spacing: .5px; 
+        color: #6c757d; 
+        width: 100%;
+        border-bottom: 1px solid rgba(0,0,0,.07); 
+        padding-bottom: 4px; 
+        margin: 1.2rem 0 0.6rem;
+      }
+      .card-settings {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+      }
+      .btn-tpl {
+        margin-bottom: 5px;
+        font-weight: 500;
+        border-radius: 8px;
+      }
+    </style>
 </head>
 <body>
 
@@ -19,236 +44,172 @@
 <nav class="navbar navbar-mx sticky-top mb-4">
     <div class="container-fluid">
         <a href="{% url 'dashboard' %}" class="logo-mx">M<span>X</span></a>
-        <div class="d-flex align-items-center">
-            <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-dark border-0 fw-bold">
-                <i class="bi bi-arrow-left me-1"></i> Dashboard
-            </a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-muted small">{{ user.email }}</span>
+            <a href="{% url 'dashboard' %}" class="btn btn-sm btn-light rounded-pill px-3">Retour Dashboard</a>
         </div>
     </div>
 </nav>
 
-<div class="container py-4 fade-in-up">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card">
-                <div class="card-body p-4 p-md-5">
-                    <div class="text-center mb-5">
-                        <div class="d-inline-block p-3 rounded-circle bg-primary bg-opacity-10 mb-3">
-                            <i class="bi bi-person-badge-fill text-primary h3 mb-0"></i>
-                        </div>
-                        <h4 class="fw-bold">Configuration du Profil</h4>
-                        <p class="text-muted small">Ces informations seront injectées automatiquement dans tes lettres et emails.</p>
+<div class="container pb-5">
+    <form method="POST" action="{% url 'settings_page' %}">
+        {% csrf_token %}
+        <div class="row g-4">
+            
+            <div class="col-lg-4">
+                <div class="card card-settings p-4">
+                    <h5 class="fw-bold mb-4"><i class="bi bi-person-badge me-2 text-primary"></i>Identité</h5>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Prénom (pour LM)</label>
+                        <input type="text" name="prenom_lm" class="form-control" value="{{ profil.prenom_lm|default:'' }}" placeholder="Ex: Maxence">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Nom (pour LM)</label>
+                        <input type="text" name="nom_lm" class="form-control" value="{{ profil.nom_lm|default:'' }}" placeholder="Ex: Dupont">
                     </div>
 
-                    <div class="mb-4">
-                        <h6 class="section-title mb-2"><i class="bi bi-google me-2"></i>Connexion Gmail</h6>
-                        {% if gmail_connected %}
-                            <div class="alert alert-success small mb-2">Gmail est connecté.</div>
-                            <form action="{% url 'gmail_disconnect' %}" method="POST" class="m-0">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-secondary w-100 btn-mx">
-                                    Déconnecter Gmail
-                                </button>
-                            </form>
-                        {% else %}
-                            <div class="alert alert-warning small mb-2">
-                                Gmail n’est pas connecté. Connecte ton compte pour pouvoir créer des brouillons.
-                            </div>
-                            <a href="{% url 'gmail_connect' %}" class="btn btn-gmail w-100 btn-mx">
-                                Connecter Gmail
-                            </a>
-                        {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Email de contact</label>
+                        <input type="email" name="email_lm" class="form-control" value="{{ profil.email_lm|default:'' }}" placeholder="votre@email.com">
                     </div>
 
-                    <form method="POST">
-                        {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Téléphone</label>
+                        <input type="text" name="telephone_lm" class="form-control" value="{{ profil.telephone_lm|default:'' }}" placeholder="+41 ...">
+                    </div>
 
-                        {% if messages %}
-                            <div class="mb-3">
-                                {% for message in messages %}
-                                    <div class="alert alert-{{ message.tags }} small mb-2" role="alert">{{ message }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Adresse complète</label>
+                        <textarea name="adresse_lm" class="form-control" rows="2" placeholder="Rue, Ville, CP">{{ profil.adresse_lm|default:'' }}</textarea>
+                    </div>
 
-                        {% if form.errors %}
-                            <div class="alert alert-danger small">
-                                <div class="fw-bold mb-1">Le formulaire contient des erreurs.</div>
-                                {{ form.non_field_errors }}
-                                <ul class="mb-0">
-                                    {% for field in form %}
-                                        {% for error in field.errors %}
-                                            <li><span class="fw-bold">{{ field.label }}:</span> {{ error }}</li>
-                                        {% endfor %}
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        {% endif %}
-
-                        <h6 class="section-title mb-4">Identification</h6>
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="small fw-bold">Prénom</label>
-                                {{ form.prenom_lm }}
-                            </div>
-                            <div class="col-md-6">
-                                <label class="small fw-bold">Nom</label>
-                                {{ form.nom_lm }}
-                            </div>
-                            <div class="col-md-6">
-                                <label class="small fw-bold"><i class="bi bi-telephone me-1"></i>Téléphone</label>
-                                {{ form.telephone }}
-                            </div>
-                            <div class="col-md-6">
-                                <label class="small fw-bold"><i class="bi bi-envelope me-1"></i>Email</label>
-                                {{ form.email_lm }}
-                            </div>
-                        </div>
-
-                        <h6 class="section-title mb-4">Localisation</h6>
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-12">
-                                <label class="small fw-bold">Rue et Numéro</label>
-                                {{ form.rue }}
-                            </div>
-                            <div class="col-md-4">
-                                <label class="small fw-bold">NPA</label>
-                                {{ form.npa }}
-                            </div>
-                            <div class="col-md-8">
-                                <label class="small fw-bold">Ville</label>
-                                {{ form.ville }}
-                            </div>
-                        </div>
-
-                        <h6 class="section-title mb-4">Templates de lettre par secteur</h6>
-                        <input type="hidden" name="template_secteur" id="templateSecteur" value="{{ default_template_secteur }}">
-
-                        <div class="d-flex flex-wrap gap-2 mb-3" id="secteursButtons">
-                            {% for s in secteurs_templates %}
-                                {% if s == "Informatique" %}
-                                    {% with btn_class="btn-outline-primary" %}
-                                        <button type="button" class="btn btn-sm {{ btn_class }}" data-secteur="{{ s }}">{{ s }}</button>
-                                    {% endwith %}
-                                {% elif s == "Banque" %}
-                                    {% with btn_class="btn-outline-success" %}
-                                        <button type="button" class="btn btn-sm {{ btn_class }}" data-secteur="{{ s }}">{{ s }}</button>
-                                    {% endwith %}
-                                {% elif s == "Luxe" %}
-                                    {% with btn_class="btn-outline-warning" %}
-                                        <button type="button" class="btn btn-sm {{ btn_class }}" data-secteur="{{ s }}">{{ s }}</button>
-                                    {% endwith %}
-                                {% elif s == "Santé" %}
-                                    {% with btn_class="btn-outline-danger" %}
-                                        <button type="button" class="btn btn-sm {{ btn_class }}" data-secteur="{{ s }}">{{ s }}</button>
-                                    {% endwith %}
-                                {% elif s == "Construction" %}
-                                    {% with btn_class="btn-outline-secondary" %}
-                                        <button type="button" class="btn btn-sm {{ btn_class }}" data-secteur="{{ s }}">{{ s }}</button>
-                                    {% endwith %}
-                                {% elif "Social" in s %}
-                                    {% with btn_class="btn-outline-info" %}
-                                        <button type="button" class="btn btn-sm {{ btn_class }}" data-secteur="{{ s }}">{{ s }}</button>
-                                    {% endwith %}
-                                {% elif s == "Architecture" %}
-                                    {% with btn_class="btn-outline-dark" %}
-                                        <button type="button" class="btn btn-sm {{ btn_class }}" data-secteur="{{ s }}">{{ s }}</button>
-                                    {% endwith %}
-                                {% else %}
-                                    {% with btn_class="btn-outline-primary" %}
-                                        <button type="button" class="btn btn-sm {{ btn_class }}" data-secteur="{{ s }}">{{ s }}</button>
-                                    {% endwith %}
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="small fw-bold">Objet</label>
-                            <input type="text" class="form-control" id="objet" name="objet" placeholder="Candidature spontanée" />
-                            <div class="form-text">Variables possibles: {entreprise}, {secteur}, {ville}</div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="small fw-bold">Introduction</label>
-                            <input type="text" class="form-control" id="introduction" name="introduction" placeholder="Madame, Monsieur," />
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="small fw-bold">Paragraph 1</label>
-                            <textarea class="form-control" id="paragraph_1" name="paragraph_1" rows="3"></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="small fw-bold">Paragraph 2</label>
-                            <textarea class="form-control" id="paragraph_2" name="paragraph_2" rows="3"></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="small fw-bold">Paragraph 3</label>
-                            <textarea class="form-control" id="paragraph_3" name="paragraph_3" rows="3"></textarea>
-                        </div>
-                        <div class="mb-5">
-                            <label class="small fw-bold">Paragraph 4</label>
-                            <textarea class="form-control" id="paragraph_4" name="paragraph_4" rows="3"></textarea>
-                        </div>
-
-                        <div class="mb-5">
-                            <label class="small fw-bold">Salutation</label>
-                            <textarea class="form-control" id="salutation" name="salutation" rows="3" placeholder="Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées."></textarea>
-                        </div>
-
-                        <div class="d-grid mt-5">
-                            <button type="submit" class="btn btn-primary btn-save text-white fw-bold">
-                                <i class="bi bi-cloud-arrow-up-fill me-2"></i> Mettre à jour mon profil
-                            </button>
-                        </div>
-                    </form>
+                    <hr class="my-4 opacity-0">
+                    
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold py-2 shadow">
+                        Sauvegarder les modifications
+                    </button>
                 </div>
             </div>
 
-            <p class="text-center mt-4 text-muted small">
-                <i class="bi bi-shield-lock me-1"></i> Tes données sont stockées sur ton instance locale sécurisée.
-            </p>
+            <div class="col-lg-8">
+                <div class="card card-settings p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Configuration des Lettres</h5>
+                        <span class="badge bg-light text-primary border px-3">Éditeur de Templates</span>
+                    </div>
+
+                    <p class="text-muted small">Sélectionnez un secteur pour modifier le modèle de lettre correspondant. Ces textes seront utilisés lors de la génération automatique.</p>
+
+                    <div id="secteurs-buttons-wrap" class="d-flex flex-wrap gap-2 mb-4">
+                        <div class="group-label-tpl">Business & Marketing</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Administration">Administration</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Marketing">Marketing</button>
+                        
+                        <div class="group-label-tpl">Services & Beauté</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Esthétique">Esthétique</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Luxe">Luxe</button>
+                        
+                        <div class="group-label-tpl">Technique</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Informatique">Informatique</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Architecture">Architecture</button>
+                    </div>
+
+                    <div id="editor-area" class="p-3 bg-light rounded-4 border">
+                        <input type="hidden" id="current_secteur_name" name="current_secteur_name" value="Informatique">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-primary">Objet de la lettre</label>
+                            <input type="text" id="objet" name="objet" class="form-control border-0 shadow-sm" placeholder="Objet du mail...">
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">Salutation / Intro</label>
+                                <textarea id="introduction" name="introduction" class="form-control border-0 shadow-sm" rows="3"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">Paragraphe 1 (Moi)</label>
+                                <textarea id="paragraph_1" name="paragraph_1" class="form-control border-0 shadow-sm" rows="3"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">Paragraphe 2 (Vous)</label>
+                                <textarea id="paragraph_2" name="paragraph_2" class="form-control border-0 shadow-sm" rows="3"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">Paragraphe 3 (Nous)</label>
+                                <textarea id="paragraph_3" name="paragraph_3" class="form-control border-0 shadow-sm" rows="3"></textarea>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label fw-bold small">Paragraphe 4 (Conclusion)</label>
+                                <textarea id="paragraph_4" name="paragraph_4" class="form-control border-0 shadow-sm" rows="3"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold small text-primary">Formule de politesse</label>
+                                <input type="text" id="salutation" name="salutation" class="form-control border-0 shadow-sm">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+    </form>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script id="templatesData" type="application/json">{{ templates_json|safe }}</script>
-<script>
-  (function () {
-    const dataEl = document.getElementById("templatesData");
-    const templates = dataEl && dataEl.textContent ? JSON.parse(dataEl.textContent) : {};
 
-    const buttonsWrap = document.getElementById("secteursButtons");
-    const hidden = document.getElementById("templateSecteur");
-    const fields = ["objet","introduction","paragraph_1","paragraph_2","paragraph_3","paragraph_4","salutation"]
-      .reduce((acc, k) => (acc[k] = document.getElementById(k), acc), {});
+{{ templates_json|json_script:"templates-data" }}
+<script>
+    // Chargement des données de template (Passées par Django en JSON)
+    const templates = JSON.parse(document.getElementById("templates-data").textContent);
+    const buttonsWrap = document.getElementById("secteurs-buttons-wrap");
+    const hiddenSecteur = document.getElementById("current_secteur_name");
+
+    const fields = {
+      objet: document.getElementById("objet"),
+      introduction: document.getElementById("introduction"),
+      paragraph_1: document.getElementById("paragraph_1"),
+      paragraph_2: document.getElementById("paragraph_2"),
+      paragraph_3: document.getElementById("paragraph_3"),
+      paragraph_4: document.getElementById("paragraph_4"),
+      salutation: document.getElementById("salutation")
+    };
 
     function loadSecteur(name) {
-      hidden.value = name;
+      hiddenSecteur.value = name;
       const t = templates[name] || {};
+      
       fields.objet.value = t.objet || "";
-      fields.introduction.value = t.salutation || "";
+      fields.introduction.value = t.salutation || ""; // Dans ta DB c'est souvent mappé ainsi
       fields.paragraph_1.value = t.paragraph_1 || "";
       fields.paragraph_2.value = t.paragraph_2 || "";
       fields.paragraph_3.value = t.paragraph_3 || "";
       fields.paragraph_4.value = t.paragraph_4 || "";
       fields.salutation.value = t.conclusion || "";
-      [...buttonsWrap.querySelectorAll("button[data-secteur]")].forEach(b => {
-        b.classList.toggle("btn-primary", b.dataset.secteur === name);
-        b.classList.toggle("btn-outline-primary", b.dataset.secteur !== name);
+
+      // Gestion visuelle des boutons
+      buttonsWrap.querySelectorAll("button[data-secteur]").forEach(b => {
+        if (b.dataset.secteur === name) {
+          b.classList.replace("btn-outline-primary", "btn-primary");
+        } else {
+          b.classList.replace("btn-primary", "btn-outline-primary");
+        }
       });
     }
 
-    if (buttonsWrap) {
-      buttonsWrap.addEventListener("click", (e) => {
-        const btn = e.target.closest("button[data-secteur]");
-        if (!btn) return;
+    // Event listener pour le changement de secteur
+    buttonsWrap.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-secteur]");
+      if (btn) {
         loadSecteur(btn.dataset.secteur);
-      });
-    }
-    const firstBtn = buttonsWrap ? buttonsWrap.querySelector("button[data-secteur]") : null;
-    if (firstBtn) loadSecteur(firstBtn.dataset.secteur);
-  })();
+      }
+    });
+
+    // Charger le premier secteur par défaut (ex: Informatique)
+    window.addEventListener('DOMContentLoaded', () => {
+        loadSecteur("Informatique");
+    });
 </script>
+
 </body>
 </html>

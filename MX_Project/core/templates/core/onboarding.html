@@ -6,30 +6,170 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MX | Démarrage</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <link rel="stylesheet" href="{% static 'css/login.css' %}">
+  <style>
+    body { background: #f0f2f5; display: block; padding: 2rem 0; }
+    .onboard-card {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 2.5rem;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .logo-mx { font-weight: 800; font-size: 2rem; text-align: center; margin-bottom: 0.5rem; display: block; }
+    .logo-mx span { color: #0d6efd; }
+    .group-title {
+      font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 1px; color: #0d6efd;
+      border-bottom: 1px solid rgba(13,110,253,0.15);
+      padding-bottom: 6px; margin: 1.2rem 0 0.6rem;
+    }
+    .form-check-label { font-size: 0.85rem; color: #313d4f; }
+    .form-check { margin-bottom: 0.3rem; }
+    .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+    @media(max-width:500px){ .check-grid { grid-template-columns: 1fr; } }
+    .btn-mx { background: #0d6efd; color: white; border-radius: 8px; font-weight: 600; border: none; }
+    .btn-mx:hover { filter: brightness(0.93); color: white; }
+    .select-all-link { font-size: 0.75rem; color: #0d6efd; cursor: pointer; text-decoration: underline; }
+  </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="logo-mx">M<span>X</span></div>
-    <h5 class="text-center mb-2 text-muted">Bienvenue</h5>
-    <p class="small text-muted text-center mb-4">
-      Choisis les secteurs qui t’intéressent. Le scan démarre en arrière-plan dès validation.
+  <div class="onboard-card">
+    <span class="logo-mx">M<span>X</span></span>
+    <h5 class="text-center mb-1 text-muted">Bienvenue</h5>
+    <p class="small text-muted text-center mb-3">
+      Choisis les secteurs NOGA qui t'intéressent.<br>Le scan démarrera en arrière-plan dès validation.
     </p>
+
+    <div class="d-flex justify-content-end mb-2 gap-3">
+      <span class="select-all-link" id="selectAll">Tout sélectionner</span>
+      <span class="select-all-link" id="clearAll">Tout désélectionner</span>
+    </div>
 
     <form method="post">
       {% csrf_token %}
-      {% for code,label in secteurs %}
-        <div class="form-check mb-2">
-          <input class="form-check-input" type="checkbox" name="secteurs" id="s{{ code }}" value="{{ code }}">
-          <label class="form-check-label small" for="s{{ code }}">{{ label }}</label>
-        </div>
-      {% endfor %}
+
+      <p class="group-title"><i class="bi bi-tree me-1"></i>Secteur primaire</p>
+      <div class="check-grid">
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s01" value="01"><label class="form-check-label" for="s01">Agriculture et chasse (01)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s02" value="02"><label class="form-check-label" for="s02">Sylviculture (02)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s03" value="03"><label class="form-check-label" for="s03">Pêche et aquaculture (03)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s05" value="05"><label class="form-check-label" for="s05">Extraction de houille (05)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s06" value="06"><label class="form-check-label" for="s06">Extraction d'hydrocarbures (06)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s07" value="07"><label class="form-check-label" for="s07">Extraction de minerais (07)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s08" value="08"><label class="form-check-label" for="s08">Autres industries extractives (08)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s09" value="09"><label class="form-check-label" for="s09">Soutien aux industries extractives (09)</label></div>
+      </div>
+
+      <p class="group-title"><i class="bi bi-gear me-1"></i>Industrie &amp; Fabrication</p>
+      <div class="check-grid">
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s10" value="10"><label class="form-check-label" for="s10">Industrie alimentaire (10)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s11" value="11"><label class="form-check-label" for="s11">Fabrication de boissons (11)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s12" value="12"><label class="form-check-label" for="s12">Industrie du tabac (12)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s13" value="13"><label class="form-check-label" for="s13">Fabrication de textiles (13)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s14" value="14"><label class="form-check-label" for="s14">Industrie de l'habillement (14)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s15" value="15"><label class="form-check-label" for="s15">Industrie du cuir (15)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s16" value="16"><label class="form-check-label" for="s16">Travail du bois (16)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s17" value="17"><label class="form-check-label" for="s17">Industrie du papier (17)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s18" value="18"><label class="form-check-label" for="s18">Imprimerie et reproduction (18)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s19" value="19"><label class="form-check-label" for="s19">Cokéfaction et raffinage (19)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s20" value="20"><label class="form-check-label" for="s20">Industrie chimique (20)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s21" value="21"><label class="form-check-label" for="s21">Industrie pharmaceutique (21)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s22" value="22"><label class="form-check-label" for="s22">Caoutchouc et plastique (22)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s23" value="23"><label class="form-check-label" for="s23">Minéraux non métalliques (23)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s24" value="24"><label class="form-check-label" for="s24">Métallurgie (24)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s25" value="25"><label class="form-check-label" for="s25">Produits métalliques (25)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s26" value="26"><label class="form-check-label" for="s26">Produits informatiques/électroniques (26)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s27" value="27"><label class="form-check-label" for="s27">Équipements électriques (27)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s28" value="28"><label class="form-check-label" for="s28">Machines et équipements (28)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s29" value="29"><label class="form-check-label" for="s29">Industrie automobile (29)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s30" value="30"><label class="form-check-label" for="s30">Autres matériels de transport (30)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s31" value="31"><label class="form-check-label" for="s31">Fabrication de meubles (31)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s32" value="32"><label class="form-check-label" for="s32">Autres industries manufacturières (32)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s33" value="33"><label class="form-check-label" for="s33">Réparation de machines (33)</label></div>
+      </div>
+
+      <p class="group-title"><i class="bi bi-lightning me-1"></i>Énergie &amp; Construction</p>
+      <div class="check-grid">
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s35" value="35"><label class="form-check-label" for="s35">Électricité et gaz (35)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s36" value="36"><label class="form-check-label" for="s36">Distribution d'eau (36)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s37" value="37"><label class="form-check-label" for="s37">Gestion des eaux usées (37)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s38" value="38"><label class="form-check-label" for="s38">Traitement des déchets (38)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s39" value="39"><label class="form-check-label" for="s39">Dépollution (39)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s41" value="41"><label class="form-check-label" for="s41">Construction de bâtiments (41)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s42" value="42"><label class="form-check-label" for="s42">Génie civil (42)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s43" value="43"><label class="form-check-label" for="s43">Travaux de construction spécialisés (43)</label></div>
+      </div>
+
+      <p class="group-title"><i class="bi bi-shop me-1"></i>Commerce &amp; Services</p>
+      <div class="check-grid">
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s45" value="45"><label class="form-check-label" for="s45">Commerce automobile (45)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s46" value="46"><label class="form-check-label" for="s46">Commerce de gros (46)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s47" value="47"><label class="form-check-label" for="s47">Commerce de détail / Luxe (47)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s49" value="49"><label class="form-check-label" for="s49">Transports terrestres (49)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s50" value="50"><label class="form-check-label" for="s50">Transports par eau (50)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s51" value="51"><label class="form-check-label" for="s51">Transports aériens (51)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s52" value="52"><label class="form-check-label" for="s52">Entreposage et logistique (52)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s53" value="53"><label class="form-check-label" for="s53">Poste et courrier (53)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s55" value="55"><label class="form-check-label" for="s55">Hébergement (55)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s56" value="56"><label class="form-check-label" for="s56">Restauration (56)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s58" value="58"><label class="form-check-label" for="s58">Édition (58)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s59" value="59"><label class="form-check-label" for="s59">Cinéma et musique (59)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s60" value="60"><label class="form-check-label" for="s60">Radio et Télévision (60)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s61" value="61"><label class="form-check-label" for="s61">Télécommunications (61)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s62" value="62"><label class="form-check-label" for="s62">Informatique et programmation (62)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s63" value="63"><label class="form-check-label" for="s63">Services d'information (63)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s64" value="64"><label class="form-check-label" for="s64">Services financiers / Banques (64)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s65" value="65"><label class="form-check-label" for="s65">Assurances (65)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s66" value="66"><label class="form-check-label" for="s66">Activités auxiliaires financières (66)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s68" value="68"><label class="form-check-label" for="s68">Activités immobilières (68)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s69" value="69"><label class="form-check-label" for="s69">Juridique et comptabilité (69)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s70" value="70"><label class="form-check-label" for="s70">Conseil de gestion / Sièges (70)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s71" value="71"><label class="form-check-label" for="s71">Architecture et ingénierie (71)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s72" value="72"><label class="form-check-label" for="s72">Recherche-développement (72)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s73" value="73"><label class="form-check-label" for="s73">Publicité et marketing (73)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s74" value="74"><label class="form-check-label" for="s74">Design, Photo… (74)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s75" value="75"><label class="form-check-label" for="s75">Activités vétérinaires (75)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s77" value="77"><label class="form-check-label" for="s77">Location et location-bail (77)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s78" value="78"><label class="form-check-label" for="s78">Activités liées à l'emploi (78)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s79" value="79"><label class="form-check-label" for="s79">Agences de voyage (79)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s80" value="80"><label class="form-check-label" for="s80">Enquêtes et sécurité (80)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s81" value="81"><label class="form-check-label" for="s81">Services aux bâtiments (81)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s82" value="82"><label class="form-check-label" for="s82">Administration et soutien bureau (82)</label></div>
+      </div>
+
+      <p class="group-title"><i class="bi bi-heart-pulse me-1"></i>Services publics &amp; Humains</p>
+      <div class="check-grid">
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s84" value="84"><label class="form-check-label" for="s84">Administration publique (84)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s85" value="85"><label class="form-check-label" for="s85">Enseignement (85)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s86" value="86"><label class="form-check-label" for="s86">Santé humaine (86)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s87" value="87"><label class="form-check-label" for="s87">Hébergement médico-social (87)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s88" value="88"><label class="form-check-label" for="s88">Action sociale sans hébergement (88)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s90" value="90"><label class="form-check-label" for="s90">Arts et spectacles (90)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s91" value="91"><label class="form-check-label" for="s91">Musées et culture (91)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s92" value="92"><label class="form-check-label" for="s92">Jeux de hasard (92)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s93" value="93"><label class="form-check-label" for="s93">Sport, loisirs et récréation (93)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s94" value="94"><label class="form-check-label" for="s94">Organisations associatives (94)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s95" value="95"><label class="form-check-label" for="s95">Réparation ordinateurs et biens (95)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s96" value="96"><label class="form-check-label" for="s96">Autres services personnels / Esthétique (96)</label></div>
+      </div>
 
       <div class="d-grid mt-4">
         <button type="submit" class="btn btn-mx w-100 py-2">Lancer mon premier scan</button>
       </div>
     </form>
   </div>
+
+  <script>
+    document.getElementById('selectAll').addEventListener('click', () => {
+      document.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = true);
+    });
+    document.getElementById('clearAll').addEventListener('click', () => {
+      document.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = false);
+    });
+  </script>
 </body>
 </html>
-

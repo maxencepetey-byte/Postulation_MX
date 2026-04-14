@@ -59,6 +59,68 @@ logger = logging.getLogger(__name__)
 SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREPRISE_ETABLISSEMENT/MapServer/0"
 
 
+
+
+
+
+SECTEURS_NOGA_GROUPS = {
+    "Primaire": [
+        ("01", "Agriculture et chasse"), ("02", "Sylviculture"),
+        ("03", "Pêche et aquaculture"), ("05", "Extraction de houille"),
+        ("06", "Extraction d'hydrocarbures"), ("07", "Extraction de minerais"),
+        ("08", "Autres industries extractives"), ("09", "Soutien extractives"),
+    ],
+    "Industrie": [
+        ("10", "Industrie alimentaire"), ("11", "Fabrication de boissons"),
+        ("12", "Industrie du tabac"), ("13", "Fabrication de textiles"),
+        ("14", "Industrie de l'habillement"), ("15", "Industrie du cuir"),
+        ("16", "Travail du bois"), ("17", "Industrie du papier"),
+        ("18", "Imprimerie et reproduction"), ("19", "Cokéfaction et raffinage"),
+        ("20", "Industrie chimique"), ("21", "Industrie pharmaceutique"),
+        ("22", "Caoutchouc et plastique"), ("23", "Minéraux non métalliques"),
+        ("24", "Métallurgie"), ("25", "Produits métalliques"),
+        ("26", "Produits informatiques/électroniques"), ("27", "Équipements électriques"),
+        ("28", "Machines et équipements"), ("29", "Industrie automobile"),
+        ("30", "Autres matériels de transport"), ("31", "Fabrication de meubles"),
+        ("32", "Autres industries manufacturières"), ("33", "Réparation de machines"),
+    ],
+    "Construction & Énergie": [
+        ("35", "Électricité et gaz"), ("36", "Distribution d'eau"),
+        ("37", "Gestion des eaux usées"), ("38", "Traitement des déchets"),
+        ("39", "Dépollution"), ("41", "Construction de bâtiments"),
+        ("42", "Génie civil"), ("43", "Travaux de construction spécialisés"),
+    ],
+    "Services & Tertiaire": [
+        ("45", "Commerce automobile"), ("46", "Commerce de gros"),
+        ("47", "Commerce de détail / Luxe"), ("49", "Transports terrestres"),
+        ("50", "Transports par eau"), ("51", "Transports aériens"),
+        ("52", "Entreposage et logistique"), ("53", "Poste et courrier"),
+        ("55", "Hébergement"), ("56", "Restauration"),
+        ("58", "Édition"), ("59", "Cinéma et musique"),
+        ("60", "Radio et Télévision"), ("61", "Télécommunications"),
+        ("62", "Informatique et programmation"), ("63", "Services d'information"),
+        ("64", "Services financiers / Banques"), ("65", "Assurances"),
+        ("66", "Activités auxiliaires financières"), ("68", "Activités immobilières"),
+        ("69", "Juridique et comptabilité"), ("70", "Conseil de gestion / Sièges"),
+        ("71", "Architecture et ingénierie"), ("72", "Recherche-développement"),
+        ("73", "Publicité et marketing"), ("74", "Design, Photo…"),
+        ("75", "Activités vétérinaires"), ("77", "Location et location-bail"),
+        ("78", "Activités liées à l'emploi"), ("79", "Agences de voyage"),
+        ("80", "Enquêtes et sécurité"), ("81", "Services aux bâtiments"),
+        ("82", "Administration et soutien bureau"),
+    ],
+    "Santé & Social": [
+        ("84", "Administration publique"), ("85", "Enseignement"),
+        ("86", "Santé humaine"), ("87", "Hébergement médico-social"),
+        ("88", "Action sociale sans hébergement"), ("90", "Arts et spectacles"),
+        ("91", "Musées et culture"), ("92", "Jeux de hasard"),
+        ("93", "Sport, loisirs et récréation"), ("94", "Organisations associatives"),
+        ("95", "Réparation ordinateurs et biens"), ("96", "Autres services personnels / Esthétique"),
+    ],
+}
+
+
+
 # ---------------------------------------------------------------------------
 # Delete helpers (storage-safe)
 # ---------------------------------------------------------------------------
@@ -127,15 +189,56 @@ def _email_to_pdf_name(email: str) -> str:
     return f"LM_{e}.pdf"
 
 NOGA_MAP = {
-    '62': 'Informatique',
-    '64': 'Banque',
-    '71': 'Architecture',
-    '86': 'Santé',
-    '43': 'Construction',
-    '47': 'Luxe',
-    '87': 'Social (Héb.)',
-    '88': 'Social (Action)',
+    # SECTEUR PRIMAIRE
+    "01": "Agriculture et chasse", "02": "Sylviculture et exploitation forestière",
+    "03": "Pêche et aquaculture", "05": "Extraction de houille",
+    "06": "Extraction d'hydrocarbures", "07": "Extraction de minerais",
+    "08": "Autres industries extractives", "09": "Soutien aux industries extractives",
+    # SECTEUR SECONDAIRE
+    "10": "Industrie alimentaire", "11": "Fabrication de boissons",
+    "12": "Industrie du tabac", "13": "Fabrication de textiles",
+    "14": "Industrie de l'habillement", "15": "Industrie du cuir",
+    "16": "Travail du bois", "17": "Industrie du papier",
+    "18": "Imprimerie et reproduction", "19": "Cokéfaction et raffinage",
+    "20": "Industrie chimique", "21": "Industrie pharmaceutique",
+    "22": "Produits en caoutchouc et plastique", "23": "Produits minéraux non métalliques",
+    "24": "Métallurgie", "25": "Produits métalliques (hors machines)",
+    "26": "Produits informatiques et électroniques", "27": "Équipements électriques",
+    "28": "Machines et équipements n.c.a.", "29": "Industrie automobile",
+    "30": "Autres matériels de transport", "31": "Fabrication de meubles",
+    "32": "Autres industries manufacturières", "33": "Réparation et installation de machines",
+    # ÉNERGIE & CONSTRUCTION
+    "35": "Production d'électricité et gaz", "36": "Captage et distribution d'eau",
+    "37": "Gestion des eaux usées", "38": "Collecte et traitement des déchets",
+    "39": "Dépollution", "41": "Construction de bâtiments",
+    "42": "Génie civil", "43": "Travaux de construction spécialisés",
+    # TERTIAIRE
+    "45": "Commerce et réparation automobile", "46": "Commerce de gros",
+    "47": "Commerce de détail (incl. Luxe)", "49": "Transports terrestres",
+    "50": "Transports par eau", "51": "Transports aériens",
+    "52": "Entreposage et soutien aux transports", "53": "Activités de poste et de courrier",
+    "55": "Hébergement", "56": "Restauration", "58": "Édition",
+    "59": "Cinéma et musique", "60": "Radio et Télévision",
+    "61": "Télécommunications", "62": "Informatique et programmation",
+    "63": "Services d'information", "64": "Services financiers (Banques)",
+    "65": "Assurances", "66": "Activités auxiliaires financières",
+    "68": "Activités immobilières", "69": "Juridique et comptabilité",
+    "70": "Conseil de gestion (Sièges sociaux)", "71": "Architecture et ingénierie",
+    "72": "Recherche-développement", "73": "Publicité et études de marché (Marketing)",
+    "74": "Activités spécialisées (Design, Photo)", "75": "Activités vétérinaires",
+    "77": "Location et location-bail", "78": "Activités liées à l'emploi",
+    "79": "Agences de voyage", "80": "Enquêtes et sécurité",
+    "81": "Services relatifs aux bâtiments", "82": "Administration et soutien bureau",
+    # SERVICES PUBLICS & HUMAINS
+    "84": "Administration publique", "85": "Enseignement",
+    "86": "Santé humaine", "87": "Hébergement médico-social",
+    "88": "Action sociale sans hébergement", "90": "Arts et spectacles",
+    "91": "Musées et culture", "92": "Jeux de hasard",
+    "93": "Sport, loisirs et récréation", "94": "Activités des organisations associatives",
+    "95": "Réparation d'ordinateurs et biens personnels",
+    "96": "Autres services personnels (Esthétique)",
 }
+
 
 
 # ---------------------------------------------------------------------------
@@ -444,22 +547,27 @@ def onboarding(request):
 # DASHBOARD
 # ---------------------------------------------------------------------------
 
+
 @login_required
 def dashboard(request):
+    # --- Ta logique existante ---
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    
     if not profil.onboarding_done and ScanSession.objects.filter(utilisateur=request.user).count() == 0:
         return redirect("onboarding")
-    # profil obligatoire après onboarding
+
     if profil.onboarding_done and (not profil.prenom_lm or not profil.nom_lm or not profil.email_lm):
         return redirect("settings_page")
-    entreprises_list = EntrepriseCible.objects.filter(
-        utilisateur=request.user
-    ).order_by('-id')
+
+    entreprises_list = EntrepriseCible.objects.filter(utilisateur=request.user).order_by('-id')
     total_entreprises = entreprises_list.count()
     paginator = Paginator(entreprises_list, 50)
     page_obj = paginator.get_page(request.GET.get('page'))
+    
     tous_les_docs = DocumentUtilisateur.objects.filter(utilisateur=request.user).order_by("-date_upload")
     sessions = ScanSession.objects.filter(utilisateur=request.user)[:5]
+    
+    # Récupération des secteurs utilisés pour le filtrage
     secteurs_uniques = list(
         EntrepriseCible.objects.filter(
             utilisateur=request.user,
@@ -471,8 +579,8 @@ def dashboard(request):
         .distinct()
         .order_by("secteur_activite")
     )
-    # packs: affichés dynamiquement selon le secteur sélectionné (via AJAX)
 
+    # Gestion de la version statique
     static_version = None
     try:
         p = finders.find("js/scan-history.min.js")
@@ -481,12 +589,14 @@ def dashboard(request):
     except Exception:
         static_version = None
 
+    # --- Retour avec le nouveau dictionnaire secteurs_noga ---
     return render(request, 'core/dashboard.html', {
         'entreprises': page_obj,
         'total_entreprises': total_entreprises,
         'tous_les_docs': tous_les_docs,
         'sessions_recentes': sessions,
         'secteurs_uniques': secteurs_uniques,
+        'secteurs_noga': SECTEURS_NOGA_GROUPS, # <--- AJOUT ICI
         "gmail_connected": GmailOAuthToken.objects.filter(utilisateur=request.user).exists(),
         'static_version': static_version,
     })
@@ -775,35 +885,6 @@ def _lm_candidates_from_pack_zip_bytes(zip_bytes: bytes, ent_name: str, limit: i
     return out
 
 
-def _lm_from_any_pack_zip(user, ent_name: str, secteur_nom: str | None) -> tuple[str, bytes] | None:
-    """
-    Cherche la LM dans tous les ZIP `PACK_LM` (du plus récent au plus ancien).
-    Si un secteur est fourni, on priorise les packs taggés avec ce secteur.
-    """
-    qs = DocumentUtilisateur.objects.filter(utilisateur=user, type_doc="PACK_LM").order_by("-date_upload")
-    if secteur_nom:
-        qs = qs.order_by()  # reset ordering for union-like concat (Django limitation)
-        preferred = DocumentUtilisateur.objects.filter(
-            utilisateur=user, type_doc="PACK_LM", secteur_nom=secteur_nom
-        ).order_by("-date_upload")
-        fallback = DocumentUtilisateur.objects.filter(utilisateur=user, type_doc="PACK_LM").exclude(
-            secteur_nom=secteur_nom
-        ).order_by("-date_upload")
-        packs = list(preferred) + list(fallback)
-    else:
-        packs = list(qs)
-
-    for pack in packs:
-        try:
-            zip_bytes = _read_filefield_bytes(pack.fichier)
-        except Exception:
-            continue
-        if not zip_bytes:
-            continue
-        found = _lm_from_pack_zip_bytes(zip_bytes, ent_name)
-        if found:
-            return found
-    return None
 
 
 # ---------------------------------------------------------------------------

@@ -4,11 +4,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MX | Explorateur de Données</title>
-
+    <title>MX | Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}{% if static_version %}?v={{ static_version }}{% endif %}">
+    <style>
+      .group-label {
+        font-size: 0.65rem; 
+        font-weight: 800; 
+        text-transform: uppercase;
+        letter-spacing: .5px; 
+        color: #6c757d; 
+        margin: 1rem 0 0.4rem;
+        padding-bottom: 3px; 
+        border-bottom: 1px solid rgba(0,0,0,.06);
+      }
+      .secteurs-container {
+        max-height: 450px; 
+        overflow-y: auto; 
+        padding-right: 8px;
+      }
+      /* Personnalisation de la scrollbar pour le container NOGA */
+      .secteurs-container::-webkit-scrollbar { width: 4px; }
+      .secteurs-container::-webkit-scrollbar-track { background: #f1f1f1; }
+      .secteurs-container::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+    </style>
 </head>
 <body>
     <div class="animated-bg">
@@ -18,198 +38,124 @@
     </div>
 
     <nav class="navbar navbar-mx sticky-top">
-        <div class="container-fluid">
-            <a href="{% url 'dashboard' %}" class="logo-mx">M<span>X</span></a>
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-bold" href="#">MX PROJECT</a>
             <div class="d-flex align-items-center gap-3">
-                <div class="text-end d-none d-sm-block">
-                    <div class="fw-bold small">{{ request.user.username }}</div>
-                </div>
-                <a href="{% url 'settings_page' %}" class="btn btn-sm btn-light border px-3">
-                    <i class="bi bi-person-vcard-fill text-primary"></i> <span class="small fw-bold">Profil & LM</span>
-                </a>
-                <form action="{% url 'logout' %}" method="POST" class="m-0 p-0">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-link text-danger small p-0" title="Se déconnecter">
-                        <i class="bi bi-box-arrow-right"></i>
-                    </button>
-                </form>
+                <span class="badge {% if gmail_connected %}bg-success{% else %}bg-danger{% endif %} rounded-pill">
+                    <i class="bi bi-google me-1"></i> Gmail {% if gmail_connected %}Connecté{% else %}Déconnecté{% endif %}
+                </span>
+                <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-secondary rounded-pill">Déconnexion</a>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid py-4 px-md-5">
-        {% if messages %}
-            <div class="row">
-                <div class="col-lg-12 mb-3">
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} mb-2" role="alert">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            </div>
-        {% endif %}
+    <div class="container-fluid px-4 py-4">
         <div class="row">
-            <div class="col-lg-3 mb-4">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body p-4">
-                        <h6 class="section-title mb-4"><i class="bi bi-folder-fill me-2"></i>Documents</h6>
-
-                        <div class="list-group list-group-flush mb-4">
-                            {% for doc in tous_les_docs %}
-                            <div class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent border-light">
-                                <div class="text-truncate" style="max-width: 140px;">
-                                    <div class="fw-bold small">{{ doc.nom_affichage }}</div>
-                                    <span class="badge badge-secteur">{{ doc.get_type_doc_display }}</span>
-                                </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <a href="{{ doc.fichier.url }}" target="_blank" class="text-primary"><i class="bi bi-eye"></i></a>
-                                    <form action="{% url 'delete_document' doc.id %}" method="POST" class="m-0">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-link p-0 text-danger" onclick="return confirm('Supprimer ce document ?')">
-                                            <i class="bi bi-x-circle"></i>
-                                        </button>
-                                    </form>
-                                </div>
+            <div class="col-lg-3">
+                <div class="card card-custom mb-4 shadow-sm border-0">
+                    <div class="card-header bg-transparent border-0 pt-4">
+                        <h5 class="card-title fw-bold mb-0">Filtres NOGA</h5>
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn btn-sm btn-light text-primary fw-600" id="checkAll">Tout</button>
+                            <button type="button" class="btn btn-sm btn-light text-secondary fw-600" id="uncheckAll">Aucun</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="filterForm" method="GET" action="{% url 'dashboard' %}">
+                            <div class="secteurs-container">
+                                {% for groupe, items in secteurs_noga.items %}
+                                    <div class="group-label">{{ groupe }}</div>
+                                    {% for code, label in items %}
+                                        <div class="form-check custom-check py-1">
+                                            <input class="form-check-input" type="checkbox" name="secteurs" 
+                                                   value="{{ code }}" id="noga_{{ code }}"
+                                                   {% if code in selected_secteurs %}checked{% endif %}>
+                                            <label class="form-check-label small d-flex justify-content-between w-100" for="noga_{{ code }}">
+                                                <span>{{ label }}</span>
+                                                <span class="text-muted opacity-50" style="font-size: 0.7rem;">{{ code }}</span>
+                                            </label>
+                                        </div>
+                                    {% endfor %}
+                                {% endfor %}
                             </div>
-                            {% empty %}
-                            <div class="alert alert-light text-center small py-2">Aucun document</div>
-                            {% endfor %}
-                        </div>
-
-                        <div class="hr-text">Nouveau CV/Doc</div>
-                        <form action="{% url 'upload_cv' %}" method="POST" enctype="multipart/form-data">
-                            {% csrf_token %}
-                            <input type="text" name="nom_doc" class="form-control form-control-sm mb-2" placeholder="Nom du doc" required>
-                            <input type="file" name="cv_file" class="form-control form-control-sm mb-3" accept=".pdf" required>
-                            <button type="submit" class="btn btn-dark btn-sm w-100 btn-mx">Charger</button>
+                            
+                            <button type="submit" class="btn btn-primary w-100 mt-4 rounded-pill fw-bold py-2 shadow-sm">
+                                <i class="bi bi-filter-circle me-2"></i>Appliquer les filtres
+                            </button>
                         </form>
+                    </div>
+                </div>
 
-                        <div class="hr-text">Action groupée</div>
-                        <div class="mb-2">
-                            {% if gmail_connected %}
-                                <form action="{% url 'creer_brouillons_gmail' %}" method="POST" class="mb-2">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="secteur" id="gmailSecteurHidden" value="">
-                                    <button type="submit" class="btn btn-gmail w-100 py-2 btn-mx">
-                                        <i class="bi bi-google me-2"></i> Créer 500 brouillons Gmail
-                                    </button>
-                                </form>
-                                <form action="{% url 'gmail_disconnect' %}" method="POST" class="m-0">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-outline-secondary w-100 py-2 btn-mx">
-                                        <i class="bi bi-plug"></i> Déconnecter Gmail
-                                    </button>
-                                </form>
-                            {% else %}
-                                <a href="{% url 'gmail_connect' %}" class="btn btn-gmail w-100 py-2 btn-mx">
-                                    <i class="bi bi-google me-2"></i> Connecter Gmail
-                                </a>
-                            {% endif %}
-                        </div>
-                        <div class="alert alert-light small">
-                            Les packs (500) sont créés uniquement quand tu cliques sur un pack dans la section “Dossiers de traitement”.
-                        </div>
-
-                        <div class="text-center mt-3">
-                            <form action="{% url 'vider_liste_et_documents' %}" method="POST" class="m-0">
-                                {% csrf_token %}
-                                <button
-                                    type="submit"
-                                    class="btn btn-link text-danger small p-0 text-decoration-none"
-                                    onclick="return confirm('Vider la liste ET les documents ? (Historique conservé)')"
-                                >
-                                    <i class="bi bi-trash3"></i> Vider (liste + documents)
-                                </button>
-                            </form>
+                <div class="card card-custom shadow-sm border-0">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-3">Mes Documents</h6>
+                        <div class="list-group list-group-flush">
+                            {% for doc in tous_les_docs|slice:":5" %}
+                                <div class="list-group-item bg-transparent px-0 border-0 d-flex align-items-center">
+                                    <i class="bi bi-file-earmark-pdf text-danger me-2 fs-5"></i>
+                                    <div class="text-truncate">
+                                        <div class="small fw-bold text-truncate">{{ doc.nom_fichier }}</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">{{ doc.date_upload|date:"d/m/Y" }}</div>
+                                    </div>
+                                </div>
+                            {% empty %}
+                                <p class="text-muted small">Aucun document.</p>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="col-lg-9">
-                <div class="card mb-4 shadow-sm border-0">
-                    <div class="card-body p-4">
-                        <h6 class="section-title mb-4">SITG Genève : Scan Massif (2000+)</h6>
-                        <form action="{% url 'lancer_scan' %}" method="GET">
-                            <div class="row g-2 mb-4">
-                                <div class="col-md-3">
-                                    <div class="p-2 border rounded bg-white h-100">
-                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="62"><label class="form-check-label">Informatique (62)</label></div>
-                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="71"><label class="form-check-label">Architecture (71)</label></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="p-2 border rounded bg-white h-100">
-                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="64"><label class="form-check-label">Banques (64)</label></div>
-                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="86"><label class="form-check-label">Santé (86)</label></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="p-2 border rounded bg-white h-100">
-                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="43"><label class="form-check-label">Bâtiment (43)</label></div>
-                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="47"><label class="form-check-label">Horlogerie/Luxe (47)</label></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="p-2 border rounded bg-white h-100 border-info">
-                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="88"><label class="form-check-label text-info fw-bold">Social (88)</label></div>
-                                        <div class="form-check small"><input class="form-check-input" type="checkbox" name="secteurs" value="87"><label class="form-check-label text-info fw-bold">Hébergement (87)</label></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="form-check form-switch small">
-                                    <input class="form-check-input" type="checkbox" checked disabled>
-                                    <label class="form-check-label text-muted italic">Vérification MX active</label>
-                                </div>
-                                <div class="d-flex gap-2">
-                                    <!-- bouton unique dans la sidebar -->
-                                    <button type="submit" class="btn btn-primary btn-mx shadow-sm px-5">Lancer Scan Illimité</button>
-                                </div>
-                            </div>
-                        </form>
-
-                        <div id="packsSection" style="display:none;">
-                            <div class="hr-text">Dossiers de traitement par Packs de 500</div>
-                            <div id="packsGrid" class="pack-grid mb-4">
-                                {% include "partials/packs_cards.html" with pack_infos=None %}
-                            </div>
+                <div class="card card-custom border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0 p-4 d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="fw-bold mb-0">Entreprises Cibles</h4>
+                            <p class="text-muted small mb-0">{{ total_entreprises }} résultats trouvés</p>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary btn-sm rounded-pill px-3">Exporter CSV</button>
                         </div>
                     </div>
-                </div>
-
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-3 flex-wrap">
-                            <h6 class="section-title mb-0">Base de données ({{ total_entreprises }} entrées)</h6>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="small text-muted fw-bold">Historique par secteur</span>
-                                <select
-                                    id="secteurSelect"
-                                    class="form-select form-select-sm"
-                                    style="width: 220px;"
-                                    data-url="{% url 'entreprises_filtrer_secteur' %}"
-                                >
-                                    {% for s in secteurs_uniques %}
-                                        <option value="{{ s }}">{{ s }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="bg-light">
-                                <tr class="small text-muted text-uppercase" style="font-size: 0.65rem;">
-                                    <th class="ps-4">Entreprise & Contact</th>
+                                <tr>
+                                    <th class="ps-4">Entreprise</th>
                                     <th>Secteur</th>
-                                    <th>Pack Id</th>
-                                    <th>Statut</th>
-                                    <th>Action</th>
+                                    <th>Ville</th>
+                                    <th>Status</th>
+                                    <th class="text-end pe-4">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="entreprisesTbody" class="small">
-                                {% include "partials/entreprises_table.html" with entreprises=entreprises %}
+                            <tbody>
+                                {% for entreprise in entreprises %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold">{{ entreprise.nom }}</div>
+                                        <div class="text-muted small">{{ entreprise.email|default:"Pas d'email" }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">{{ entreprise.secteur_activite }}</span>
+                                    </td>
+                                    <td>{{ entreprise.ville|default:"-" }}</td>
+                                    <td>
+                                        <span class="badge bg-soft-success text-success">Cible active</span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <button class="btn btn-sm btn-icon-only"><i class="bi bi-eye"></i></button>
+                                        <button class="btn btn-sm btn-icon-only"><i class="bi bi-pencil"></i></button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-5 text-muted">
+                                        <i class="bi bi-building-exclamation fs-1 d-block mb-3"></i>
+                                        Aucune entreprise ne correspond à vos filtres.
+                                    </td>
+                                </tr>
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -218,9 +164,13 @@
                     <div class="card-footer bg-white py-3 border-0">
                         <nav class="d-flex justify-content-center">
                             <ul class="pagination pagination-sm mb-0">
-                                {% if entreprises.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ entreprises.previous_page_number }}">Précédent</a></li>{% endif %}
+                                {% if entreprises.has_previous %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ entreprises.previous_page_number }}{% for s in selected_secteurs %}&secteurs={{ s }}{% endfor %}">Précédent</a></li>
+                                {% endif %}
                                 <li class="page-item active"><span class="page-link">{{ entreprises.number }}</span></li>
-                                {% if entreprises.has_next %}<li class="page-item"><a class="page-link" href="?page={{ entreprises.next_page_number }}">Suivant</a></li>{% endif %}
+                                {% if entreprises.has_next %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ entreprises.next_page_number }}{% for s in selected_secteurs %}&secteurs={{ s }}{% endfor %}">Suivant</a></li>
+                                {% endif %}
                             </ul>
                         </nav>
                     </div>
@@ -232,5 +182,14 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{% static 'js/scan-history.min.js' %}{% if static_version %}?v={{ static_version }}{% endif %}"></script>
+    <script>
+      // Scripts pour cocher/décocher rapidement
+      document.getElementById('checkAll').addEventListener('click', () => {
+        document.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = true);
+      });
+      document.getElementById('uncheckAll').addEventListener('click', () => {
+        document.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = false);
+      });
+    </script>
 </body>
 </html>
