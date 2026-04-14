@@ -33,7 +33,6 @@
             background: rgba(0,0,0,0.03);
             border-radius: 4px;
         }
-        /* Style pour les boutons de catégories */
         .category-nav {
             display: flex;
             flex-wrap: wrap;
@@ -88,6 +87,7 @@
         {% endif %}
 
         <div class="row">
+            {# ── Colonne gauche : Documents + Gmail ── #}
             <div class="col-lg-3 mb-4">
                 <div class="card shadow-sm border-0 h-100">
                     <div class="card-body p-4">
@@ -124,10 +124,17 @@
                         </form>
 
                         <div class="hr-text">Gmail</div>
+                        {# Champ caché pour transmettre le secteur sélectionné aux actions Gmail #}
+                        <input type="hidden" id="gmailSecteurHidden" name="secteur" value="">
+
                         {% if gmail_connected %}
-                            <button type="submit" form="scanForm" class="btn btn-gmail w-100 py-2 btn-mx mb-2">
-                                <i class="bi bi-google me-2"></i> Créer Brouillons
-                            </button>
+                            <form action="{% url 'creer_brouillons_gmail' %}" method="POST" id="gmailForm">
+                                {% csrf_token %}
+                                <input type="hidden" name="secteur" id="gmailSecteurField" value="">
+                                <button type="submit" class="btn btn-gmail w-100 py-2 btn-mx mb-2">
+                                    <i class="bi bi-google me-2"></i> Créer Brouillons
+                                </button>
+                            </form>
                             <form action="{% url 'gmail_disconnect' %}" method="POST">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-outline-secondary btn-sm w-100 py-2">Déconnecter</button>
@@ -139,7 +146,10 @@
                 </div>
             </div>
 
+            {# ── Colonne droite : Scan + Tableau + Packs ── #}
             <div class="col-lg-9">
+
+                {# Card Scan #}
                 <div class="card mb-4 shadow-sm border-0">
                     <div class="card-body p-4">
                         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -154,7 +164,13 @@
                         </div>
 
                         <form action="{% url 'lancer_scan' %}" method="GET" id="scanForm">
-        
+                            <div class="category-nav">
+                                <button type="button" class="btn btn-primary category-btn active" data-target="all">Tous les secteurs</button>
+                                {% for groupe, items in secteurs_noga.items %}
+                                    <button type="button" class="btn btn-outline-primary category-btn" data-target="cat_{{ forloop.counter }}">{{ groupe }}</button>
+                                {% endfor %}
+                            </div>
+
                             <div class="secteurs-grid-container mb-4">
                                 <div class="row" id="secteursWrapper">
                                     {% for groupe, items in secteurs_noga.items %}
@@ -187,6 +203,17 @@
                     </div>
                 </div>
 
+                {# ── Section Packs (cachée par défaut, affichée via JS) ── #}
+                <div id="packsSection" class="card mb-4 shadow-sm border-0" style="display:none;">
+                    <div class="card-header bg-white py-3 border-0">
+                        <h6 class="section-title mb-0"><i class="bi bi-folder-zip me-2"></i>Packs disponibles</h6>
+                    </div>
+                    <div class="card-body p-4">
+                        <div id="packsGrid" class="pack-grid"></div>
+                    </div>
+                </div>
+
+                {# ── Tableau entreprises ── #}
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
                         <h6 class="section-title mb-0">Base de données ({{ total_entreprises }})</h6>
@@ -214,20 +241,20 @@
                         </table>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
+
+            </div>{# fin col-lg-9 #}
+        </div>{# fin row #}
+    </div>{# fin container #}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/scan-history.min.js' %}{% if static_version %}?v={{ static_version }}{% endif %}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const categoryBtns = document.querySelectorAll('.category-btn');
             const categoryGroups = document.querySelectorAll('.category-group');
 
-            // --- Logique de filtrage des catégories ---
             categoryBtns.forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    // Mettre à jour le style visuel des boutons
                     categoryBtns.forEach(b => {
                         b.classList.remove('btn-primary', 'active');
                         b.classList.add('btn-outline-primary');
@@ -235,17 +262,13 @@
                     e.target.classList.remove('btn-outline-primary');
                     e.target.classList.add('btn-primary', 'active');
 
-                    // Récupérer la cible à afficher
                     const target = e.target.getAttribute('data-target');
-
-                    // Afficher/Cacher les groupes
                     categoryGroups.forEach(group => {
                         if (target === 'all' || group.id === target) {
                             group.style.display = 'block';
-                            // Ajuste la largeur pour prendre tout l'espace si une seule catégorie est ciblée
-                            if(target !== 'all') {
+                            if (target !== 'all') {
                                 group.classList.remove('col-md-4');
-                                group.classList.add('col-md-12'); 
+                                group.classList.add('col-md-12');
                             } else {
                                 group.classList.add('col-md-4');
                                 group.classList.remove('col-md-12');
@@ -257,8 +280,6 @@
                 });
             });
 
-            // --- Logique de sélection rapide (Intelligente) ---
-            // Le bouton "Tout cocher" ne cochera que les cases ACTUELLEMENT VISIBLES
             document.getElementById('checkAll').addEventListener('click', () => {
                 const visibleGroups = Array.from(categoryGroups).filter(g => g.style.display !== 'none');
                 visibleGroups.forEach(group => {
@@ -266,10 +287,18 @@
                 });
             });
 
-            // Le bouton "Décocher" décoche tout (même les cachés, par sécurité)
             document.getElementById('uncheckAll').addEventListener('click', () => {
                 document.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = false);
             });
+
+            // Sync champ Gmail avec secteur sélectionné
+            const secteurSelect = document.getElementById('secteurSelect');
+            const gmailSecteurField = document.getElementById('gmailSecteurField');
+            if (secteurSelect && gmailSecteurField) {
+                secteurSelect.addEventListener('change', () => {
+                    gmailSecteurField.value = secteurSelect.value;
+                });
+            }
         });
     </script>
 </body>
