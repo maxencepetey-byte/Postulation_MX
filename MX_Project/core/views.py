@@ -1450,9 +1450,7 @@ def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
 def creer_brouillons_gmail(request):
     """
     Crée jusqu'à 500 brouillons Gmail (API) pour les entreprises non traitées.
-    - Secteur optionnel
-    - ZIP régénéré depuis les MÊMES entreprises à traiter (sans marquer est_dans_paquet)
-    - Fonctionne même si le fichier ZIP est perdu (filesystem éphémère Render)
+    Génère chaque LM à la volée depuis la DB — plus de dépendance au ZIP pré-généré.
     """
     try:
         access_token = _gmail_get_access_token(request.user)
@@ -1463,12 +1461,10 @@ def creer_brouillons_gmail(request):
         )
         return redirect("settings_page")
 
-    # Secteur optionnel
     secteur = (request.POST.get("secteur") or "").strip()
-
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
 
-    # ── Entreprises à traiter (récupérées EN PREMIER) ──
+    # ── Entreprises à traiter ──
     qs_ent = EntrepriseCible.objects.filter(
         utilisateur=request.user,
         est_dans_paquet=False,
@@ -1481,41 +1477,6 @@ def creer_brouillons_gmail(request):
         messages.info(request, "Aucune entreprise à traiter (toutes déjà traitées ou sans email).")
         return redirect("dashboard")
 
-    # ── Cherche le pack ZIP en storage ──
-    pack_doc_qs = DocumentUtilisateur.objects.filter(
-        utilisateur=request.user,
-        type_doc="PACK_LM",
-    )
-    if secteur:
-        pack_doc_qs = pack_doc_qs.filter(secteur_nom=secteur)
-    pack_doc = pack_doc_qs.order_by("-date_upload").first()
-
-    pack_zip_bytes = None
-    if pack_doc:
-        try:
-            pack_zip_bytes = _read_filefield_bytes(pack_doc.fichier)
-        except Exception:
-            pass
-
-    # ── Si ZIP indisponible → régénère depuis les MÊMES entreprises à traiter ──
-    # Important : NE PAS appeler _generer_zip() qui marquerait est_dans_paquet=True
-    if not pack_zip_bytes:
-        try:
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, 'w') as zf:
-                for ent_r in entreprises:
-                    try:
-                        pdf = generer_pdf_lm(profil, ent_r)
-                        nom = _email_to_pdf_name(ent_r.email)
-                        zf.writestr(nom, pdf)
-                    except Exception:
-                        continue
-            zip_buffer.seek(0)
-            pack_zip_bytes = zip_buffer.read()
-        except Exception as e:
-            messages.error(request, f"Impossible de générer le pack de LM : {str(e)[:200]}")
-            return redirect("dashboard")
-
     # ── CV obligatoire ──
     cv_doc = (
         DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc="CV")
@@ -1523,7 +1484,6 @@ def creer_brouillons_gmail(request):
         .first()
     )
     if not cv_doc:
-        # ✅ FIX : redirect settings_page pour guider l'utilisateur vers l'upload
         messages.error(request, "Aucun CV trouvé. Ajoute un document de type CV dans Réglages avant de créer des brouillons.")
         return redirect("settings_page")
 
@@ -1540,7 +1500,7 @@ def creer_brouillons_gmail(request):
         messages.error(request, "Impossible de lire ton CV (storage). Ré-uploade le fichier puis réessaye.")
         return redirect("settings_page")
 
-    # ✅ FIX : pré-charger les annexes UNE FOIS avant la boucle (évite N×500 lectures fichier)
+    # Pré-charger les annexes UNE FOIS avant la boucle
     other_attachments: list[tuple[str, bytes, str]] = []
     for d in other_docs:
         try:
@@ -1551,6 +1511,7 @@ def creer_brouillons_gmail(request):
     # ── Création des brouillons ──
     created = 0
     skipped: list[str] = []
+
     for ent in entreprises:
         secteur_nom = (ent.secteur_activite or "Général").strip()
         tpl = (
@@ -1598,25 +1559,12 @@ def creer_brouillons_gmail(request):
                 f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
             )
 
-        # Recherche directe par email dans le ZIP
-        expected_pdf_name = _email_to_pdf_name(ent.email)
+        # Générer la LM directement depuis la DB (plus de dépendance au ZIP)
         try:
-            with zipfile.ZipFile(io.BytesIO(pack_zip_bytes), "r") as _zf:
-                if expected_pdf_name in _zf.namelist():
-                    lm_name = expected_pdf_name
-                    lm_pdf = _zf.read(expected_pdf_name)
-                else:
-                    found = _lm_from_pack_zip_bytes(pack_zip_bytes, ent.nom)
-                    if not found:
-                        skipped.append(f"{ent.nom} ({ent.email})")
-                        logger.warning(
-                            "LM introuvable pour '%s' (%s) — ni par email ni par nom.",
-                            ent.nom, ent.email,
-                        )
-                        continue
-                    lm_name, lm_pdf = found
-        except Exception as _e:
-            logger.error("Erreur lecture ZIP pour '%s': %s", ent.nom, _e)
+            lm_pdf = generer_pdf_lm(profil, ent)
+            lm_name = _email_to_pdf_name(ent.email)
+        except Exception as e:
+            logger.warning("Échec génération PDF pour '%s' (%s): %s", ent.nom, ent.email, str(e)[:200])
             skipped.append(f"{ent.nom} ({ent.email})")
             continue
 
@@ -1631,11 +1579,9 @@ def creer_brouillons_gmail(request):
             _gmail_create_draft(access_token, raw)
         except Exception as e:
             err_str = str(e)
-            # ✅ FIX : erreur d'auth (401/403) → stop immédiat et redirect settings
             if "401" in err_str or "403" in err_str or "invalid_grant" in err_str.lower():
                 messages.error(request, f"Erreur d'authentification Gmail. Reconnectez Gmail dans Réglages. Détails: {err_str[:200]}")
                 return redirect("settings_page")
-            # ✅ FIX : erreur ponctuelle → on skipe cette entreprise sans stopper les autres
             logger.warning("Gmail draft failed for '%s' (%s): %s", ent.nom, ent.email, err_str[:200])
             skipped.append(f"{ent.nom} ({ent.email}) [erreur API]")
             continue
@@ -1652,15 +1598,7 @@ def creer_brouillons_gmail(request):
         msg += f" Attention: {len(skipped)} ignorée(s) : {noms}{suite}"
     messages.success(request, msg)
 
-    if created > 0 and pack_doc:
-        try:
-            pack_doc.used_for_gmail = True
-            pack_doc.save(update_fields=["used_for_gmail"])
-        except Exception:
-            pass
-
     return redirect("dashboard")
-
 # ---------------------------------------------------------------------------
 # ACTIONS CRUD
 # ---------------------------------------------------------------------------
