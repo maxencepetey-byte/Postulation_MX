@@ -60,9 +60,6 @@ SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREP
 
 
 
-
-
-
 SECTEURS_NOGA_GROUPS = {
     "Primaire": [
         ("01", "Agriculture et chasse"), ("02", "Sylviculture"),
@@ -118,7 +115,6 @@ SECTEURS_NOGA_GROUPS = {
         ("95", "Réparation ordinateurs et biens"), ("96", "Autres services personnels / Esthétique"),
     ],
 }
-
 
 
 # ---------------------------------------------------------------------------
@@ -179,10 +175,8 @@ def _email_to_pdf_name(email: str) -> str:
     import unicodedata as _ud
 
     e = (email or "").strip().lower()
-    # Normaliser les accents éventuels
     e = _ud.normalize("NFKD", e)
     e = "".join(c for c in e if not _ud.combining(c))
-    # Garder uniquement les caractères valides dans un nom de fichier
     e = re.sub(r"[^a-z0-9@._+\-]", "_", e)
     e = e.replace("@", "_AT_")
     e = re.sub(r"_+", "_", e).strip("_")
@@ -235,7 +229,7 @@ NOGA_MAP = {
     # TERTIAIRE
     "45": "Commerce et réparation automobile",
     "46": "Commerce de gros",
-    "47": "Commerce de détail (incl. Luxe)",   # ← BUG CORRIGÉ (était sur 2 lignes)
+    "47": "Commerce de détail (incl. Luxe)",
     "49": "Transports terrestres",
     "50": "Transports par eau",
     "51": "Transports aériens",
@@ -279,9 +273,63 @@ NOGA_MAP = {
     "94": "Activités des organisations associatives",
     "95": "Réparation d'ordinateurs et biens personnels",
     "96": "Autres services personnels (Esthétique)",
+}  # ← FIN DE NOGA_MAP
+
+SECTEURS_NOGA_GROUPS = {
+    "Primaire": [
+        ("01", "Agriculture et chasse"), ("02", "Sylviculture"),
+        ("03", "Pêche et aquaculture"), ("05", "Extraction de houille"),
+        ("06", "Extraction d'hydrocarbures"), ("07", "Extraction de minerais"),
+        ("08", "Autres industries extractives"), ("09", "Soutien extractives"),
+    ],
+    "Industrie": [
+        ("10", "Industrie alimentaire"), ("11", "Fabrication de boissons"),
+        ("12", "Industrie du tabac"), ("13", "Fabrication de textiles"),
+        ("14", "Industrie de l'habillement"), ("15", "Industrie du cuir"),
+        ("16", "Travail du bois"), ("17", "Industrie du papier"),
+        ("18", "Imprimerie et reproduction"), ("19", "Cokéfaction et raffinage"),
+        ("20", "Industrie chimique"), ("21", "Industrie pharmaceutique"),
+        ("22", "Caoutchouc et plastique"), ("23", "Minéraux non métalliques"),
+        ("24", "Métallurgie"), ("25", "Produits métalliques"),
+        ("26", "Produits informatiques/électroniques"), ("27", "Équipements électriques"),
+        ("28", "Machines et équipements"), ("29", "Industrie automobile"),
+        ("30", "Autres matériels de transport"), ("31", "Fabrication de meubles"),
+        ("32", "Autres industries manufacturières"), ("33", "Réparation de machines"),
+    ],
+    "Construction & Énergie": [
+        ("35", "Électricité et gaz"), ("36", "Distribution d'eau"),
+        ("37", "Gestion des eaux usées"), ("38", "Traitement des déchets"),
+        ("39", "Dépollution"), ("41", "Construction de bâtiments"),
+        ("42", "Génie civil"), ("43", "Travaux de construction spécialisés"),
+    ],
+    "Services & Tertiaire": [
+        ("45", "Commerce automobile"), ("46", "Commerce de gros"),
+        ("47", "Commerce de détail / Luxe"), ("49", "Transports terrestres"),
+        ("50", "Transports par eau"), ("51", "Transports aériens"),
+        ("52", "Entreposage et logistique"), ("53", "Poste et courrier"),
+        ("55", "Hébergement"), ("56", "Restauration"),
+        ("58", "Édition"), ("59", "Cinéma et musique"),
+        ("60", "Radio et Télévision"), ("61", "Télécommunications"),
+        ("62", "Informatique et programmation"), ("63", "Services d'information"),
+        ("64", "Services financiers / Banques"), ("65", "Assurances"),
+        ("66", "Activités auxiliaires financières"), ("68", "Activités immobilières"),
+        ("69", "Juridique et comptabilité"), ("70", "Conseil de gestion / Sièges"),
+        ("71", "Architecture et ingénierie"), ("72", "Recherche-développement"),
+        ("73", "Publicité et marketing"), ("74", "Design, Photo…"),
+        ("75", "Activités vétérinaires"), ("77", "Location et location-bail"),
+        ("78", "Activités liées à l'emploi"), ("79", "Agences de voyage"),
+        ("80", "Enquêtes et sécurité"), ("81", "Services aux bâtiments"),
+        ("82", "Administration et soutien bureau"),
+    ],
+    "Santé & Social": [
+        ("84", "Administration publique"), ("85", "Enseignement"),
+        ("86", "Santé humaine"), ("87", "Hébergement médico-social"),
+        ("88", "Action sociale sans hébergement"), ("90", "Arts et spectacles"),
+        ("91", "Musées et culture"), ("92", "Jeux de hasard"),
+        ("93", "Sport, loisirs et récréation"), ("94", "Organisations associatives"),
+        ("95", "Réparation ordinateurs et biens"), ("96", "Autres services personnels / Esthétique"),
+    ],
 }
-
-
 # ---------------------------------------------------------------------------
 # UTILS
 # ---------------------------------------------------------------------------
@@ -1736,3 +1784,4 @@ def vider_liste_et_documents(request):
             status=500,
             content_type="text/plain; charset=utf-8",
         )
+    
