@@ -635,28 +635,35 @@ def onboarding(request):
 # ---------------------------------------------------------------------------
 # DASHBOARD
 # ---------------------------------------------------------------------------
-
+# core/views.py
 
 @login_required
 def dashboard(request):
-    # --- Ta logique existante ---
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
     
+    # Redirections de sécurité
     if not profil.onboarding_done and ScanSession.objects.filter(utilisateur=request.user).count() == 0:
         return redirect("onboarding")
 
     if profil.onboarding_done and (not profil.prenom_lm or not profil.nom_lm or not profil.email_lm):
         return redirect("settings_page")
 
+    # Données principales
     entreprises_list = EntrepriseCible.objects.filter(utilisateur=request.user).order_by('-id')
     total_entreprises = entreprises_list.count()
+    
+    # --- CALCUL DE LA VARIABLE POUR LA BARRE DE PROGRESSION ---
+    # On fait le calcul ici car le template HTML ne peut pas gérer les filtres complexes
+    nb_restants = request.user.entreprises.filter(
+        est_dans_paquet=False
+    ).exclude(email="").count()
+
     paginator = Paginator(entreprises_list, 50)
     page_obj = paginator.get_page(request.GET.get('page'))
     
     tous_les_docs = DocumentUtilisateur.objects.filter(utilisateur=request.user).order_by("-date_upload")
     sessions = ScanSession.objects.filter(utilisateur=request.user)[:5]
     
-    # Récupération des secteurs utilisés pour le filtrage
     secteurs_uniques = list(
         EntrepriseCible.objects.filter(
             utilisateur=request.user,
@@ -669,7 +676,6 @@ def dashboard(request):
         .order_by("secteur_activite")
     )
 
-    # Gestion de la version statique
     static_version = None
     try:
         p = finders.find("js/scan-history.min.js")
@@ -678,16 +684,16 @@ def dashboard(request):
     except Exception:
         static_version = None
 
-    # --- Retour avec le nouveau dictionnaire secteurs_noga ---
     return render(request, 'core/dashboard.html', {
         'entreprises': page_obj,
         'total_entreprises': total_entreprises,
         'tous_les_docs': tous_les_docs,
         'sessions_recentes': sessions,
         'secteurs_uniques': secteurs_uniques,
-        'secteurs_noga': SECTEURS_NOGA_GROUPS, # <--- AJOUT ICI
+        'secteurs_noga': SECTEURS_NOGA_GROUPS,
         "gmail_connected": GmailOAuthToken.objects.filter(utilisateur=request.user).exists(),
         'static_version': static_version,
+        'nb_restants': nb_restants, # <-- On passe la variable calculée ici
     })
 
 
