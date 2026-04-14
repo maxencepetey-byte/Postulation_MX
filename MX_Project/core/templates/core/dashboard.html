@@ -154,14 +154,7 @@
                         </div>
 
                         <form action="{% url 'lancer_scan' %}" method="GET" id="scanForm">
-                            
-                            <div class="category-nav">
-                                <button type="button" class="btn btn-primary category-btn active" data-target="all">Tous les secteurs</button>
-                                {% for groupe, items in secteurs_noga.items %}
-                                    <button type="button" class="btn btn-outline-primary category-btn" data-target="cat_{{ forloop.counter }}">{{ groupe }}</button>
-                                {% endfor %}
-                            </div>
-
+        
                             <div class="secteurs-grid-container mb-4">
                                 <div class="row" id="secteursWrapper">
                                     {% for groupe, items in secteurs_noga.items %}
