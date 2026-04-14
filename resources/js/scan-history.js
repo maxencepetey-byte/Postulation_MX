@@ -16,7 +16,7 @@
     const url = select.dataset.url;
     if (!url) return;
 
-    // Si le dashboard est appelé avec ?secteur=... (ex: après lancer_scan)
+    // Si le dashboard est appelé avec ?secteur=... (ex: après lancer_scan),
     // on pré-sélectionne ce secteur et on charge l'historique + packs associés.
     const presetSecteur = new URLSearchParams(window.location.search).get("secteur");
     if (presetSecteur) {
@@ -27,11 +27,12 @@
     let abortController = null;
 
     function syncHidden() {
-       const v = select.value || "";
-       if (hiddenGmailSecteur) hiddenGmailSecteur.value = v;
-       const gmailSecteurField = document.getElementById("gmailSecteurField");
-       if (gmailSecteurField) gmailSecteurField.value = v;
-     }
+      const v = select.value || "";
+      if (hiddenGmailSecteur) hiddenGmailSecteur.value = v;
+      // ✅ FIX : synchronise aussi le champ dans le <form id="gmailForm">
+      const gmailSecteurField = document.getElementById("gmailSecteurField");
+      if (gmailSecteurField) gmailSecteurField.value = v;
+    }
 
     async function refresh() {
       syncHidden();

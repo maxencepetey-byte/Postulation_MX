@@ -137,89 +137,22 @@
                         Le template <strong>Général</strong> est utilisé comme fallback pour tous les secteurs sans template spécifique.
                     </p>
 
-                    {# ── Grille secteurs ── #}
-                    <div id="secteurs-buttons-wrap" class="secteurs-tpl-container mb-4 d-flex flex-wrap gap-2">
-
-                        <div class="group-label-tpl w-100">Général</div>
-                        <button type="button" class="btn btn-sm btn-primary btn-tpl" data-secteur="Général">⭐ Général (défaut)</button>
-
-                        <div class="group-label-tpl w-100">Primaire</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Agriculture et chasse">Agriculture</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Sylviculture et exploitation forestière">Sylviculture</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Pêche et aquaculture">Pêche</button>
-
-                        <div class="group-label-tpl w-100">Industrie</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Industrie alimentaire">Alimentaire</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Industrie pharmaceutique">Pharmaceutique</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Industrie chimique">Chimie</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Industrie automobile">Automobile</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Fabrication de meubles">Meubles</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Métallurgie">Métallurgie</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Produits informatiques et électroniques">Électronique</button>
-
-                        <div class="group-label-tpl w-100">Construction & Énergie</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Construction de bâtiments">Construction</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Travaux de construction spécialisés">Travaux spécialisés</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Génie civil">Génie civil</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Production d'électricité et gaz">Électricité & Gaz</button>
-
-                        <div class="group-label-tpl w-100">Commerce & Services</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Commerce de détail (incl. Luxe)">Commerce / Luxe</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Commerce de gros">Commerce de gros</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Commerce et réparation automobile">Commerce auto</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Hébergement">Hébergement</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Restauration">Restauration</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Transports terrestres">Transports</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Entreposage et soutien aux transports">Logistique</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Agences de voyage">Agences voyage</button>
-
-                        <div class="group-label-tpl w-100">Finance & Immobilier</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Services financiers (Banques)">Banques</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Assurances">Assurances</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités immobilières">Immobilier</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités auxiliaires financières">Auxiliaires fin.</button>
-
-                        <div class="group-label-tpl w-100">Tech & Conseil</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Informatique et programmation">Informatique</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Télécommunications">Télécoms</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Services d'information">Services info</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Conseil de gestion (Sièges sociaux)">Conseil / Sièges</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Recherche-développement">R&D</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Architecture et ingénierie">Architecture</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités spécialisées (Design, Photo)">Design & Photo</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Publicité et études de marché (Marketing)">Marketing</button>
-
-                        <div class="group-label-tpl w-100">Juridique & RH</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Juridique et comptabilité">Juridique</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités liées à l'emploi">RH & Emploi</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Administration et soutien bureau">Administration</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Enquêtes et sécurité">Sécurité</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Services relatifs aux bâtiments">Services bâtiments</button>
-
-                        <div class="group-label-tpl w-100">Santé & Social</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Santé humaine">Santé</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Hébergement médico-social">Médico-social</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Action sociale sans hébergement">Action sociale</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Enseignement">Enseignement</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Administration publique">Adm. publique</button>
-
-                        <div class="group-label-tpl w-100">Culture & Loisirs</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Arts et spectacles">Arts & Spectacles</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Sport, loisirs et récréation">Sport & Loisirs</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Musées et culture">Musées</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Cinéma et musique">Cinéma & Musique</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Édition">Édition</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités des organisations associatives">Associations</button>
-
-                        <div class="group-label-tpl w-100">Autres services</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Autres services personnels (Esthétique)">Esthétique</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Réparation d'ordinateurs et biens personnels">Réparation</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Location et location-bail">Location</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités vétérinaires">Vétérinaire</button>
-
+                    {# ── Boutons secteurs ── #}
+                    <div id="secteurs-buttons-wrap" class="secteurs-tpl-container mb-3">
+                        {% for secteur in secteurs_templates %}
+                            {% if forloop.first %}
+                                <span class="group-label-tpl">Général</span>
+                                <button type="button" class="btn btn-tpl btn-primary btn-sm me-1" data-secteur="{{ secteur }}">{{ secteur }}</button>
+                            {% else %}
+                                {% if forloop.counter == 2 %}
+                                    <span class="group-label-tpl">Par secteur</span>
+                                {% endif %}
+                                <button type="button" class="btn btn-tpl btn-outline-primary btn-sm me-1" data-secteur="{{ secteur }}">{{ secteur }}</button>
+                            {% endif %}
+                        {% endfor %}
                     </div>
 
-                    {# ── Éditeur de template ── #}
+                    {# ── Zone d'édition ── #}
                     <div id="editor-area" class="p-3 bg-light rounded-4 border">
                         <input type="hidden" id="current_secteur_name" name="template_secteur" value="Général">
 
@@ -249,10 +182,11 @@
                                 <label class="form-label fw-bold small">Paragraphe 4 (Conclusion)</label>
                                 <textarea id="paragraph_4" name="paragraph_4" class="form-control border-0 shadow-sm" rows="3" placeholder="Disponible pour un entretien..."></textarea>
                             </div>
-                           <div class="col-12">
-                             <label class="form-label fw-bold small text-primary">Formule de politesse</label>
-                             <input type="text" id="conclusion" name="conclusion" class="form-control border-0 shadow-sm" placeholder="Je vous prie d'agréer...">
-                         </div>>
+                            <div class="col-12">
+                                <label class="form-label fw-bold small text-primary">Formule de politesse</label>
+                                {# ✅ FIX : renommé id/name de "salutation" → "conclusion" #}
+                                <input type="text" id="conclusion" name="conclusion" class="form-control border-0 shadow-sm" placeholder="Je vous prie d'agréer...">
+                            </div>
                         </div>
                     </div>
 
@@ -274,11 +208,13 @@
     document.addEventListener('DOMContentLoaded', () => {
 
         const templatesEl = document.getElementById("templates-data");
-        const templates = templatesEl ? JSON.parse(templatesEl.textContent) : {};
+        const templates = templatesEl ?
+            JSON.parse(templatesEl.textContent) : {};
 
         const buttonsWrap = document.getElementById("secteurs-buttons-wrap");
         const hiddenSecteur = document.getElementById("current_secteur_name");
 
+        // ✅ FIX : "salutation" renommé en "conclusion" partout dans cet objet
         const fields = {
             objet:        document.getElementById("objet"),
             introduction: document.getElementById("introduction"),
@@ -299,7 +235,8 @@
             fields.paragraph_2.value  = t.paragraph_2 || "";
             fields.paragraph_3.value  = t.paragraph_3 || "";
             fields.paragraph_4.value  = t.paragraph_4 || "";
-            fields.salutation.value   = t.conclusion  || "";
+            // ✅ FIX : fields.conclusion (plus fields.salutation)
+            fields.conclusion.value   = t.conclusion  || "";
 
             buttonsWrap.querySelectorAll("button[data-secteur]").forEach(b => {
                 if (b.dataset.secteur === name) {
