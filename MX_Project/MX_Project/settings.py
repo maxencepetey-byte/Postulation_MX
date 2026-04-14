@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('DJANGO_SECRET_KEY')
 
 # --- CRITIQUE 2 : DEBUG et ALLOWED_HOSTS sécurisés ---
-DEBUG = config('DJANGO_DEBUG', default=False, cast=bool)
+DEBUG = config('DJANGO_DEBUG', default=True, cast=bool)
 
 #ALLOWED_HOSTS = config(
    # 'DJANGO_ALLOWED_HOSTS',
