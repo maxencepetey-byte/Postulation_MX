@@ -1442,14 +1442,14 @@ def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
     if r.status_code >= 400:
         raise RuntimeError(f"Gmail API error {r.status_code}: {r.text[:300]}")
 
-
 @login_required
 @require_POST
 def creer_brouillons_gmail(request):
     """
     Crée jusqu'à 500 brouillons Gmail (API) pour les entreprises non traitées.
-    Le secteur est optionnel. Le ZIP est régénéré à la volée si le fichier est perdu
-    (filesystem éphémère Render). La régénération ne marque PAS est_dans_paquet=True.
+    - Secteur optionnel
+    - ZIP régénéré depuis les MÊMES entreprises à traiter (sans marquer est_dans_paquet)
+    - Fonctionne même si le fichier ZIP est perdu (filesystem éphémère Render)
     """
     try:
         access_token = _gmail_get_access_token(request.user)
@@ -1465,16 +1465,7 @@ def creer_brouillons_gmail(request):
 
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
 
-    # Cherche le pack le plus récent (filtré par secteur si fourni)
-    pack_doc_qs = DocumentUtilisateur.objects.filter(
-        utilisateur=request.user,
-        type_doc="PACK_LM",
-    )
-    if secteur:
-        pack_doc_qs = pack_doc_qs.filter(secteur_nom=secteur)
-    pack_doc = pack_doc_qs.order_by("-date_upload").first()
-
-    # Entreprises à traiter (non encore traitées)
+    # ── Entreprises à traiter (récupérées EN PREMIER) ──
     qs_ent = EntrepriseCible.objects.filter(
         utilisateur=request.user,
         est_dans_paquet=False,
@@ -1487,7 +1478,15 @@ def creer_brouillons_gmail(request):
         messages.info(request, "Aucune entreprise à traiter (toutes déjà traitées ou sans email).")
         return redirect("dashboard")
 
-    # Lecture du ZIP depuis storage
+    # ── Cherche le pack ZIP en storage ──
+    pack_doc_qs = DocumentUtilisateur.objects.filter(
+        utilisateur=request.user,
+        type_doc="PACK_LM",
+    )
+    if secteur:
+        pack_doc_qs = pack_doc_qs.filter(secteur_nom=secteur)
+    pack_doc = pack_doc_qs.order_by("-date_upload").first()
+
     pack_zip_bytes = None
     if pack_doc:
         try:
@@ -1495,22 +1494,13 @@ def creer_brouillons_gmail(request):
         except Exception:
             pass
 
-    # Si ZIP indisponible → régénération à la volée SANS marquer est_dans_paquet
+    # ── Si ZIP indisponible → régénère depuis les MÊMES entreprises à traiter ──
+    # Important : NE PAS appeler _generer_zip() qui marquerait est_dans_paquet=True
     if not pack_zip_bytes:
         try:
-            qs_regen = EntrepriseCible.objects.filter(
-                utilisateur=request.user
-            ).exclude(email="")
-            if secteur:
-                qs_regen = qs_regen.filter(secteur_activite=secteur)
-            entreprises_regen = list(qs_regen.order_by("id")[:500])
-            if not entreprises_regen:
-                messages.error(request, "Aucune entreprise trouvée pour régénérer le pack.")
-                return redirect("dashboard")
-            # Génération manuelle du ZIP — NE touche PAS à est_dans_paquet
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, 'w') as zf:
-                for ent_r in entreprises_regen:
+                for ent_r in entreprises:
                     try:
                         pdf = generer_pdf_lm(profil, ent_r)
                         nom = _email_to_pdf_name(ent_r.email)
@@ -1523,7 +1513,7 @@ def creer_brouillons_gmail(request):
             messages.error(request, f"Impossible de générer le pack de LM : {str(e)[:200]}")
             return redirect("dashboard")
 
-    # CV obligatoire
+    # ── CV obligatoire ──
     cv_doc = (
         DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc="CV")
         .order_by("-date_upload")
@@ -1553,6 +1543,7 @@ def creer_brouillons_gmail(request):
         except Exception:
             continue
 
+    # ── Création des brouillons ──
     created = 0
     skipped: list[str] = []
     for ent in entreprises:
