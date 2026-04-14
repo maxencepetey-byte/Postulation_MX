@@ -9,29 +9,38 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{% static 'css/settings.css' %}">
     <style>
-      .group-label-tpl {
-        font-size: 0.65rem; 
-        font-weight: 800; 
-        text-transform: uppercase;
-        letter-spacing: .5px; 
-        color: #6c757d; 
-        width: 100%;
-        border-bottom: 1px solid rgba(0,0,0,.07); 
-        padding-bottom: 4px; 
-        margin: 1.2rem 0 0.6rem;
-      }
-      .card-settings {
-        border: none;
-        border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(10px);
-      }
-      .btn-tpl {
-        margin-bottom: 5px;
-        font-weight: 500;
-        border-radius: 8px;
-      }
+        .group-label-tpl {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: #6c757d;
+            width: 100%;
+            border-bottom: 1px solid rgba(0,0,0,.07);
+            padding-bottom: 4px;
+            margin: 1.2rem 0 0.6rem;
+        }
+        .card-settings {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+        }
+        .btn-tpl {
+            margin-bottom: 5px;
+            font-weight: 500;
+            border-radius: 8px;
+            font-size: 0.78rem;
+        }
+        .secteurs-tpl-container {
+            max-height: 320px;
+            overflow-y: auto;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
@@ -46,25 +55,34 @@
         <a href="{% url 'dashboard' %}" class="logo-mx">M<span>X</span></a>
         <div class="d-flex align-items-center gap-3">
             <span class="text-muted small">{{ user.email }}</span>
-            <a href="{% url 'dashboard' %}" class="btn btn-sm btn-light rounded-pill px-3">Retour Dashboard</a>
+            <a href="{% url 'dashboard' %}" class="btn btn-sm btn-light rounded-pill px-3">
+                <i class="bi bi-arrow-left me-1"></i>Retour Dashboard
+            </a>
         </div>
     </div>
 </nav>
 
 <div class="container pb-5">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} mb-3" role="alert">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
     <form method="POST" action="{% url 'settings_page' %}">
         {% csrf_token %}
         <div class="row g-4">
-            
+
+            {# ── Colonne Identité ── #}
             <div class="col-lg-4">
                 <div class="card card-settings p-4">
                     <h5 class="fw-bold mb-4"><i class="bi bi-person-badge me-2 text-primary"></i>Identité</h5>
-                    
+
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Prénom (pour LM)</label>
                         <input type="text" name="prenom_lm" class="form-control" value="{{ profil.prenom_lm|default:'' }}" placeholder="Ex: Maxence">
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Nom (pour LM)</label>
                         <input type="text" name="nom_lm" class="form-control" value="{{ profil.nom_lm|default:'' }}" placeholder="Ex: Dupont">
@@ -77,137 +95,223 @@
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Téléphone</label>
-                        <input type="text" name="telephone_lm" class="form-control" value="{{ profil.telephone_lm|default:'' }}" placeholder="+41 ...">
+                        <input type="text" name="telephone" class="form-control" value="{{ profil.telephone|default:'' }}" placeholder="+41 79 000 00 00">
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Adresse complète</label>
-                        <textarea name="adresse_lm" class="form-control" rows="2" placeholder="Rue, Ville, CP">{{ profil.adresse_lm|default:'' }}</textarea>
+                        <label class="form-label small fw-bold">Rue</label>
+                        <input type="text" name="rue" class="form-control" value="{{ profil.rue|default:'' }}" placeholder="Rue de la Prairie 25">
                     </div>
 
-                    <hr class="my-4 opacity-0">
-                    
+                    <div class="row g-2 mb-3">
+                        <div class="col-4">
+                            <label class="form-label small fw-bold">NPA</label>
+                            <input type="text" name="npa" class="form-control" value="{{ profil.npa|default:'' }}" placeholder="1202">
+                        </div>
+                        <div class="col-8">
+                            <label class="form-label small fw-bold">Ville</label>
+                            <input type="text" name="ville" class="form-control" value="{{ profil.ville|default:'' }}" placeholder="Genève">
+                        </div>
+                    </div>
+
+                    <hr class="my-3 opacity-25">
+
                     <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold py-2 shadow">
-                        Sauvegarder les modifications
+                        <i class="bi bi-save me-2"></i>Sauvegarder
                     </button>
                 </div>
             </div>
 
+            {# ── Colonne Templates LM ── #}
             <div class="col-lg-8">
                 <div class="card card-settings p-4">
                     <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Configuration des Lettres</h5>
+                        <h5 class="fw-bold mb-0">
+                            <i class="bi bi-file-earmark-text me-2 text-primary"></i>Templates de Lettres
+                        </h5>
                         <span class="badge bg-light text-primary border px-3">Éditeur de Templates</span>
                     </div>
 
-                    <p class="text-muted small">Sélectionnez un secteur pour modifier le modèle de lettre correspondant. Ces textes seront utilisés lors de la génération automatique.</p>
+                    <p class="text-muted small mb-3">
+                        Sélectionnez un secteur pour modifier son modèle de lettre. 
+                        Le template <strong>Général</strong> est utilisé comme fallback pour tous les secteurs sans template spécifique.
+                    </p>
 
-                    <div id="secteurs-buttons-wrap" class="d-flex flex-wrap gap-2 mb-4">
-                        <div class="group-label-tpl">Business & Marketing</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Administration">Administration</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Marketing">Marketing</button>
-                        
-                        <div class="group-label-tpl">Services & Beauté</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Esthétique">Esthétique</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Luxe">Luxe</button>
-                        
-                        <div class="group-label-tpl">Technique</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Informatique">Informatique</button>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Architecture">Architecture</button>
+                    {# ── Grille secteurs ── #}
+                    <div id="secteurs-buttons-wrap" class="secteurs-tpl-container mb-4 d-flex flex-wrap gap-2">
+
+                        <div class="group-label-tpl w-100">Général</div>
+                        <button type="button" class="btn btn-sm btn-primary btn-tpl" data-secteur="Général">⭐ Général (défaut)</button>
+
+                        <div class="group-label-tpl w-100">Primaire</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Agriculture et chasse">Agriculture</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Sylviculture et exploitation forestière">Sylviculture</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Pêche et aquaculture">Pêche</button>
+
+                        <div class="group-label-tpl w-100">Industrie</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Industrie alimentaire">Alimentaire</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Industrie pharmaceutique">Pharmaceutique</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Industrie chimique">Chimie</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Industrie automobile">Automobile</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Fabrication de meubles">Meubles</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Métallurgie">Métallurgie</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Produits informatiques et électroniques">Électronique</button>
+
+                        <div class="group-label-tpl w-100">Construction & Énergie</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Construction de bâtiments">Construction</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Travaux de construction spécialisés">Travaux spécialisés</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Génie civil">Génie civil</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Production d'électricité et gaz">Électricité & Gaz</button>
+
+                        <div class="group-label-tpl w-100">Commerce & Services</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Commerce de détail (incl. Luxe)">Commerce / Luxe</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Commerce de gros">Commerce de gros</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Commerce et réparation automobile">Commerce auto</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Hébergement">Hébergement</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Restauration">Restauration</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Transports terrestres">Transports</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Entreposage et soutien aux transports">Logistique</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Agences de voyage">Agences voyage</button>
+
+                        <div class="group-label-tpl w-100">Finance & Immobilier</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Services financiers (Banques)">Banques</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Assurances">Assurances</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités immobilières">Immobilier</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités auxiliaires financières">Auxiliaires fin.</button>
+
+                        <div class="group-label-tpl w-100">Tech & Conseil</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Informatique et programmation">Informatique</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Télécommunications">Télécoms</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Services d'information">Services info</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Conseil de gestion (Sièges sociaux)">Conseil / Sièges</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Recherche-développement">R&D</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Architecture et ingénierie">Architecture</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités spécialisées (Design, Photo)">Design & Photo</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Publicité et études de marché (Marketing)">Marketing</button>
+
+                        <div class="group-label-tpl w-100">Juridique & RH</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Juridique et comptabilité">Juridique</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités liées à l'emploi">RH & Emploi</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Administration et soutien bureau">Administration</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Enquêtes et sécurité">Sécurité</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Services relatifs aux bâtiments">Services bâtiments</button>
+
+                        <div class="group-label-tpl w-100">Santé & Social</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Santé humaine">Santé</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Hébergement médico-social">Médico-social</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Action sociale sans hébergement">Action sociale</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Enseignement">Enseignement</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Administration publique">Adm. publique</button>
+
+                        <div class="group-label-tpl w-100">Culture & Loisirs</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Arts et spectacles">Arts & Spectacles</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Sport, loisirs et récréation">Sport & Loisirs</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Musées et culture">Musées</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Cinéma et musique">Cinéma & Musique</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Édition">Édition</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités des organisations associatives">Associations</button>
+
+                        <div class="group-label-tpl w-100">Autres services</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Autres services personnels (Esthétique)">Esthétique</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Réparation d'ordinateurs et biens personnels">Réparation</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Location et location-bail">Location</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tpl" data-secteur="Activités vétérinaires">Vétérinaire</button>
+
                     </div>
 
+                    {# ── Éditeur de template ── #}
                     <div id="editor-area" class="p-3 bg-light rounded-4 border">
-                        <input type="hidden" id="current_secteur_name" name="current_secteur_name" value="Informatique">
-                        
+                        <input type="hidden" id="current_secteur_name" name="current_secteur_name" value="Général">
+
                         <div class="mb-3">
                             <label class="form-label fw-bold small text-primary">Objet de la lettre</label>
-                            <input type="text" id="objet" name="objet" class="form-control border-0 shadow-sm" placeholder="Objet du mail...">
+                            <input type="text" id="objet" name="objet" class="form-control border-0 shadow-sm" placeholder="Ex: Candidature spontanée — {entreprise}">
                         </div>
 
                         <div class="row g-2">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold small">Salutation / Intro</label>
-                                <textarea id="introduction" name="introduction" class="form-control border-0 shadow-sm" rows="3"></textarea>
+                                <textarea id="introduction" name="introduction" class="form-control border-0 shadow-sm" rows="3" placeholder="Madame, Monsieur,"></textarea>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold small">Paragraphe 1 (Moi)</label>
-                                <textarea id="paragraph_1" name="paragraph_1" class="form-control border-0 shadow-sm" rows="3"></textarea>
+                                <textarea id="paragraph_1" name="paragraph_1" class="form-control border-0 shadow-sm" rows="3" placeholder="Présentation personnelle..."></textarea>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold small">Paragraphe 2 (Vous)</label>
-                                <textarea id="paragraph_2" name="paragraph_2" class="form-control border-0 shadow-sm" rows="3"></textarea>
+                                <textarea id="paragraph_2" name="paragraph_2" class="form-control border-0 shadow-sm" rows="3" placeholder="Ce qui m'attire dans votre entreprise..."></textarea>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold small">Paragraphe 3 (Nous)</label>
-                                <textarea id="paragraph_3" name="paragraph_3" class="form-control border-0 shadow-sm" rows="3"></textarea>
+                                <textarea id="paragraph_3" name="paragraph_3" class="form-control border-0 shadow-sm" rows="3" placeholder="Ce que je peux apporter..."></textarea>
                             </div>
                             <div class="col-12 mb-3">
                                 <label class="form-label fw-bold small">Paragraphe 4 (Conclusion)</label>
-                                <textarea id="paragraph_4" name="paragraph_4" class="form-control border-0 shadow-sm" rows="3"></textarea>
+                                <textarea id="paragraph_4" name="paragraph_4" class="form-control border-0 shadow-sm" rows="3" placeholder="Disponible pour un entretien..."></textarea>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-bold small text-primary">Formule de politesse</label>
-                                <input type="text" id="salutation" name="salutation" class="form-control border-0 shadow-sm">
+                                <input type="text" id="salutation" name="salutation" class="form-control border-0 shadow-sm" placeholder="Je vous prie d'agréer...">
                             </div>
                         </div>
                     </div>
+
+                    <div class="mt-3 text-muted small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Variables disponibles : <code>{entreprise}</code>, <code>{secteur}</code>, <code>{prenom}</code>, <code>{nom}</code>, <code>{ville}</code>, <code>{accroche}</code>
+                    </div>
                 </div>
             </div>
-        </div>
+
+        </div>{# fin row #}
     </form>
 </div>
 
-
 {{ templates_json|json_script:"templates-data" }}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Chargement des données de template (Passées par Django en JSON)
     const templates = JSON.parse(document.getElementById("templates-data").textContent);
     const buttonsWrap = document.getElementById("secteurs-buttons-wrap");
     const hiddenSecteur = document.getElementById("current_secteur_name");
 
     const fields = {
-      objet: document.getElementById("objet"),
-      introduction: document.getElementById("introduction"),
-      paragraph_1: document.getElementById("paragraph_1"),
-      paragraph_2: document.getElementById("paragraph_2"),
-      paragraph_3: document.getElementById("paragraph_3"),
-      paragraph_4: document.getElementById("paragraph_4"),
-      salutation: document.getElementById("salutation")
+        objet:        document.getElementById("objet"),
+        introduction: document.getElementById("introduction"),
+        paragraph_1:  document.getElementById("paragraph_1"),
+        paragraph_2:  document.getElementById("paragraph_2"),
+        paragraph_3:  document.getElementById("paragraph_3"),
+        paragraph_4:  document.getElementById("paragraph_4"),
+        salutation:   document.getElementById("salutation"),
     };
 
     function loadSecteur(name) {
-      hiddenSecteur.value = name;
-      const t = templates[name] || {};
-      
-      fields.objet.value = t.objet || "";
-      fields.introduction.value = t.salutation || ""; // Dans ta DB c'est souvent mappé ainsi
-      fields.paragraph_1.value = t.paragraph_1 || "";
-      fields.paragraph_2.value = t.paragraph_2 || "";
-      fields.paragraph_3.value = t.paragraph_3 || "";
-      fields.paragraph_4.value = t.paragraph_4 || "";
-      fields.salutation.value = t.conclusion || "";
+        hiddenSecteur.value = name;
+        const t = templates[name] || {};
+        fields.objet.value        = t.objet       || "";
+        fields.introduction.value = t.salutation  || "";
+        fields.paragraph_1.value  = t.paragraph_1 || "";
+        fields.paragraph_2.value  = t.paragraph_2 || "";
+        fields.paragraph_3.value  = t.paragraph_3 || "";
+        fields.paragraph_4.value  = t.paragraph_4 || "";
+        fields.salutation.value   = t.conclusion  || "";
 
-      // Gestion visuelle des boutons
-      buttonsWrap.querySelectorAll("button[data-secteur]").forEach(b => {
-        if (b.dataset.secteur === name) {
-          b.classList.replace("btn-outline-primary", "btn-primary");
-        } else {
-          b.classList.replace("btn-primary", "btn-outline-primary");
-        }
-      });
+        buttonsWrap.querySelectorAll("button[data-secteur]").forEach(b => {
+            if (b.dataset.secteur === name) {
+                b.classList.replace("btn-outline-primary", "btn-primary");
+            } else {
+                b.classList.replace("btn-primary", "btn-outline-primary");
+            }
+        });
     }
 
-    // Event listener pour le changement de secteur
     buttonsWrap.addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-secteur]");
-      if (btn) {
-        loadSecteur(btn.dataset.secteur);
-      }
+        const btn = e.target.closest("button[data-secteur]");
+        if (btn) loadSecteur(btn.dataset.secteur);
     });
 
-    // Charger le premier secteur par défaut (ex: Informatique)
     window.addEventListener('DOMContentLoaded', () => {
-        loadSecteur("Informatique");
+        loadSecteur("Général");
     });
 </script>
 
