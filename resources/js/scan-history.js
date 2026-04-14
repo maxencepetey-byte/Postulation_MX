@@ -16,8 +16,6 @@
     const url = select.dataset.url;
     if (!url) return;
 
-    // Si le dashboard est appelé avec ?secteur=... (ex: après lancer_scan),
-    // on pré-sélectionne ce secteur et on charge l'historique + packs associés.
     const presetSecteur = new URLSearchParams(window.location.search).get("secteur");
     if (presetSecteur) {
       const hasOption = Array.from(select.options).some((o) => o.value === presetSecteur);
@@ -29,7 +27,6 @@
     function syncHidden() {
       const v = select.value || "";
       if (hiddenGmailSecteur) hiddenGmailSecteur.value = v;
-      // ✅ FIX : synchronise aussi le champ dans le <form id="gmailForm">
       const gmailSecteurField = document.getElementById("gmailSecteurField");
       if (gmailSecteurField) gmailSecteurField.value = v;
     }
@@ -76,5 +73,73 @@
     syncHidden();
     select.addEventListener("change", refresh);
     if (select.value) refresh();
+
+    // ── Polling progression Gmail ──────────────────────────────────────
+    const progressBar = document.getElementById("gmailProgressBar");
+    const progressWrap = document.getElementById("gmailProgressWrap");
+    const progressText = document.getElementById("gmailProgressText");
+    const progressUrl = document.getElementById("gmailProgressWrap")
+      ? document.getElementById("gmailProgressWrap").dataset.url
+      : null;
+
+    if (!progressUrl) return;
+
+    let pollInterval = null;
+    let lastDone = -1;
+
+    async function pollProgress() {
+      const secteur = select ? select.value || "" : "";
+      try {
+        const res = await fetch(`${progressUrl}?secteur=${encodeURIComponent(secteur)}`, {
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        });
+        if (!res.ok) return;
+        const d = await res.json();
+
+        const { total, done, remaining, percent } = d;
+
+        if (progressWrap) progressWrap.style.display = remaining > 0 ? "block" : "none";
+        if (progressBar) {
+          progressBar.style.width = percent + "%";
+          progressBar.setAttribute("aria-valuenow", percent);
+        }
+        if (progressText) {
+          progressText.textContent = remaining > 0
+            ? `${done} / ${total} brouillons créés… (${remaining} restants)`
+            : `✅ ${done} brouillons créés`;
+        }
+
+        // Rafraîchit le tableau quand des lignes passent à "Traité"
+        if (done !== lastDone && done > 0) {
+          lastDone = done;
+          refresh();
+        }
+
+        // Stop polling quand tout est traité
+        if (remaining === 0 && pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+      } catch (_) {}
+    }
+
+    // Démarre le polling si la bannière est visible au chargement (job en cours)
+    if (progressWrap && progressWrap.dataset.active === "1") {
+      pollInterval = setInterval(pollProgress, 3000);
+      pollProgress();
+    }
+
+    // Démarre le polling quand l'utilisateur clique sur "Créer Brouillons"
+    const gmailForm = document.getElementById("gmailForm");
+    if (gmailForm) {
+      gmailForm.addEventListener("submit", () => {
+        setTimeout(() => {
+          if (!pollInterval) {
+            pollInterval = setInterval(pollProgress, 3000);
+            pollProgress();
+          }
+        }, 1500);
+      });
+    }
   });
 })();

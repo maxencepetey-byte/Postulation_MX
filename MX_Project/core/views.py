@@ -1612,6 +1612,36 @@ def creer_brouillons_gmail(request):
     )
     return redirect("dashboard")
 
+# ── À AJOUTER dans views.py ──
+# Endpoint JSON léger appelé par le dashboard toutes les 3s pendant la création
+
+@login_required
+@require_GET
+def gmail_progress(request):
+    """
+    Retourne la progression des brouillons Gmail en cours.
+    Utilisé par le polling JS du dashboard.
+    """
+    secteur = (request.GET.get("secteur") or "").strip()
+
+    qs_all = EntrepriseCible.objects.filter(utilisateur=request.user).exclude(email="")
+    qs_done = qs_all.filter(est_dans_paquet=True)
+
+    if secteur:
+        qs_all = qs_all.filter(secteur_activite=secteur)
+        qs_done = qs_done.filter(secteur_activite=secteur)
+
+    total = qs_all.count()
+    done = qs_done.count()
+    remaining = total - done
+
+    return JsonResponse({
+        "total": total,
+        "done": done,
+        "remaining": remaining,
+        "percent": round((done / total * 100) if total > 0 else 0),
+    })
+
 # ---------------------------------------------------------------------------
 # ACTIONS CRUD
 # ---------------------------------------------------------------------------
