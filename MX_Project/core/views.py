@@ -1448,7 +1448,8 @@ def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
 def creer_brouillons_gmail(request):
     """
     Crée jusqu'à 500 brouillons Gmail (API) pour les entreprises non traitées.
-    Le secteur est optionnel — si absent, utilise le pack le plus récent tous secteurs confondus.
+    Le secteur est optionnel. Le ZIP est régénéré à la volée si le fichier est perdu
+    (filesystem éphémère Render).
     """
     try:
         access_token = _gmail_get_access_token(request.user)
@@ -1471,22 +1472,45 @@ def creer_brouillons_gmail(request):
     )
     if secteur:
         pack_doc_qs = pack_doc_qs.filter(secteur_nom=secteur)
-
     pack_doc = pack_doc_qs.order_by("-date_upload").first()
 
-    if not pack_doc:
-        messages.error(
-            request,
-            "Aucun pack de LM trouvé. Génère d'abord un Pack ZIP depuis le dashboard.",
-        )
+    # Entreprises à traiter
+    qs_ent = EntrepriseCible.objects.filter(
+        utilisateur=request.user,
+        est_dans_paquet=False,
+    ).exclude(email="")
+    if secteur:
+        qs_ent = qs_ent.filter(secteur_activite=secteur)
+    entreprises = list(qs_ent.order_by("id")[:500])
+
+    if not entreprises:
+        messages.info(request, "Aucune entreprise à traiter (toutes déjà traitées ou sans email).")
         return redirect("dashboard")
 
-    try:
-        pack_zip_bytes = _read_filefield_bytes(pack_doc.fichier)
-    except Exception:
-        messages.error(request, "Impossible de lire le ZIP du pack (storage). Ré-ouvre/ré-upload le pack puis réessaye.")
-        return redirect("dashboard")
+    # Lecture du ZIP — ou régénération à la volée si fichier perdu (Render filesystem éphémère)
+    pack_zip_bytes = None
+    if pack_doc:
+        try:
+            pack_zip_bytes = _read_filefield_bytes(pack_doc.fichier)
+        except Exception:
+            pass
 
+    if not pack_zip_bytes:
+        # Régénération à la volée depuis les entreprises
+        try:
+            qs_regen = EntrepriseCible.objects.filter(utilisateur=request.user).exclude(email="")
+            if secteur:
+                qs_regen = qs_regen.filter(secteur_activite=secteur)
+            entreprises_regen = list(qs_regen.order_by("id")[:500])
+            if not entreprises_regen:
+                messages.error(request, "Aucune entreprise trouvée pour régénérer le pack.")
+                return redirect("dashboard")
+            pack_zip_bytes = _generer_zip(profil, entreprises_regen)
+        except Exception as e:
+            messages.error(request, f"Impossible de générer le pack de LM : {str(e)[:200]}")
+            return redirect("dashboard")
+
+    # CV obligatoire
     cv_doc = (
         DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc="CV")
         .order_by("-date_upload")
@@ -1515,19 +1539,6 @@ def creer_brouillons_gmail(request):
             other_attachments.append((os.path.basename(d.fichier.name), d.fichier.read(), "application/pdf"))
         except Exception:
             continue
-
-    # Entreprises à traiter — filtrées par secteur si fourni
-    qs_ent = EntrepriseCible.objects.filter(
-        utilisateur=request.user,
-        est_dans_paquet=False,
-    ).exclude(email="")
-    if secteur:
-        qs_ent = qs_ent.filter(secteur_activite=secteur)
-    entreprises = list(qs_ent.order_by("id")[:500])
-
-    if not entreprises:
-        messages.info(request, "Aucune entreprise à traiter (toutes déjà traitées ou sans email).")
-        return redirect("dashboard")
 
     created = 0
     skipped: list[str] = []
@@ -1578,7 +1589,7 @@ def creer_brouillons_gmail(request):
                 f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
             )
 
-        # Recherche directe par email — O(1), 0 matching flou
+        # Recherche directe par email dans le ZIP
         expected_pdf_name = _email_to_pdf_name(ent.email)
         try:
             with zipfile.ZipFile(io.BytesIO(pack_zip_bytes), "r") as _zf:
@@ -1586,14 +1597,12 @@ def creer_brouillons_gmail(request):
                     lm_name = expected_pdf_name
                     lm_pdf = _zf.read(expected_pdf_name)
                 else:
-                    # Fallback : ancien pack généré avec nommage par nom d'entreprise
                     found = _lm_from_pack_zip_bytes(pack_zip_bytes, ent.nom)
                     if not found:
                         skipped.append(f"{ent.nom} ({ent.email})")
                         logger.warning(
                             "LM introuvable pour '%s' (%s) — ni par email ni par nom.",
-                            ent.nom,
-                            ent.email,
+                            ent.nom, ent.email,
                         )
                         continue
                     lm_name, lm_pdf = found
@@ -1627,8 +1636,7 @@ def creer_brouillons_gmail(request):
         msg += f" Attention: {len(skipped)} LM absente(s) du pack (ignorées) : {noms}{suite}"
     messages.success(request, msg)
 
-    # Marquer le pack comme utilisé
-    if created > 0:
+    if created > 0 and pack_doc:
         try:
             pack_doc.used_for_gmail = True
             pack_doc.save(update_fields=["used_for_gmail"])
@@ -1636,8 +1644,7 @@ def creer_brouillons_gmail(request):
             pass
 
     return redirect("dashboard")
-
-
+   
 # ---------------------------------------------------------------------------
 # ACTIONS CRUD
 # ---------------------------------------------------------------------------
