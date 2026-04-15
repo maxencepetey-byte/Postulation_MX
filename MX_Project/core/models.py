@@ -114,6 +114,7 @@ class EntrepriseCible(models.Model):
     numero_pack = models.IntegerField(default=0)
     date_traitement = models.DateTimeField(null=True, blank=True)
     email_valide = models.BooleanField(default=True)
+    brouillon_gmail_cree = models.BooleanField(default=False)
 
     class Meta:
         # Garantie absolue de déduplication : un email ne peut exister qu'une fois par user
