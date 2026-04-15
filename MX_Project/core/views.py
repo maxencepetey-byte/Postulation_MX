@@ -1675,14 +1675,11 @@ def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
         f"Rafraîchis le dashboard dans quelques minutes pour voir la progression."
     )
     return redirect("dashboard")
+
+
 @login_required
 @require_POST
 def creer_brouillons_gmail(request):
-    """
-    Lance la création des brouillons Gmail en arrière-plan (thread daemon).
-    Retourne immédiatement au dashboard.
-    """
-    # ── Validation rapide AVANT de lancer le thread ──
     try:
         access_token = _gmail_get_access_token(request.user)
     except Exception:
@@ -1703,20 +1700,24 @@ def creer_brouillons_gmail(request):
         messages.error(request, "Aucun CV trouvé. Ajoute un document de type CV dans Réglages avant de créer des brouillons.")
         return redirect("settings_page")
 
-    # ── Lancement en arrière-plan ──
     def _run_brouillons(user_id, secteur, access_token):
         from django.contrib.auth.models import User
+        print(f">>> THREAD DÉMARRÉ user={user_id} secteur='{secteur}'", flush=True)
         try:
             user = User.objects.get(id=user_id)
             profil, _ = ProfilUtilisateur.objects.get_or_create(user=user)
+            print(f">>> user trouvé: {user.username}", flush=True)
 
             qs = EntrepriseCible.objects.filter(utilisateur=user, est_dans_paquet=False).exclude(email="")
             if secteur:
                 qs = qs.filter(secteur_activite=secteur)
             entreprises = list(qs.order_by("id")[:500])
+            print(f">>> {len(entreprises)} entreprises à traiter", flush=True)
 
             cv_doc = DocumentUtilisateur.objects.filter(utilisateur=user, type_doc="CV").order_by("-date_upload").first()
+            print(f">>> CV: {cv_doc}", flush=True)
             if not cv_doc:
+                print(">>> STOP: CV introuvable", flush=True)
                 logger.error("brouillons_bg: CV introuvable pour user %s", user_id)
                 return
 
@@ -1729,7 +1730,9 @@ def creer_brouillons_gmail(request):
 
             try:
                 cv_bytes = _read_filefield_bytes(cv_doc.fichier)
+                print(f">>> CV lu: {len(cv_bytes)} bytes", flush=True)
             except Exception as e:
+                print(f">>> STOP: impossible de lire le CV: {e}", flush=True)
                 logger.error("brouillons_bg: impossible de lire le CV: %s", e)
                 return
 
@@ -1750,7 +1753,6 @@ def creer_brouillons_gmail(request):
             for ent in entreprises:
                 secteur_nom = (ent.secteur_activite or "Général").strip()
 
-                # ── Récupération du template LM ──
                 tpl = (
                     LettreSecteurTemplate.objects.filter(utilisateur=user, secteur_nom=secteur_nom).first()
                     or LettreSecteurTemplate.objects.filter(utilisateur=user, secteur_nom="Général").first()
@@ -1766,17 +1768,11 @@ def creer_brouillons_gmail(request):
                     "nom": profil.nom_lm or "",
                 }
 
-                logger.info(
-                    "brouillons_bg: traitement ent=%s email=%s secteur=%s tpl=%s",
-                    ent.nom, ent.email, secteur_nom,
-                    tpl.secteur_nom if tpl else "FALLBACK_GÉNÉRIQUE",
-                )
+                print(f">>> traitement: {ent.email} | tpl={tpl.secteur_nom if tpl else 'FALLBACK'}", flush=True)
 
-                # ── Sujet ──
                 base_subject = _safe_format((tpl.objet if tpl else "") or "Candidature spontanée", ctx).strip()
                 subject = f"{base_subject} — {ent.nom}".strip()
 
-                # ── Corps du mail ──
                 if tpl and (tpl.salutation or tpl.paragraph_1 or tpl.paragraph_2 or tpl.paragraph_3 or tpl.paragraph_4 or tpl.conclusion):
                     intro = _safe_format(tpl.salutation or "Madame, Monsieur,", ctx).strip()
                     paras = [
@@ -1804,16 +1800,15 @@ def creer_brouillons_gmail(request):
                         f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
                     )
 
-                # ── Génération PDF LM ──
                 try:
                     lm_pdf = generer_pdf_lm(profil, ent)
                     lm_name = _email_to_pdf_name(ent.email)
                 except Exception as e:
+                    print(f">>> PDF failed {ent.email}: {e}", flush=True)
                     logger.warning("brouillons_bg: PDF failed '%s': %s", ent.email, e)
                     skipped += 1
                     continue
 
-                # ── Construction du message MIME ──
                 attachments = [
                     (lm_name, lm_pdf, "application/pdf"),
                     (os.path.basename(cv_doc.fichier.name), cv_bytes, "application/pdf"),
@@ -1821,15 +1816,16 @@ def creer_brouillons_gmail(request):
                 ]
                 raw = _build_mime_message(ent.email, subject, body, attachments)
 
-                # ── Appel API Gmail + marquage UNIQUEMENT après succès confirmé ──
                 try:
                     _gmail_create_draft(access_token, raw)
                     ent.est_dans_paquet = True
                     ent.date_traitement = now()
                     ent.save(update_fields=["est_dans_paquet", "date_traitement"])
                     created += 1
+                    print(f">>> brouillon créé: {ent.email}", flush=True)
                 except Exception as e:
                     err_str = str(e)
+                    print(f">>> Gmail API error pour {ent.email}: {err_str[:200]}", flush=True)
                     if "401" in err_str or "403" in err_str or "invalid_grant" in err_str.lower():
                         logger.error("brouillons_bg: auth error, stopping. %s", err_str[:200])
                         break
@@ -1837,6 +1833,7 @@ def creer_brouillons_gmail(request):
                     skipped += 1
                     continue
 
+            print(f">>> TERMINÉ: {created} créés, {skipped} ignorés", flush=True)
             logger.info("brouillons_bg: terminé — %d créés, %d ignorés (user %s)", created, skipped, user_id)
 
         except Exception:
