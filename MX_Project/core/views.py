@@ -1220,6 +1220,12 @@ def generer_pdf_lm(profil, ent):
             utilisateur=_tpl_user, secteur_nom=secteur_nom
         ).first()
 
+    # DEBUG — à retirer après validation
+    print(f">>> PDF_DEBUG: ent='{ent.nom}' secteur='{secteur_nom}' _tpl_user={_tpl_user} tpl={tpl.secteur_nom if tpl else 'NONE'}", flush=True)
+    if not tpl and _tpl_user:
+        all_tpls = list(LettreSecteurTemplate.objects.filter(utilisateur=_tpl_user).values_list('secteur_nom', flat=True))
+        print(f">>> PDF_DEBUG: templates dispo pour user={_tpl_user}: {all_tpls}", flush=True)
+
     ctx = {
         "accroche": accroche,
         "entreprise": ent.nom,
@@ -1813,4 +1819,3 @@ def vider_liste_et_documents(request):
             status=500,
             content_type="text/plain; charset=utf-8",
         )
-    
