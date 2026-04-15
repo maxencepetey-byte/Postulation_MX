@@ -1510,11 +1510,6 @@ def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
     r = requests.post(url, json=payload, headers={"Authorization": f"Bearer {access_token}"}, timeout=30)
     if r.status_code >= 400:
         raise RuntimeError(f"Gmail API error {r.status_code}: {r.text[:300]}")
-    url = "https://gmail.googleapis.com/gmail/v1/users/me/drafts"
-    payload = {"message": {"raw": _b64url(raw_mime_bytes)}}
-    r = requests.post(url, json=payload, headers={"Authorization": f"Bearer {access_token}"}, timeout=30)
-    if r.status_code >= 400:
-        raise RuntimeError(f"Gmail API error {r.status_code}: {r.text[:300]}")
 
 
 @login_required
@@ -1819,3 +1814,4 @@ def vider_liste_et_documents(request):
             status=500,
             content_type="text/plain; charset=utf-8",
         )
+    
