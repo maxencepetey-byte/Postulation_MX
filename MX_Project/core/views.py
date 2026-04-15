@@ -62,10 +62,10 @@ SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREP
 
 SECTEURS_NOGA_GROUPS = {
     "Primaire": [
-        ("01", "Agriculture et chasse"), ("02", "Sylviculture et exploitation forestière"),
+        ("01", "Agriculture et chasse"), ("02", "Sylviculture"),
         ("03", "Pêche et aquaculture"), ("05", "Extraction de houille"),
         ("06", "Extraction d'hydrocarbures"), ("07", "Extraction de minerais"),
-        ("08", "Autres industries extractives"), ("09", "Soutien aux industries extractives"),
+        ("08", "Autres industries extractives"), ("09", "Soutien extractives"),
     ],
     "Industrie": [
         ("10", "Industrie alimentaire"), ("11", "Fabrication de boissons"),
@@ -74,36 +74,36 @@ SECTEURS_NOGA_GROUPS = {
         ("16", "Travail du bois"), ("17", "Industrie du papier"),
         ("18", "Imprimerie et reproduction"), ("19", "Cokéfaction et raffinage"),
         ("20", "Industrie chimique"), ("21", "Industrie pharmaceutique"),
-        ("22", "Produits en caoutchouc et plastique"), ("23", "Produits minéraux non métalliques"),
-        ("24", "Métallurgie"), ("25", "Produits métalliques (hors machines)"),
-        ("26", "Produits informatiques et électroniques"), ("27", "Équipements électriques"),
-        ("28", "Machines et équipements n.c.a."), ("29", "Industrie automobile"),
+        ("22", "Caoutchouc et plastique"), ("23", "Minéraux non métalliques"),
+        ("24", "Métallurgie"), ("25", "Produits métalliques"),
+        ("26", "Produits informatiques/électroniques"), ("27", "Équipements électriques"),
+        ("28", "Machines et équipements"), ("29", "Industrie automobile"),
         ("30", "Autres matériels de transport"), ("31", "Fabrication de meubles"),
-        ("32", "Autres industries manufacturières"), ("33", "Réparation et installation de machines"),
+        ("32", "Autres industries manufacturières"), ("33", "Réparation de machines"),
     ],
     "Construction & Énergie": [
-        ("35", "Production d'électricité et gaz"), ("36", "Captage et distribution d'eau"),
-        ("37", "Gestion des eaux usées"), ("38", "Collecte et traitement des déchets"),
+        ("35", "Électricité et gaz"), ("36", "Distribution d'eau"),
+        ("37", "Gestion des eaux usées"), ("38", "Traitement des déchets"),
         ("39", "Dépollution"), ("41", "Construction de bâtiments"),
         ("42", "Génie civil"), ("43", "Travaux de construction spécialisés"),
     ],
     "Services & Tertiaire": [
-        ("45", "Commerce et réparation automobile"), ("46", "Commerce de gros"),
-        ("47", "Commerce de détail (incl. Luxe)"), ("49", "Transports terrestres"),
+        ("45", "Commerce automobile"), ("46", "Commerce de gros"),
+        ("47", "Commerce de détail / Luxe"), ("49", "Transports terrestres"),
         ("50", "Transports par eau"), ("51", "Transports aériens"),
-        ("52", "Entreposage et soutien aux transports"), ("53", "Activités de poste et de courrier"),
+        ("52", "Entreposage et logistique"), ("53", "Poste et courrier"),
         ("55", "Hébergement"), ("56", "Restauration"),
         ("58", "Édition"), ("59", "Cinéma et musique"),
         ("60", "Radio et Télévision"), ("61", "Télécommunications"),
         ("62", "Informatique et programmation"), ("63", "Services d'information"),
-        ("64", "Services financiers (Banques)"), ("65", "Assurances"),
+        ("64", "Services financiers / Banques"), ("65", "Assurances"),
         ("66", "Activités auxiliaires financières"), ("68", "Activités immobilières"),
-        ("69", "Juridique et comptabilité"), ("70", "Conseil de gestion (Sièges sociaux)"),
+        ("69", "Juridique et comptabilité"), ("70", "Conseil de gestion / Sièges"),
         ("71", "Architecture et ingénierie"), ("72", "Recherche-développement"),
-        ("73", "Publicité et études de marché (Marketing)"), ("74", "Activités spécialisées (Design, Photo)"),
+        ("73", "Publicité et marketing"), ("74", "Design, Photo…"),
         ("75", "Activités vétérinaires"), ("77", "Location et location-bail"),
         ("78", "Activités liées à l'emploi"), ("79", "Agences de voyage"),
-        ("80", "Enquêtes et sécurité"), ("81", "Services relatifs aux bâtiments"),
+        ("80", "Enquêtes et sécurité"), ("81", "Services aux bâtiments"),
         ("82", "Administration et soutien bureau"),
     ],
     "Santé & Social": [
@@ -111,10 +111,15 @@ SECTEURS_NOGA_GROUPS = {
         ("86", "Santé humaine"), ("87", "Hébergement médico-social"),
         ("88", "Action sociale sans hébergement"), ("90", "Arts et spectacles"),
         ("91", "Musées et culture"), ("92", "Jeux de hasard"),
-        ("93", "Sport, loisirs et récréation"), ("94", "Activités des organisations associatives"),
-        ("95", "Réparation d'ordinateurs et biens personnels"), ("96", "Autres services personnels (Esthétique)"),
+        ("93", "Sport, loisirs et récréation"), ("94", "Organisations associatives"),
+        ("95", "Réparation ordinateurs et biens"), ("96", "Autres services personnels / Esthétique"),
     ],
 }
+
+
+# ---------------------------------------------------------------------------
+# Delete helpers (storage-safe)
+# ---------------------------------------------------------------------------
 def _delete_all_user_documents(user) -> int:
     """
     Supprime les DocumentUtilisateur + les fichiers physiques associés.
@@ -272,10 +277,10 @@ NOGA_MAP = {
 
 SECTEURS_NOGA_GROUPS = {
     "Primaire": [
-        ("01", "Agriculture et chasse"), ("02", "Sylviculture et exploitation forestière"),
+        ("01", "Agriculture et chasse"), ("02", "Sylviculture"),
         ("03", "Pêche et aquaculture"), ("05", "Extraction de houille"),
         ("06", "Extraction d'hydrocarbures"), ("07", "Extraction de minerais"),
-        ("08", "Autres industries extractives"), ("09", "Soutien aux industries extractives"),
+        ("08", "Autres industries extractives"), ("09", "Soutien extractives"),
     ],
     "Industrie": [
         ("10", "Industrie alimentaire"), ("11", "Fabrication de boissons"),
@@ -284,36 +289,36 @@ SECTEURS_NOGA_GROUPS = {
         ("16", "Travail du bois"), ("17", "Industrie du papier"),
         ("18", "Imprimerie et reproduction"), ("19", "Cokéfaction et raffinage"),
         ("20", "Industrie chimique"), ("21", "Industrie pharmaceutique"),
-        ("22", "Produits en caoutchouc et plastique"), ("23", "Produits minéraux non métalliques"),
-        ("24", "Métallurgie"), ("25", "Produits métalliques (hors machines)"),
-        ("26", "Produits informatiques et électroniques"), ("27", "Équipements électriques"),
-        ("28", "Machines et équipements n.c.a."), ("29", "Industrie automobile"),
+        ("22", "Caoutchouc et plastique"), ("23", "Minéraux non métalliques"),
+        ("24", "Métallurgie"), ("25", "Produits métalliques"),
+        ("26", "Produits informatiques/électroniques"), ("27", "Équipements électriques"),
+        ("28", "Machines et équipements"), ("29", "Industrie automobile"),
         ("30", "Autres matériels de transport"), ("31", "Fabrication de meubles"),
-        ("32", "Autres industries manufacturières"), ("33", "Réparation et installation de machines"),
+        ("32", "Autres industries manufacturières"), ("33", "Réparation de machines"),
     ],
     "Construction & Énergie": [
-        ("35", "Production d'électricité et gaz"), ("36", "Captage et distribution d'eau"),
-        ("37", "Gestion des eaux usées"), ("38", "Collecte et traitement des déchets"),
+        ("35", "Électricité et gaz"), ("36", "Distribution d'eau"),
+        ("37", "Gestion des eaux usées"), ("38", "Traitement des déchets"),
         ("39", "Dépollution"), ("41", "Construction de bâtiments"),
         ("42", "Génie civil"), ("43", "Travaux de construction spécialisés"),
     ],
     "Services & Tertiaire": [
-        ("45", "Commerce et réparation automobile"), ("46", "Commerce de gros"),
-        ("47", "Commerce de détail (incl. Luxe)"), ("49", "Transports terrestres"),
+        ("45", "Commerce automobile"), ("46", "Commerce de gros"),
+        ("47", "Commerce de détail / Luxe"), ("49", "Transports terrestres"),
         ("50", "Transports par eau"), ("51", "Transports aériens"),
-        ("52", "Entreposage et soutien aux transports"), ("53", "Activités de poste et de courrier"),
+        ("52", "Entreposage et logistique"), ("53", "Poste et courrier"),
         ("55", "Hébergement"), ("56", "Restauration"),
         ("58", "Édition"), ("59", "Cinéma et musique"),
         ("60", "Radio et Télévision"), ("61", "Télécommunications"),
         ("62", "Informatique et programmation"), ("63", "Services d'information"),
-        ("64", "Services financiers (Banques)"), ("65", "Assurances"),
+        ("64", "Services financiers / Banques"), ("65", "Assurances"),
         ("66", "Activités auxiliaires financières"), ("68", "Activités immobilières"),
-        ("69", "Juridique et comptabilité"), ("70", "Conseil de gestion (Sièges sociaux)"),
+        ("69", "Juridique et comptabilité"), ("70", "Conseil de gestion / Sièges"),
         ("71", "Architecture et ingénierie"), ("72", "Recherche-développement"),
-        ("73", "Publicité et études de marché (Marketing)"), ("74", "Activités spécialisées (Design, Photo)"),
+        ("73", "Publicité et marketing"), ("74", "Design, Photo…"),
         ("75", "Activités vétérinaires"), ("77", "Location et location-bail"),
         ("78", "Activités liées à l'emploi"), ("79", "Agences de voyage"),
-        ("80", "Enquêtes et sécurité"), ("81", "Services relatifs aux bâtiments"),
+        ("80", "Enquêtes et sécurité"), ("81", "Services aux bâtiments"),
         ("82", "Administration et soutien bureau"),
     ],
     "Santé & Social": [
@@ -321,8 +326,8 @@ SECTEURS_NOGA_GROUPS = {
         ("86", "Santé humaine"), ("87", "Hébergement médico-social"),
         ("88", "Action sociale sans hébergement"), ("90", "Arts et spectacles"),
         ("91", "Musées et culture"), ("92", "Jeux de hasard"),
-        ("93", "Sport, loisirs et récréation"), ("94", "Activités des organisations associatives"),
-        ("95", "Réparation d'ordinateurs et biens personnels"), ("96", "Autres services personnels (Esthétique)"),
+        ("93", "Sport, loisirs et récréation"), ("94", "Organisations associatives"),
+        ("95", "Réparation ordinateurs et biens"), ("96", "Autres services personnels / Esthétique"),
     ],
 }
 # ---------------------------------------------------------------------------
@@ -1205,16 +1210,15 @@ def generer_pdf_lm(profil, ent):
     )
 
     accroche = get_accroche(profil, ent.secteur_activite)
-    secteur_nom = (ent.secteur_activite or "Général").strip()
+    secteur_nom = (ent.secteur_activite or "").strip()
 
-    # ✅ FIX : ent.utilisateur est nullable → fallback sur profil.user
+    # PDF utilise uniquement le template du secteur — jamais "Email" ni "Général"
     _tpl_user = ent.utilisateur or (profil.user if profil else None)
     tpl = None
-    if _tpl_user:
-        tpl = (
-            LettreSecteurTemplate.objects.filter(utilisateur=_tpl_user, secteur_nom=secteur_nom).first()
-            or LettreSecteurTemplate.objects.filter(utilisateur=_tpl_user, secteur_nom="Général").first()
-        )
+    if _tpl_user and secteur_nom:
+        tpl = LettreSecteurTemplate.objects.filter(
+            utilisateur=_tpl_user, secteur_nom=secteur_nom
+        ).first()
 
     ctx = {
         "accroche": accroche,
@@ -1290,12 +1294,13 @@ def generer_pdf_lm(profil, ent):
         p.drawRightString(width - 2 * cm, 6 * cm, signature)
     p.save()
     buffer.seek(0)
+
     logger.info(
-        "generer_pdf_lm: ent=%s email=%s secteur=%s tpl=%s",
+        "brouillons_bg: ent=%s email=%s secteur=%s tpl=%s",
         ent.nom, ent.email,
         secteur_nom,
         tpl.secteur_nom if tpl else "FALLBACK_GÉNÉRIQUE"
-    )
+    )  # ← parenthèse fermante manquante ici
     return buffer.read()
 
 # ---------------------------------------------------------------------------
@@ -1499,6 +1504,11 @@ def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
     r = requests.post(url, json=payload, headers={"Authorization": f"Bearer {access_token}"}, timeout=30)
     if r.status_code >= 400:
         raise RuntimeError(f"Gmail API error {r.status_code}: {r.text[:300]}")
+    url = "https://gmail.googleapis.com/gmail/v1/users/me/drafts"
+    payload = {"message": {"raw": _b64url(raw_mime_bytes)}}
+    r = requests.post(url, json=payload, headers={"Authorization": f"Bearer {access_token}"}, timeout=30)
+    if r.status_code >= 400:
+        raise RuntimeError(f"Gmail API error {r.status_code}: {r.text[:300]}")
 
 
 @login_required
@@ -1575,12 +1585,12 @@ def creer_brouillons_gmail(request):
             skipped = 0
 
             for ent in entreprises:
-                secteur_nom = (ent.secteur_activite or "Général").strip()
+                secteur_nom = (ent.secteur_activite or "").strip()
 
-                tpl = (
-                    LettreSecteurTemplate.objects.filter(utilisateur=user, secteur_nom=secteur_nom).first()
-                    or LettreSecteurTemplate.objects.filter(utilisateur=user, secteur_nom="Général").first()
-                )
+                # Corps du mail → TOUJOURS template "Email"
+                tpl_email = LettreSecteurTemplate.objects.filter(
+                    utilisateur=user, secteur_nom="Email"
+                ).first()
 
                 accroche = get_accroche(profil, ent.secteur_activite)
                 ctx = {
@@ -1592,21 +1602,21 @@ def creer_brouillons_gmail(request):
                     "nom": profil.nom_lm or "",
                 }
 
-                print(f">>> traitement: {ent.email} | tpl={tpl.secteur_nom if tpl else 'FALLBACK'}", flush=True)
+                print(f">>> traitement: {ent.email} | tpl_email={tpl_email.secteur_nom if tpl_email else 'FALLBACK'}", flush=True)
 
-                base_subject = _safe_format((tpl.objet if tpl else "") or "Candidature spontanée", ctx).strip()
+                base_subject = _safe_format((tpl_email.objet if tpl_email else "") or "Candidature spontanée", ctx).strip()
                 subject = f"{base_subject} — {ent.nom}".strip()
 
-                if tpl and (tpl.salutation or tpl.paragraph_1 or tpl.paragraph_2 or tpl.paragraph_3 or tpl.paragraph_4 or tpl.conclusion):
-                    intro = _safe_format(tpl.salutation or "Madame, Monsieur,", ctx).strip()
+                if tpl_email and (tpl_email.salutation or tpl_email.paragraph_1 or tpl_email.paragraph_2 or tpl_email.paragraph_3 or tpl_email.paragraph_4 or tpl_email.conclusion):
+                    intro = _safe_format(tpl_email.salutation or "Madame, Monsieur,", ctx).strip()
                     paras = [
-                        _safe_format(tpl.paragraph_1, ctx).strip(),
-                        _safe_format(tpl.paragraph_2, ctx).strip(),
-                        _safe_format(tpl.paragraph_3, ctx).strip(),
-                        _safe_format(tpl.paragraph_4, ctx).strip(),
+                        _safe_format(tpl_email.paragraph_1, ctx).strip(),
+                        _safe_format(tpl_email.paragraph_2, ctx).strip(),
+                        _safe_format(tpl_email.paragraph_3, ctx).strip(),
+                        _safe_format(tpl_email.paragraph_4, ctx).strip(),
                     ]
                     closing = _safe_format(
-                        tpl.conclusion or "Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.",
+                        tpl_email.conclusion or "Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.",
                         ctx,
                     ).strip()
                     signature = f"{profil.prenom_lm or ''} {profil.nom_lm or ''}".strip()
@@ -1803,3 +1813,4 @@ def vider_liste_et_documents(request):
             status=500,
             content_type="text/plain; charset=utf-8",
         )
+    
