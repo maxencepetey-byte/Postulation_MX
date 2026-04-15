@@ -1842,7 +1842,7 @@ def creer_brouillons_gmail(request):
     threading.Thread(
         target=_run_brouillons,
         args=(request.user.id, secteur, access_token),
-        daemon=True,
+        daemon=False,
     ).start()
 
     nb = qs_ent.count()
