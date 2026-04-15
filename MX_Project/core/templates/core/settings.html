@@ -1,5 +1,5 @@
-<!DOCTYPE html>
 {% load static %}
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -10,207 +10,263 @@
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0f0f13; --surface: #17171e; --surface-2: #1e1e28;
-            --border: rgba(255,255,255,0.07); --accent: #6c63ff;
-            --accent-soft: rgba(108,99,255,0.12); --accent-glow: rgba(108,99,255,0.25);
-            --text: #e8e8f0; --text-muted: #6b6b80; --text-dim: #3a3a4a;
-            --success: #22c55e; --warning: #f59e0b; --danger: #ef4444;
-            --radius: 14px; --radius-sm: 8px;
+            --bg:#0f0f13;--surface:#17171e;--surface-2:#1e1e28;
+            --border:rgba(255,255,255,0.07);--accent:#6c63ff;
+            --accent-soft:rgba(108,99,255,0.12);--accent-glow:rgba(108,99,255,0.25);
+            --text:#e8e8f0;--text-muted:#6b6b80;--text-dim:#3a3a4a;
+            --success:#22c55e;--warning:#f59e0b;--danger:#ef4444;
+            --radius:14px;--radius-sm:8px;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
-        .bg-grid { position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: linear-gradient(rgba(108,99,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(108,99,255,0.03) 1px, transparent 1px); background-size: 40px 40px; }
-        .bg-orb { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; }
-        .bg-orb-1 { width: 500px; height: 500px; top: -150px; right: -100px; background: radial-gradient(circle, rgba(108,99,255,0.08), transparent 70%); }
-        .bg-orb-2 { width: 400px; height: 400px; bottom: 50px; left: -100px; background: radial-gradient(circle, rgba(34,197,94,0.05), transparent 70%); }
-        .navbar-mx { position: sticky; top: 0; z-index: 100; background: rgba(15,15,19,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
-        .logo-mx { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem; color: var(--text); text-decoration: none; letter-spacing: -1px; }
-        .logo-mx span { color: var(--accent); }
-        .btn-back { display: flex; align-items: center; gap: 6px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; text-decoration: none; transition: all 0.2s; }
-        .btn-back:hover { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
-        .page-wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 32px 20px 80px; }
-        .page-header { margin-bottom: 32px; }
-        .page-header h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.8rem; color: var(--text); letter-spacing: -0.5px; }
-        .page-header p { color: var(--text-muted); margin-top: 4px; font-size: 0.88rem; }
-        .tabs-nav { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 28px; width: fit-content; }
-        .tab-btn { padding: 8px 20px; border-radius: 9px; border: none; background: transparent; color: var(--text-muted); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 7px; }
-        .tab-btn.active { background: var(--accent); color: #fff; box-shadow: 0 4px 16px var(--accent-glow); }
-        .tab-btn:not(.active):hover { color: var(--text); background: var(--surface-2); }
-        .tab-panel { display: none; }
-        .tab-panel.active { display: block; }
-        .card-mx { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-        .card-header-mx { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
-        .card-header-mx .icon-wrap { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 0.95rem; flex-shrink: 0; }
-        .card-header-mx h2 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--text); letter-spacing: -0.2px; }
-        .card-header-mx p { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; }
-        .card-body-mx { padding: 22px; }
-        .field-group { margin-bottom: 18px; }
-        .field-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
-        .field-input { width: 100%; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 10px 13px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; transition: all 0.2s; outline: none; }
-        .field-input::placeholder { color: var(--text-dim); }
-        .field-input:focus { border-color: var(--accent); background: rgba(108,99,255,0.05); box-shadow: 0 0 0 3px var(--accent-glow); }
-        textarea.field-input { resize: vertical; min-height: 88px; line-height: 1.5; }
-        .field-row { display: grid; gap: 12px; }
-        .field-row.cols-2 { grid-template-columns: 1fr 1fr; }
-        .field-row.cols-3 { grid-template-columns: 80px 1fr; }
-        .section-divider { display: flex; align-items: center; gap: 10px; margin: 24px 0 18px; }
-        .section-divider span { font-family: 'Syne', sans-serif; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); white-space: nowrap; }
-        .section-divider::before, .section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-        .btn-save { width: 100%; padding: 11px 0; background: var(--accent); border: none; border-radius: 10px; color: #fff; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 20px var(--accent-glow); }
-        .btn-save:hover { background: #7c74ff; transform: translateY(-1px); }
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+        .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(108,99,255,.03)1px,transparent 1px),linear-gradient(90deg,rgba(108,99,255,.03)1px,transparent 1px);background-size:40px 40px}
+        .bg-orb{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0}
+        .bg-orb-1{width:500px;height:500px;top:-150px;right:-100px;background:radial-gradient(circle,rgba(108,99,255,.08),transparent 70%)}
+        .bg-orb-2{width:400px;height:400px;bottom:50px;left:-100px;background:radial-gradient(circle,rgba(34,197,94,.05),transparent 70%)}
 
-        /* ── Email template banner ── */
-        .email-tpl-banner {
-            display: flex; align-items: center; gap: 10px;
-            background: rgba(108,99,255,0.08); border: 1px solid rgba(108,99,255,0.2);
-            border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;
+        /* Navbar */
+        .navbar-mx{position:sticky;top:0;z-index:100;background:rgba(15,15,19,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between}
+        .logo-mx{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;color:var(--text);text-decoration:none;letter-spacing:-1px}
+        .logo-mx span{color:var(--accent)}
+        .btn-back{display:flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:20px;color:var(--text-muted);padding:6px 14px;font-size:.8rem;font-weight:500;text-decoration:none;transition:all .2s}
+        .btn-back:hover{color:var(--text);border-color:var(--accent);background:var(--accent-soft)}
+
+        /* Layout */
+        .page-wrap{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:32px 20px 80px}
+        .page-header{margin-bottom:28px}
+        .page-header h1{font-family:'Syne',sans-serif;font-weight:800;font-size:1.8rem;color:var(--text);letter-spacing:-.5px}
+        .page-header p{color:var(--text-muted);margin-top:4px;font-size:.88rem}
+
+        /* Setup bar */
+        .setup-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:24px}
+        .setup-step{display:flex;align-items:center;gap:6px;font-size:.8rem;font-weight:600}
+        .s-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+        .step-done{color:#4ade80}.step-done .s-dot{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.5)}
+        .step-pending{color:#fbbf24}.step-pending .s-dot{background:#f59e0b;box-shadow:0 0 6px rgba(245,158,11,.4)}
+        .setup-sep{color:var(--text-dim);font-size:.7rem}
+
+        /* Tabs */
+        .tabs-nav{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:28px;width:fit-content}
+        .tab-btn{padding:8px 18px;border-radius:9px;border:none;background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:7px}
+        .tab-btn.active{background:var(--accent);color:#fff;box-shadow:0 4px 16px var(--accent-glow)}
+        .tab-btn:not(.active):hover{color:var(--text);background:var(--surface-2)}
+        .tab-panel{display:none}.tab-panel.active{display:block}
+
+        /* Cards */
+        .card-mx{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+        .card-header-mx{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+        .icon-wrap{width:32px;height:32px;border-radius:9px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:.9rem;flex-shrink:0}
+        .card-header-mx h2{font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;color:var(--text)}
+        .card-header-mx p{font-size:.78rem;color:var(--text-muted);margin-top:2px}
+        .card-body-mx{padding:20px}
+
+        /* Fields */
+        .field-group{margin-bottom:16px}
+        .field-label{display:block;font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+        .req{color:var(--danger);margin-left:2px}
+        .field-input{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:10px 13px;font-family:'DM Sans',sans-serif;font-size:.88rem;transition:all .2s;outline:none}
+        .field-input::placeholder{color:var(--text-dim)}
+        .field-input:focus{border-color:var(--accent);background:rgba(108,99,255,.05);box-shadow:0 0 0 3px var(--accent-glow)}
+        textarea.field-input{resize:vertical;min-height:90px;line-height:1.5}
+        .field-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .field-row-npa{display:grid;grid-template-columns:80px 1fr;gap:12px}
+        .section-div{display:flex;align-items:center;gap:10px;margin:22px 0 16px}
+        .section-div span{font-family:'Syne',sans-serif;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);white-space:nowrap}
+        .section-div::before,.section-div::after{content:'';flex:1;height:1px;background:var(--border)}
+        .btn-save{width:100%;padding:11px;background:var(--accent);border:none;border-radius:10px;color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:.88rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 20px var(--accent-glow);margin-top:20px}
+        .btn-save:hover{background:#7c74ff;transform:translateY(-1px)}
+
+        /* Alerts */
+        .alert-mx{border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:.84rem;border:1px solid;display:flex;align-items:flex-start;gap:10px}
+        .alert-success{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.2);color:#4ade80}
+        .alert-danger{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);color:#f87171}
+        .alert-warning{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2);color:#fbbf24}
+        .alert-info{background:rgba(108,99,255,.08);border-color:rgba(108,99,255,.2);color:#a5b4fc}
+
+        /* Secteurs grid */
+        .secteurs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:10px;margin-bottom:24px}
+        .secteur-card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface-2);cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;text-align:left;width:100%}
+        .secteur-card:hover{border-color:rgba(108,99,255,.4);background:rgba(108,99,255,.06)}
+        .secteur-card.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 3px var(--accent-glow)}
+        .sc-type{font-size:.7rem;color:var(--text-muted)}
+        .secteur-card.active .sc-type{color:rgba(255,255,255,.6)}
+        .sc-name{font-size:.83rem;font-weight:700;color:var(--text);line-height:1.3}
+        .secteur-card.active .sc-name{color:#fff}
+        .sc-badge{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:20px}
+        .sc-badge.ok{background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.25)}
+        .sc-badge.missing{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
+
+        /* Editor zone */
+        .editor-zone{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:20px}
+        .editor-header{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+        .editor-header h3{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;color:var(--text)}
+        .badge-editing{background:var(--accent-soft);color:#a5b4fc;border:1px solid rgba(108,99,255,.25);border-radius:20px;font-size:.72rem;font-weight:700;padding:2px 10px}
+        .editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        .editor-grid .full{grid-column:1 / -1}
+
+        /* Preview block */
+        .preview-block{background:var(--surface);border:1.5px solid rgba(34,197,94,.25);border-radius:10px;padding:16px;margin-bottom:0}
+        .preview-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+        .preview-header .ok-label{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#4ade80}
+        .btn-edit{background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:.78rem;font-weight:600;padding:5px 12px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:5px}
+        .btn-edit:hover{border-color:var(--accent);color:var(--accent)}
+        .preview-content{font-size:.82rem;color:var(--text-muted);line-height:1.7}
+        .preview-content .preview-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);margin-top:10px;margin-bottom:2px}
+        .preview-content .preview-label:first-child{margin-top:0}
+        .preview-content .preview-text{color:var(--text);font-size:.84rem}
+
+        /* Variables */
+        .vars-wrap{margin-top:14px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px}
+        .vars-wrap p{font-size:.73rem;color:var(--text-muted);margin-bottom:6px}
+        .var-badge{display:inline-block;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-family:monospace;font-size:.72rem;color:var(--accent);margin:2px;cursor:pointer;transition:all .15s}
+        .var-badge:hover{background:var(--accent-soft)}
+
+        /* Gmail */
+        .gmail-block{display:flex;align-items:center;gap:14px;padding:16px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border)}
+        .gmail-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+        .gmail-dot.on{background:#22c55e;box-shadow:0 0 8px rgba(34,197,94,.5)}
+        .gmail-dot.off{background:var(--text-dim)}
+        .gmail-label{font-weight:600;font-size:.88rem}
+        .gmail-sub{font-size:.75rem;color:var(--text-muted);margin-top:2px}
+        .btn-gmail{margin-left:auto;padding:8px 18px;border-radius:8px;border:none;font-size:.82rem;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px;transition:all .2s;font-family:'DM Sans',sans-serif;white-space:nowrap}
+        .btn-gmail.connect{background:var(--accent);color:#fff}
+        .btn-gmail.connect:hover{background:#7c74ff}
+        .btn-gmail.disconnect{background:var(--surface);border:1px solid var(--border);color:var(--text-muted)}
+        .btn-gmail.disconnect:hover{border-color:var(--danger);color:var(--danger)}
+
+        /* CTA */
+        .cta-wrap{margin-top:36px;padding:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);text-align:center}
+        .cta-wrap h3{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--text);margin-bottom:6px}
+        .cta-wrap p{font-size:.82rem;color:var(--text-muted);margin-bottom:16px}
+        .btn-go{display:inline-flex;align-items:center;gap:8px;background:var(--accent);border:none;border-radius:12px;color:#fff;padding:12px 32px;font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;text-decoration:none;cursor:pointer;transition:all .2s;box-shadow:0 4px 20px var(--accent-glow)}
+        .btn-go:hover{background:#7c74ff;transform:translateY(-2px);color:#fff}
+        .btn-locked{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;color:var(--text-muted);padding:12px 32px;font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;cursor:not-allowed}
+
+        /* Hidden inputs par secteur (données Django → JS) */
+        .tpl-data{display:none}
+
+        @media(max-width:640px){
+            .editor-grid{grid-template-columns:1fr}
+            .field-row-2{grid-template-columns:1fr}
+            .tabs-nav{width:100%}
+            .tab-btn{flex:1;justify-content:center;font-size:.75rem;padding:8px 6px}
+            .secteurs-grid{grid-template-columns:1fr 1fr}
         }
-        .email-tpl-banner i { color: var(--accent); font-size: 1rem; flex-shrink: 0; }
-        .email-tpl-banner p { font-size: 0.82rem; color: var(--text-muted); margin: 0; }
-        .email-tpl-banner strong { color: var(--text); }
-
-        /* ── Picker ── */
-        .picker-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 20px; background: var(--surface-2); }
-        .picker-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; background: rgba(108,99,255,0.05); border-bottom: 1px solid var(--border); }
-        .picker-active-label { display: flex; align-items: center; gap: 7px; font-size: 0.82rem; font-weight: 600; color: var(--text); white-space: nowrap; min-width: 0; flex: 1; }
-        .has-tpl-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25); color: #4ade80; font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
-        .picker-search-wrap { position: relative; display: flex; align-items: center; }
-        .picker-search-icon { position: absolute; left: 10px; color: var(--text-muted); font-size: 0.75rem; pointer-events: none; }
-        .picker-search { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 6px 28px 6px 30px; font-size: 0.8rem; font-family: 'DM Sans', sans-serif; outline: none; width: 200px; transition: all 0.2s; }
-        .picker-search:focus { border-color: var(--accent); width: 240px; }
-        .picker-search::placeholder { color: var(--text-dim); }
-        .search-clear { position: absolute; right: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0; display: flex; align-items: center; }
-        .search-clear:hover { color: var(--text); }
-        .picker-email-row { padding: 10px 14px 6px; border-bottom: 1px solid var(--border); }
-        .secteurs-grouped { padding: 4px 0 8px; }
-        .secteur-group { border-bottom: 1px solid var(--border); }
-        .secteur-group:last-child { border-bottom: none; }
-        .group-header { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.78rem; font-weight: 600; font-family: 'DM Sans', sans-serif; text-align: left; transition: background 0.15s; user-select: none; }
-        .group-header:hover { background: rgba(255,255,255,0.03); color: var(--text); }
-        .group-header .group-icon { font-size: 0.85rem; }
-        .group-header span:nth-child(2) { flex: 1; }
-        .group-count-badge { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; font-size: 0.68rem; color: var(--text-muted); font-weight: 500; }
-        .group-chevron { font-size: 0.7rem; transition: transform 0.2s; margin-left: 4px; }
-        .secteur-group.open .group-chevron { transform: rotate(180deg); }
-        .secteur-group.open .group-header { color: var(--text); }
-        .group-chips { display: none; flex-wrap: wrap; gap: 5px; padding: 4px 14px 12px; }
-        .secteur-group.open .group-chips { display: flex; }
-        .group-header-static { display: flex; align-items: center; gap: 8px; padding: 9px 14px 6px; color: var(--text-muted); font-size: 0.78rem; font-weight: 600; }
-        .secteur-chip { padding: 5px 11px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap; font-family: 'DM Sans', sans-serif; display: inline-flex; align-items: center; gap: 5px; }
-        .secteur-chip:hover { color: var(--text); border-color: rgba(108,99,255,0.4); background: rgba(108,99,255,0.06); }
-        .secteur-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 2px 10px var(--accent-glow); }
-
-        /* ── Email chip spécial ── */
-        .secteur-chip.email-chip {
-            background: rgba(108,99,255,0.1); border-color: rgba(108,99,255,0.35);
-            color: #a5b4fc; font-weight: 700; font-size: 0.78rem;
-        }
-        .secteur-chip.email-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-        .chip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
-        .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .editor-grid .full { grid-column: 1 / -1; }
-        .var-badge { display: inline-block; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; font-family: monospace; font-size: 0.72rem; color: var(--accent); margin: 2px; cursor: pointer; transition: all 0.15s; }
-        .var-badge:hover { background: var(--accent-soft); }
-        .vars-hint { margin-top: 14px; padding: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
-        .vars-hint p { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; }
-        .alert-mx { border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.85rem; border: 1px solid; display: flex; align-items: center; gap: 10px; }
-        .alert-success { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.2); color: #4ade80; }
-        .alert-danger  { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); color: #f87171; }
-        .alert-warning { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.2); color: #fbbf24; }
-        .alert-info    { background: rgba(108,99,255,0.08); border-color: rgba(108,99,255,0.2); color: #a5b4fc; }
-        .gmail-status { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
-        .gmail-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .gmail-dot.connected { background: var(--success); box-shadow: 0 0 8px rgba(34,197,94,0.5); }
-        .gmail-dot.disconnected { background: var(--text-dim); }
-        .gmail-status .label { font-weight: 600; font-size: 0.85rem; }
-        .gmail-status .sub { font-size: 0.75rem; color: var(--text-muted); }
-        .btn-gmail-connect { margin-left: auto; padding: 7px 16px; border-radius: 8px; border: none; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 6px; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
-        .btn-gmail-connect.connect { background: var(--accent); color: #fff; }
-        .btn-gmail-connect.connect:hover { background: #7c74ff; }
-        .btn-gmail-connect.disconnect { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); }
-        .btn-gmail-connect.disconnect:hover { border-color: var(--danger); color: var(--danger); }
-        @media (max-width: 768px) { .editor-grid { grid-template-columns: 1fr; } .field-row.cols-2 { grid-template-columns: 1fr; } .tabs-nav { width: 100%; } .tab-btn { flex: 1; justify-content: center; } }
     </style>
 </head>
 <body>
-
 <div class="bg-grid"></div>
 <div class="bg-orb bg-orb-1"></div>
 <div class="bg-orb bg-orb-2"></div>
 
+{# ── Données templates injectées proprement par Django ── #}
+{# Une div cachée par secteur, lue par JS sans JSON.parse ni race condition #}
+{% for s in secteurs_requis_list %}
+{% with tpl=templates_by_secteur|default:None %}{% endwith %}
+{% endfor %}
+{{ templates_json|json_script:"tpl-json-data" }}
+
+{# Navbar #}
 <nav class="navbar-mx">
     <a href="{% url 'dashboard' %}" class="logo-mx">M<span>X</span></a>
     <div style="display:flex;align-items:center;gap:12px">
-        <span style="color:var(--text-muted);font-size:0.78rem">{{ user.email }}</span>
+        <span style="color:var(--text-muted);font-size:.78rem">{{ request.user.username }}</span>
+        {% if setup_complete %}
         <a href="{% url 'dashboard' %}" class="btn-back">
-            <i class="bi bi-arrow-left" style="font-size:0.8rem"></i> Dashboard
+            <i class="bi bi-arrow-left" style="font-size:.8rem"></i> Dashboard
         </a>
+        {% endif %}
     </div>
 </nav>
 
 <div class="page-wrap">
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert-mx alert-{{ message.tags }}">
-                <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'danger' %}x-circle{% else %}info-circle{% endif %}"></i>
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
+    {# Flash #}
+    {% if messages %}{% for message in messages %}
+    <div class="alert-mx alert-{{ message.tags }}">
+        <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% elif message.tags == 'danger' %}x-circle-fill{% else %}exclamation-triangle-fill{% endif %}" style="flex-shrink:0;margin-top:1px"></i>
+        <span>{{ message }}</span>
+    </div>
+    {% endfor %}{% endif %}
+
+    {# Setup bar #}
+    <div class="setup-bar">
+        <span style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-right:4px">Setup</span>
+        <span class="setup-step {% if profil_ok %}step-done{% else %}step-pending{% endif %}">
+            <span class="s-dot"></span>Identité{% if profil_ok %} ✓{% endif %}
+        </span>
+        <span class="setup-sep">›</span>
+        <span class="setup-step {% if not secteurs_manquants %}step-done{% else %}step-pending{% endif %}">
+            <span class="s-dot"></span>Templates LM
+            {% if secteurs_manquants %}({{ secteurs_manquants|length }} manquant{{ secteurs_manquants|length|pluralize }}){% else %}✓{% endif %}
+        </span>
+        <span class="setup-sep">›</span>
+        <span class="setup-step {% if gmail_connected %}step-done{% else %}step-pending{% endif %}">
+            <span class="s-dot"></span>Gmail{% if gmail_connected %} ✓{% endif %}
+        </span>
+        {% if setup_complete %}
+        <span style="margin-left:auto;font-size:.78rem;color:#4ade80;font-weight:700"><i class="bi bi-check-circle-fill me-1"></i>Tout est prêt</span>
+        {% endif %}
+    </div>
 
     <div class="page-header">
         <h1>Réglages</h1>
-        <p>Gérez votre profil, vos templates de lettres et vos connexions</p>
+        <p>Remplissez chaque étape pour débloquer le dashboard</p>
     </div>
 
+    {# Tabs #}
     <div class="tabs-nav">
-        <button class="tab-btn active" data-tab="identite"><i class="bi bi-person"></i> Identité</button>
-        <button class="tab-btn" data-tab="templates"><i class="bi bi-file-earmark-text"></i> Templates LM</button>
-        <button class="tab-btn" data-tab="connexions"><i class="bi bi-plug"></i> Connexions</button>
+        <button class="tab-btn {% if active_tab == 'identite' %}active{% endif %}" data-tab="identite">
+            <i class="bi bi-person"></i> Identité
+            <span style="width:7px;height:7px;border-radius:50%;display:inline-block;margin-left:2px;{% if profil_ok %}background:#22c55e;box-shadow:0 0 5px rgba(34,197,94,.6){% else %}background:#f59e0b;box-shadow:0 0 5px rgba(245,158,11,.6){% endif %}"></span>
+        </button>
+        <button class="tab-btn {% if active_tab == 'templates' %}active{% endif %}" data-tab="templates">
+            <i class="bi bi-file-earmark-text"></i> Templates LM
+            {% if not secteurs_manquants %}<span style="width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;margin-left:2px;box-shadow:0 0 5px rgba(34,197,94,.6)"></span>
+            {% else %}<span style="background:#f59e0b;color:#000;border-radius:10px;font-size:.62rem;font-weight:800;padding:1px 6px;margin-left:2px;">{{ secteurs_manquants|length }}</span>{% endif %}
+        </button>
+        <button class="tab-btn {% if active_tab == 'connexions' %}active{% endif %}" data-tab="connexions">
+            <i class="bi bi-plug"></i> Connexions
+            <span style="width:7px;height:7px;border-radius:50%;display:inline-block;margin-left:2px;{% if gmail_connected %}background:#22c55e;box-shadow:0 0 5px rgba(34,197,94,.6){% else %}background:#f59e0b;box-shadow:0 0 5px rgba(245,158,11,.6){% endif %}"></span>
+        </button>
     </div>
 
-    <form method="POST" action="{% url 'settings_page' %}">
-        {% csrf_token %}
-        <input type="hidden" id="current_secteur_name" name="template_secteur" value="Email">
-
-        {# ── TAB IDENTITÉ ── #}
-        <div class="tab-panel active" id="tab-identite">
+    {# ══ TAB IDENTITÉ ══ #}
+    <div class="tab-panel {% if active_tab == 'identite' %}active{% endif %}" id="tab-identite">
+        <form method="POST" action="{% url 'settings_page' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_profil">
             <div class="card-mx" style="max-width:560px">
                 <div class="card-header-mx">
                     <div class="icon-wrap"><i class="bi bi-person-badge"></i></div>
-                    <div>
-                        <h2>Informations personnelles</h2>
-                        <p>Utilisées dans toutes vos lettres de motivation</p>
-                    </div>
+                    <div><h2>Informations personnelles</h2><p>Utilisées dans toutes vos lettres de motivation</p></div>
                 </div>
                 <div class="card-body-mx">
-                    <div class="section-divider"><span>Identité</span></div>
-                    <div class="field-row cols-2">
+                    <div class="section-div"><span>Identité</span></div>
+                    <div class="field-row-2">
                         <div class="field-group">
-                            <label class="field-label">Prénom</label>
-                            <input type="text" name="prenom_lm" class="field-input" value="{{ profil.prenom_lm|default:'' }}" placeholder="Maxence">
+                            <label class="field-label">Prénom <span class="req">*</span></label>
+                            <input type="text" name="prenom_lm" class="field-input" value="{{ profil.prenom_lm|default:'' }}" placeholder="Maxence" required>
                         </div>
                         <div class="field-group">
-                            <label class="field-label">Nom</label>
-                            <input type="text" name="nom_lm" class="field-input" value="{{ profil.nom_lm|default:'' }}" placeholder="Dupont">
+                            <label class="field-label">Nom <span class="req">*</span></label>
+                            <input type="text" name="nom_lm" class="field-input" value="{{ profil.nom_lm|default:'' }}" placeholder="Dupont" required>
                         </div>
                     </div>
                     <div class="field-group">
-                        <label class="field-label">Email de contact</label>
-                        <input type="email" name="email_lm" class="field-input" value="{{ profil.email_lm|default:'' }}" placeholder="votre@email.com">
+                        <label class="field-label">Email de contact <span class="req">*</span></label>
+                        <input type="email" name="email_lm" class="field-input" value="{{ profil.email_lm|default:'' }}" placeholder="votre@email.com" required>
                     </div>
                     <div class="field-group">
                         <label class="field-label">Téléphone</label>
                         <input type="text" name="telephone" class="field-input" value="{{ profil.telephone|default:'' }}" placeholder="+41 79 000 00 00">
                     </div>
-                    <div class="section-divider"><span>Adresse</span></div>
+                    <div class="section-div"><span>Adresse</span></div>
                     <div class="field-group">
                         <label class="field-label">Rue</label>
                         <input type="text" name="rue" class="field-input" value="{{ profil.rue|default:'' }}" placeholder="Rue de la Prairie 25">
                     </div>
-                    <div class="field-row cols-3">
+                    <div class="field-row-npa">
                         <div class="field-group">
                             <label class="field-label">NPA</label>
                             <input type="text" name="npa" class="field-input" value="{{ profil.npa|default:'' }}" placeholder="1202">
@@ -220,317 +276,288 @@
                             <input type="text" name="ville" class="field-input" value="{{ profil.ville|default:'' }}" placeholder="Genève">
                         </div>
                     </div>
-                    <div style="margin-top:24px">
-                        <button type="submit" class="btn-save"><i class="bi bi-check2"></i> Sauvegarder</button>
-                    </div>
+                    <button type="submit" class="btn-save"><i class="bi bi-check2"></i> Sauvegarder les informations</button>
                 </div>
             </div>
+        </form>
+    </div>
+
+    {# ══ TAB TEMPLATES LM ══ #}
+    <div class="tab-panel {% if active_tab == 'templates' %}active{% endif %}" id="tab-templates">
+
+        <div class="alert-mx alert-info" style="margin-bottom:20px">
+            <i class="bi bi-info-circle-fill" style="flex-shrink:0;margin-top:1px"></i>
+            <span>Un template par secteur. <strong style="color:var(--text)">Email</strong> = corps du mail · autres = PDF joint. <strong style="color:var(--text)">Paragraphe 1 obligatoire.</strong></span>
         </div>
 
-        {# ── TAB TEMPLATES ── #}
-        <div class="tab-panel" id="tab-templates">
-            <div class="card-mx">
-                <div class="card-header-mx">
+        {# Grille des secteurs #}
+        <div class="secteurs-grid">
+            {% for s in secteurs_requis_list %}
+            <button type="button"
+                    class="secteur-card {% if s not in secteurs_manquants %}done{% endif %} {% if s == active_secteur %}active{% endif %}"
+                    data-secteur="{{ s }}"
+                    onclick="selectSecteur('{{ s|escapejs }}')">
+                {% if s == "Email" %}<span class="sc-type"><i class="bi bi-envelope-fill me-1"></i>Corps email</span>
+                {% else %}<span class="sc-type"><i class="bi bi-file-pdf me-1"></i>PDF joint</span>{% endif %}
+                <span class="sc-name">{{ s }}</span>
+                {% if s not in secteurs_manquants %}
+                    <span class="sc-badge ok"><i class="bi bi-check2"></i> Configuré</span>
+                {% else %}
+                    <span class="sc-badge missing"><i class="bi bi-pencil"></i> À remplir</span>
+                {% endif %}
+            </button>
+            {% endfor %}
+        </div>
+
+        {# Zone éditeur — formulaire dédié #}
+        <form method="POST" action="{% url 'settings_page' %}" id="formTemplate">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_template">
+            <input type="hidden" name="template_secteur" id="currentSecteur" value="{{ active_secteur }}">
+
+            <div class="editor-zone">
+                <div class="editor-header">
                     <div class="icon-wrap"><i class="bi bi-pencil-square"></i></div>
-                    <div>
-                        <h2>Templates de lettres de motivation</h2>
-                        <p>Corps email : template "Email" — PDF : template par secteur</p>
-                    </div>
+                    <h3>Template</h3>
+                    <span class="badge-editing" id="editorLabel">{{ active_secteur }}</span>
+                    <span id="editorStatus"></span>
                 </div>
-                <div class="card-body-mx">
 
-                    {# Banner explicatif #}
-                    <div class="email-tpl-banner">
-                        <i class="bi bi-info-circle-fill"></i>
-                        <p>
-                            <strong>Template Email</strong> — utilisé comme corps du mail Gmail pour <em>toutes</em> les entreprises.<br>
-                            <strong>Templates par secteur</strong> — utilisés uniquement dans le <em>PDF joint</em> à l'email.
-                        </p>
-                    </div>
-
-                    {# Picker #}
-                    <div class="picker-wrap">
-                        <div class="picker-topbar">
-                            <div class="picker-active-label">
-                                <i class="bi bi-tag-fill" style="color:var(--accent);font-size:0.72rem"></i>
-                                <span id="active-secteur-display">Email</span>
-                                <span id="active-tpl-badge" class="has-tpl-badge" style="display:none">
-                                    <i class="bi bi-check2"></i> configuré
-                                </span>
-                            </div>
-                            <div class="picker-search-wrap">
-                                <i class="bi bi-search picker-search-icon"></i>
-                                <input type="text" id="secteur-search" class="picker-search" placeholder="Rechercher…" autocomplete="off">
-                                <button type="button" id="search-clear" class="search-clear" style="display:none"><i class="bi bi-x"></i></button>
-                            </div>
-                        </div>
-
-                        {# Bouton Email fixe en haut #}
-                        <div class="picker-email-row">
-                            <button type="button" class="secteur-chip email-chip active" data-secteur="Email">
-                                <i class="bi bi-envelope-fill" style="font-size:0.65rem"></i>
-                                Corps Email (tous secteurs)
-                                <span class="chip-dot" id="dot-Email" style="display:none"></span>
+                {# ── PREVIEW (visible si template existant ET pas en mode édition) ── #}
+                <div id="previewBlock" style="display:none">
+                    <div class="preview-block">
+                        <div class="preview-header">
+                            <span class="ok-label"><i class="bi bi-check-circle-fill"></i> Template enregistré</span>
+                            <button type="button" class="btn-edit" onclick="showEditZone()">
+                                <i class="bi bi-pencil"></i> Modifier
                             </button>
                         </div>
-
-                        {# Groupes collapsibles #}
-                        <div id="secteurs-grouped" class="secteurs-grouped"></div>
-
-                        {# Résultats recherche #}
-                        <div id="search-results-wrap" style="display:none">
-                            <div class="group-header-static">
-                                <i class="bi bi-search" style="font-size:0.75rem;color:var(--text-muted)"></i>
-                                <span>Résultats</span>
-                                <span id="search-count" class="group-count-badge"></span>
-                            </div>
-                            <div class="group-chips" id="search-results-chips"></div>
-                        </div>
+                        <div class="preview-content" id="previewContent"></div>
                     </div>
+                </div>
 
-                    {# Liste cachée Django → JS #}
-                    <div id="all-secteurs-list" style="display:none">
-                        {% for secteur in secteurs_templates %}
-                            {% if not forloop.first %}
-                                <span data-secteur="{{ secteur }}"></span>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-
-                    {# Éditeur #}
+                {# ── FORMULAIRE D'ÉDITION (visible si pas de template ou après clic Modifier) ── #}
+                <div id="editZone" style="display:none">
                     <div class="field-group">
                         <label class="field-label">Objet de la lettre</label>
-                        <input type="text" id="objet" name="objet" class="field-input" placeholder="Candidature spontanée — {entreprise}">
+                        <input type="text" id="f_objet" name="objet" class="field-input" placeholder="Candidature spontanée — {entreprise}">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Salutation</label>
+                        <textarea id="f_intro" name="introduction" class="field-input" rows="2" placeholder="Madame, Monsieur,"></textarea>
                     </div>
                     <div class="editor-grid">
-                        <div class="field-group">
-                            <label class="field-label">Salutation</label>
-                            <textarea id="introduction" name="introduction" class="field-input" rows="3" placeholder="Madame, Monsieur,"></textarea>
-                        </div>
-                        <div class="field-group">
-                            <label class="field-label">Paragraphe 1 — À propos de moi</label>
-                            <textarea id="paragraph_1" name="paragraph_1" class="field-input" rows="3" placeholder="Présentation personnelle..."></textarea>
+                        <div class="field-group full">
+                            <label class="field-label">Paragraphe 1 — À propos de moi <span class="req">*</span></label>
+                            <textarea id="f_p1" name="paragraph_1" class="field-input" rows="4"
+                                      placeholder="Présentez-vous : formation, expérience, compétences…"></textarea>
                         </div>
                         <div class="field-group">
                             <label class="field-label">Paragraphe 2 — Votre entreprise</label>
-                            <textarea id="paragraph_2" name="paragraph_2" class="field-input" rows="3" placeholder="Ce qui m'attire chez vous..."></textarea>
+                            <textarea id="f_p2" name="paragraph_2" class="field-input" rows="3" placeholder="Ce qui vous attire chez {entreprise}…"></textarea>
                         </div>
                         <div class="field-group">
                             <label class="field-label">Paragraphe 3 — Valeur ajoutée</label>
-                            <textarea id="paragraph_3" name="paragraph_3" class="field-input" rows="3" placeholder="Ce que je peux apporter..."></textarea>
+                            <textarea id="f_p3" name="paragraph_3" class="field-input" rows="3" placeholder="Ce que vous pouvez apporter…"></textarea>
                         </div>
                         <div class="field-group full">
-                            <label class="field-label">Paragraphe 4 — Conclusion</label>
-                            <textarea id="paragraph_4" name="paragraph_4" class="field-input" rows="3" placeholder="Disponible pour un entretien..."></textarea>
+                            <label class="field-label">Paragraphe 4 — Disponibilité</label>
+                            <textarea id="f_p4" name="paragraph_4" class="field-input" rows="3" placeholder="Disponible pour un entretien…"></textarea>
                         </div>
                         <div class="field-group full">
                             <label class="field-label">Formule de politesse</label>
-                            <input type="text" id="conclusion" name="conclusion" class="field-input" placeholder="Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.">
+                            <input type="text" id="f_conc" name="conclusion" class="field-input"
+                                   placeholder="Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.">
                         </div>
                     </div>
-                    <div class="vars-hint">
-                        <p><i class="bi bi-braces" style="color:var(--accent)"></i> &nbsp;Variables disponibles — cliquez pour copier</p>
-                        <div>
-                            <span class="var-badge" onclick="copyVar('{entreprise}')">{entreprise}</span>
-                            <span class="var-badge" onclick="copyVar('{secteur}')">{secteur}</span>
-                            <span class="var-badge" onclick="copyVar('{prenom}')">{prenom}</span>
-                            <span class="var-badge" onclick="copyVar('{nom}')">{nom}</span>
-                            <span class="var-badge" onclick="copyVar('{ville}')">{ville}</span>
-                            <span class="var-badge" onclick="copyVar('{accroche}')">{accroche}</span>
-                        </div>
+                    <div class="vars-wrap">
+                        <p><i class="bi bi-braces" style="color:var(--accent);margin-right:4px"></i>Variables — cliquer pour copier</p>
+                        <span class="var-badge" onclick="copyVar('{entreprise}')">{entreprise}</span>
+                        <span class="var-badge" onclick="copyVar('{secteur}')">{secteur}</span>
+                        <span class="var-badge" onclick="copyVar('{prenom}')">{prenom}</span>
+                        <span class="var-badge" onclick="copyVar('{nom}')">{nom}</span>
+                        <span class="var-badge" onclick="copyVar('{ville}')">{ville}</span>
+                        <span class="var-badge" onclick="copyVar('{accroche}')">{accroche}</span>
                     </div>
-                    <div style="margin-top:20px">
-                        <button type="submit" class="btn-save"><i class="bi bi-check2"></i> Sauvegarder le template</button>
-                    </div>
+                    <button type="submit" class="btn-save">
+                        <i class="bi bi-check2-circle"></i> Sauvegarder — <span id="saveLbl">{{ active_secteur }}</span>
+                    </button>
                 </div>
-            </div>
-        </div>
 
-        {# ── TAB CONNEXIONS ── #}
-        <div class="tab-panel" id="tab-connexions">
-            <div class="card-mx" style="max-width:500px">
-                <div class="card-header-mx">
-                    <div class="icon-wrap"><i class="bi bi-plug"></i></div>
+            </div>
+        </form>
+    </div>
+
+    {# ══ TAB CONNEXIONS ══ #}
+    <div class="tab-panel {% if active_tab == 'connexions' %}active{% endif %}" id="tab-connexions">
+        <div class="card-mx" style="max-width:520px">
+            <div class="card-header-mx">
+                <div class="icon-wrap"><i class="bi bi-plug"></i></div>
+                <div><h2>Connexions</h2><p>Gmail requis pour créer les brouillons</p></div>
+            </div>
+            <div class="card-body-mx">
+                {% if not gmail_connected %}
+                <div class="alert-mx alert-warning" style="margin-bottom:16px">
+                    <i class="bi bi-exclamation-triangle-fill" style="flex-shrink:0"></i>
+                    <span>Gmail non connecté — obligatoire pour le dashboard.</span>
+                </div>
+                {% endif %}
+                <div class="gmail-block">
+                    <div class="gmail-dot {% if gmail_connected %}on{% else %}off{% endif %}"></div>
                     <div>
-                        <h2>Connexions externes</h2>
-                        <p>Gérez vos services connectés</p>
+                        <div class="gmail-label">Gmail</div>
+                        <div class="gmail-sub">{% if gmail_connected %}Connecté — brouillons activés{% else %}Non connecté{% endif %}</div>
                     </div>
-                </div>
-                <div class="card-body-mx">
-                    <div class="gmail-status">
-                        <div class="gmail-dot {% if gmail_connected %}connected{% else %}disconnected{% endif %}"></div>
-                        <div>
-                            <div class="label">Gmail</div>
-                            <div class="sub">{% if gmail_connected %}Connecté — création de brouillons activée{% else %}Non connecté{% endif %}</div>
-                        </div>
-                        {% if gmail_connected %}
-                            <form method="POST" action="{% url 'gmail_disconnect' %}" style="margin-left:auto">
-                                {% csrf_token %}
-                                <button type="submit" class="btn-gmail-connect disconnect"><i class="bi bi-x-lg"></i> Déconnecter</button>
-                            </form>
-                        {% else %}
-                            <a href="{% url 'gmail_connect' %}" class="btn-gmail-connect connect"><i class="bi bi-google"></i> Connecter</a>
-                        {% endif %}
-                    </div>
+                    {% if gmail_connected %}
+                        <form method="POST" action="{% url 'gmail_disconnect' %}" style="margin-left:auto">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-gmail disconnect"><i class="bi bi-x-lg"></i> Déconnecter</button>
+                        </form>
+                    {% else %}
+                        <a href="{% url 'gmail_connect' %}" class="btn-gmail connect"><i class="bi bi-google"></i> Connecter Gmail</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
+    </div>
 
-    </form>
+    {# CTA Dashboard #}
+    <div class="cta-wrap">
+        <h3>{% if setup_complete %}<i class="bi bi-check-circle-fill" style="color:#22c55e;margin-right:6px"></i>Configuration terminée !
+        {% else %}<i class="bi bi-lock-fill" style="color:var(--text-muted);margin-right:6px"></i>Dashboard verrouillé{% endif %}</h3>
+        <p>
+            {% if setup_complete %}Tout est prêt. Accédez à votre dashboard.
+            {% else %}
+                {% if not profil_ok %}<span style="color:#fbbf24">⚠ Identité incomplète</span>&nbsp;{% endif %}
+                {% if secteurs_manquants %}<span style="color:#fbbf24">⚠ {{ secteurs_manquants|length }} template{{ secteurs_manquants|length|pluralize }} manquant{{ secteurs_manquants|length|pluralize }}</span>&nbsp;{% endif %}
+                {% if not gmail_connected %}<span style="color:#fbbf24">⚠ Gmail non connecté</span>{% endif %}
+            {% endif %}
+        </p>
+        {% if setup_complete %}
+            <a href="{% url 'dashboard' %}" class="btn-go"><i class="bi bi-arrow-right-circle"></i> Accéder au dashboard</a>
+        {% else %}
+            <span class="btn-locked"><i class="bi bi-lock"></i> Dashboard (setup incomplet)</span>
+        {% endif %}
+    </div>
+
 </div>
 
-{{ templates_json|json_script:"templates-data" }}
+{{ templates_json|json_script:"tpl-json-data" }}
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// ── Tabs ──
+// ── Données templates (injectées par Django, disponibles immédiatement) ──
+const TPL = JSON.parse(document.getElementById('tpl-json-data').textContent || '{}');
+
+function hasTpl(name) {
+    return !!(TPL[name] && TPL[name].paragraph_1 && TPL[name].paragraph_1.trim());
+}
+
+function trunc(str, n) {
+    if (!str) return '';
+    return str.length > n ? str.substring(0, n) + '…' : str;
+}
+
+function buildPreviewHTML(name) {
+    const t = TPL[name] || {};
+    let html = '';
+    if (t.salutation) {
+        html += `<div class="preview-label">Salutation</div><div class="preview-text">${t.salutation}</div>`;
+    }
+    if (t.paragraph_1) {
+        html += `<div class="preview-label">§1 — À propos de moi</div><div class="preview-text">${trunc(t.paragraph_1, 180)}</div>`;
+    }
+    if (t.paragraph_2) {
+        html += `<div class="preview-label">§2 — Votre entreprise</div><div class="preview-text">${trunc(t.paragraph_2, 120)}</div>`;
+    }
+    if (t.paragraph_3) {
+        html += `<div class="preview-label">§3 — Valeur ajoutée</div><div class="preview-text">${trunc(t.paragraph_3, 120)}</div>`;
+    }
+    if (t.conclusion) {
+        html += `<div class="preview-label">Formule de politesse</div><div class="preview-text">${trunc(t.conclusion, 80)}</div>`;
+    }
+    return html || '<div style="color:var(--text-dim);font-style:italic">Aucun contenu</div>';
+}
+
+function fillEditFields(name) {
+    const t = TPL[name] || {};
+    document.getElementById('f_objet').value = t.objet        || '';
+    document.getElementById('f_intro').value = t.salutation   || '';
+    document.getElementById('f_p1').value    = t.paragraph_1  || '';
+    document.getElementById('f_p2').value    = t.paragraph_2  || '';
+    document.getElementById('f_p3').value    = t.paragraph_3  || '';
+    document.getElementById('f_p4').value    = t.paragraph_4  || '';
+    document.getElementById('f_conc').value  = t.conclusion   || '';
+}
+
+function showPreview(name) {
+    document.getElementById('previewContent').innerHTML = buildPreviewHTML(name);
+    document.getElementById('previewBlock').style.display = 'block';
+    document.getElementById('editZone').style.display    = 'none';
+}
+
+function showEditZone() {
+    document.getElementById('previewBlock').style.display = 'none';
+    document.getElementById('editZone').style.display    = 'block';
+    document.getElementById('f_p1').focus();
+}
+
+function updateEditorMeta(name) {
+    const label = name === 'Email' ? 'Corps Email' : name;
+    document.getElementById('editorLabel').textContent = label;
+    document.getElementById('saveLbl').textContent = name;
+    document.getElementById('currentSecteur').value = name;
+
+    const statusEl = document.getElementById('editorStatus');
+    if (hasTpl(name)) {
+        statusEl.innerHTML = '<span style="background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.25);border-radius:20px;font-size:.68rem;font-weight:700;padding:2px 8px"><i class="bi bi-check2"></i> Configuré</span>';
+    } else {
+        statusEl.innerHTML = '<span style="background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25);border-radius:20px;font-size:.68rem;font-weight:700;padding:2px 8px"><i class="bi bi-pencil"></i> À remplir</span>';
+    }
+}
+
+function selectSecteur(name) {
+    // Cartes actives
+    document.querySelectorAll('.secteur-card').forEach(c =>
+        c.classList.toggle('active', c.dataset.secteur === name)
+    );
+
+    updateEditorMeta(name);
+    fillEditFields(name);
+
+    // Affichage : preview si template existant, formulaire sinon
+    if (hasTpl(name)) {
+        showPreview(name);
+    } else {
+        showEditZone();
+    }
+}
+
+// Tabs
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        const target = btn.dataset.tab;
+        const t = btn.dataset.tab;
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
-        document.getElementById('tab-' + target).classList.add('active');
+        document.getElementById('tab-' + t).classList.add('active');
     });
 });
 
-// ── Picker + Editor ──
-document.addEventListener('DOMContentLoaded', () => {
-    const templatesEl = document.getElementById("templates-data");
-    const templates   = templatesEl ? JSON.parse(templatesEl.textContent) : {};
-    const hiddenSecteur  = document.getElementById("current_secteur_name");
-    const activeDisplay  = document.getElementById("active-secteur-display");
-    const activeBadge    = document.getElementById("active-tpl-badge");
+// Init : sélectionner active_secteur au chargement
+(function init() {
+    const active = "{{ active_secteur|escapejs }}";
+    selectSecteur(active);
+})();
 
-    const fields = {
-        objet: document.getElementById("objet"),
-        introduction: document.getElementById("introduction"),
-        paragraph_1:  document.getElementById("paragraph_1"),
-        paragraph_2:  document.getElementById("paragraph_2"),
-        paragraph_3:  document.getElementById("paragraph_3"),
-        paragraph_4:  document.getElementById("paragraph_4"),
-        conclusion:   document.getElementById("conclusion"),
-    };
-
-    const GROUPS = {
-        "Services & Tertiaire": { icon: "💼", keywords: ["Informatique","financier","Banque","Assurance","immobilier","Juridique","Conseil","Architecture","Recherche","Publicité","Design","Location","emploi","voyage","sécurité","bâtiments","bureau","Commerce","Transport","Entreposage","poste","Hébergement","Restauration","Édition","Cinéma","Radio","Télécommunication","information","auxiliaires","vétérinaires"] },
-        "Santé & Social":       { icon: "🏥", keywords: ["Santé","Social","Enseignement","Administration publique","médico","Arts","Musées","hasard","Sport","associatives","ordinateurs","personnels","Esthétique"] },
-        "Construction & Énergie": { icon: "🏗️", keywords: ["Construction","électricité","gaz","distribution d","usées","déchets","Dépollution","civil","Génie","Travaux de","captage"] },
-        "Industrie":            { icon: "⚙️", keywords: ["Industrie","Fabrication","Métallurgie","Produits métalliques","Produits informatiques","Équipements","Machines","automobile","matériels","meubles","Réparation et installation","Travail du bois","papier","Imprimerie","Cokéfaction","chimique","pharmaceutique","caoutchouc","minéraux"] },
-        "Primaire":             { icon: "🌿", keywords: ["Agriculture","Sylviculture","Pêche","houille","hydrocarbures","minerais","extractives","Soutien aux"] },
-    };
-
-    const allSecteurs = Array.from(document.querySelectorAll("#all-secteurs-list span[data-secteur]")).map(el => el.dataset.secteur);
-
-    function getSecteurGroup(name) {
-        for (const [group, conf] of Object.entries(GROUPS)) {
-            if (conf.keywords.some(k => name.toLowerCase().includes(k.toLowerCase()))) return group;
-        }
-        return "Autres";
-    }
-
-    function hasTpl(name) {
-        const t = templates[name];
-        return !!(t && (t.objet || t.salutation || t.paragraph_1 || t.paragraph_2 || t.paragraph_3 || t.paragraph_4 || t.conclusion));
-    }
-
-    // Build groups
-    const groupedEl = document.getElementById("secteurs-grouped");
-    const grouped = {};
-    allSecteurs.forEach(s => {
-        const g = getSecteurGroup(s);
-        if (!grouped[g]) grouped[g] = [];
-        grouped[g].push(s);
-    });
-
-    Object.entries(GROUPS).forEach(([groupName, conf]) => {
-        const items = grouped[groupName] || [];
-        if (!items.length) return;
-        const configuredCount = items.filter(hasTpl).length;
-        const div = document.createElement("div");
-        div.className = "secteur-group";
-        const countHtml = configuredCount > 0
-            ? `<span class="group-count-badge" style="color:#4ade80;border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.08)">${configuredCount}✓ / ${items.length}</span>`
-            : `<span class="group-count-badge">${items.length}</span>`;
-        div.innerHTML = `<button type="button" class="group-header"><span class="group-icon">${conf.icon}</span><span>${groupName}</span>${countHtml}<i class="bi bi-chevron-down group-chevron"></i></button><div class="group-chips"></div>`;
-        const chipsEl = div.querySelector(".group-chips");
-        items.forEach(s => {
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "secteur-chip";
-            btn.dataset.secteur = s;
-            btn.innerHTML = s + (hasTpl(s) ? '<span class="chip-dot"></span>' : '');
-            btn.addEventListener("click", () => loadSecteur(s));
-            chipsEl.appendChild(btn);
-        });
-        div.querySelector(".group-header").addEventListener("click", () => div.classList.toggle("open"));
-        groupedEl.appendChild(div);
-    });
-
-    // Email dot
-    if (hasTpl("Email")) document.getElementById("dot-Email").style.display = "inline-block";
-
-    // Search
-    const searchInput = document.getElementById("secteur-search");
-    const searchClear = document.getElementById("search-clear");
-    const searchResultsWrap  = document.getElementById("search-results-wrap");
-    const searchResultsChips = document.getElementById("search-results-chips");
-    const searchCount = document.getElementById("search-count");
-
-    searchInput.addEventListener("input", () => {
-        const q = searchInput.value.trim().toLowerCase();
-        searchClear.style.display = q ? "flex" : "none";
-        if (!q) { searchResultsWrap.style.display = "none"; groupedEl.style.display = "block"; return; }
-        groupedEl.style.display = "none";
-        searchResultsWrap.style.display = "block";
-        searchResultsChips.innerHTML = "";
-        const matches = ["Email", ...allSecteurs].filter(s => s.toLowerCase().includes(q));
-        searchCount.textContent = matches.length;
-        matches.forEach(s => {
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "secteur-chip" + (s === "Email" ? " email-chip" : "") + (s === hiddenSecteur.value ? " active" : "");
-            btn.dataset.secteur = s;
-            btn.innerHTML = s + (hasTpl(s) ? '<span class="chip-dot"></span>' : '');
-            btn.addEventListener("click", () => loadSecteur(s));
-            searchResultsChips.appendChild(btn);
-        });
-    });
-
-    searchClear.addEventListener("click", () => { searchInput.value = ""; searchInput.dispatchEvent(new Event("input")); searchInput.focus(); });
-
-    // Load secteur
-    function loadSecteur(name) {
-        if (!name) return;
-        hiddenSecteur.value = name;
-        activeDisplay.textContent = name === "Email" ? "Corps Email (tous secteurs)" : name;
-        activeBadge.style.display = hasTpl(name) ? "inline-flex" : "none";
-        const t = templates[name] || {};
-        fields.objet.value        = t.objet       || "";
-        fields.introduction.value = t.salutation  || "";
-        fields.paragraph_1.value  = t.paragraph_1 || "";
-        fields.paragraph_2.value  = t.paragraph_2 || "";
-        fields.paragraph_3.value  = t.paragraph_3 || "";
-        fields.paragraph_4.value  = t.paragraph_4 || "";
-        fields.conclusion.value   = t.conclusion  || "";
-        document.querySelectorAll(".secteur-chip").forEach(b => b.classList.toggle("active", b.dataset.secteur === name));
-        document.querySelectorAll(".secteur-group").forEach(g => {
-            if (g.querySelector(`.secteur-chip[data-secteur="${CSS.escape(name)}"]`)) g.classList.add("open");
-        });
-    }
-
-    loadSecteur("Email");
-});
-
-// ── Copy variable ──
+// Copier variable
 function copyVar(text) {
     navigator.clipboard.writeText(text).then(() => {
         const el = event.target;
         const orig = el.textContent;
-        el.textContent = '✓ copié';
+        el.textContent = '✓';
         el.style.background = 'rgba(34,197,94,0.15)';
         el.style.color = '#4ade80';
-        setTimeout(() => { el.textContent = orig; el.style.background = ''; el.style.color = ''; }, 1200);
+        setTimeout(() => { el.textContent = orig; el.style.background = ''; el.style.color = ''; }, 1000);
     });
 }
 </script>

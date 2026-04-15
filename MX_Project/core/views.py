@@ -770,27 +770,75 @@ def entreprises_filtrer_secteur(request):
     return render(request, "partials/entreprises_table.html", {"entreprises": page_obj})
 
 
+
+def _get_setup_status(user):
+    """
+    Retourne l'état de complétion du setup obligatoire.
+    Utilisé pour bloquer l'accès au dashboard tant que tout n'est pas rempli.
+    """
+    profil, _ = ProfilUtilisateur.objects.get_or_create(user=user)
+    profil_ok = bool(profil.prenom_lm and profil.nom_lm and profil.email_lm)
+
+    # Secteurs présents dans les entreprises cibles de l'utilisateur
+    secteurs_cibles = set(
+        EntrepriseCible.objects
+        .filter(utilisateur=user)
+        .exclude(secteur_activite__isnull=True)
+        .exclude(secteur_activite="")
+        .values_list("secteur_activite", flat=True)
+        .distinct()
+    )
+    # On exige : template "Email" + un template par secteur cible (avec paragraph_1 rempli)
+    secteurs_requis = {"Email"} | secteurs_cibles
+
+    templates_ok = set(
+        LettreSecteurTemplate.objects
+        .filter(utilisateur=user)
+        .exclude(paragraph_1="")
+        .values_list("secteur_nom", flat=True)
+    )
+    secteurs_manquants = secteurs_requis - templates_ok
+    gmail_connected = GmailOAuthToken.objects.filter(utilisateur=user).exists()
+
+    return {
+        "profil_ok": profil_ok,
+        "secteurs_manquants": secteurs_manquants,
+        "secteurs_requis": secteurs_requis,
+        "gmail_connected": gmail_connected,
+        "setup_complete": profil_ok and not secteurs_manquants and gmail_connected,
+    }
+
+
+
+
 @login_required
 def settings_page(request):
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
-    secteurs_codes = [c for c in (profil.onboarding_secteurs or "").split(",") if c]
     required_fields = ["prenom_lm", "nom_lm", "email_lm"]
 
-    # Secteurs disponibles pour templates (avec bouton "Email")
-    secteurs_templates = ["Email"] + sorted(set(list(NOGA_MAP.values())))
-    default_template_secteur = "Email"
+    # ── Secteurs requis : Email + secteurs des entreprises cibles ──
+    secteurs_cibles = list(
+        EntrepriseCible.objects
+        .filter(utilisateur=request.user)
+        .exclude(secteur_activite__isnull=True)
+        .exclude(secteur_activite="")
+        .values_list("secteur_activite", flat=True)
+        .distinct()
+        .order_by("secteur_activite")
+    )
+    secteurs_requis_list = ["Email"] + secteurs_cibles
+
     templates_qs = LettreSecteurTemplate.objects.filter(utilisateur=request.user)
-    templates_by_secteur = {t.secteur_nom: t for t in templates_qs}
     templates_json = json.dumps(
         {
             t.secteur_nom: {
-                "objet": t.objet,
-                "salutation": t.salutation,
+                "objet":       t.objet,
+                "salutation":  t.salutation,
                 "paragraph_1": t.paragraph_1,
                 "paragraph_2": t.paragraph_2,
                 "paragraph_3": t.paragraph_3,
                 "paragraph_4": t.paragraph_4,
-                "conclusion": t.conclusion,
+                "conclusion":  t.conclusion,
             }
             for t in templates_qs
         },
@@ -798,43 +846,72 @@ def settings_page(request):
     )
 
     if request.method == 'POST':
-        form = ProfilForm(request.POST, instance=profil, required_fields=required_fields)
-        if form.is_valid():
-            form.save()
-            # Sauvegarde template lettre pour le secteur sélectionné
-            secteur_tpl = (request.POST.get("template_secteur") or default_template_secteur).strip()
-            if secteur_tpl:
-                tpl, _ = LettreSecteurTemplate.objects.get_or_create(
-                    utilisateur=request.user,
-                    secteur_nom=secteur_tpl,
-                )
-                tpl.objet = (request.POST.get("objet") or "").strip()
-                tpl.salutation = (request.POST.get("introduction") or "").strip()
-                tpl.paragraph_1 = (request.POST.get("paragraph_1") or "").strip()
-                tpl.paragraph_2 = (request.POST.get("paragraph_2") or "").strip()
-                tpl.paragraph_3 = (request.POST.get("paragraph_3") or "").strip()
-                tpl.paragraph_4 = (request.POST.get("paragraph_4") or "").strip()
-                tpl.conclusion = (request.POST.get("conclusion") or "").strip()   
-                tpl.save()
-            messages.success(request, "✅ Profil et template sauvegardés avec succès !")
-            return redirect('settings_page')  # ← redirige vers settings pour voir les données rechargées
-        else:
-            # Affiche les erreurs de validation pour debug
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"Erreur — {field} : {error}")
+        action = request.POST.get("action", "")
+
+        # ── Action 1 : sauvegarde profil (onglet Identité) ──
+        if action == "save_profil":
+            form = ProfilForm(request.POST, instance=profil, required_fields=required_fields)
+            if form.is_valid():
+                form.save()
+                messages.success(request, "✅ Informations personnelles sauvegardées.")
+            else:
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f"Erreur — {field} : {error}")
+            return redirect('settings_page')
+
+        # ── Action 2 : sauvegarde template (onglet Templates LM) ──
+        elif action == "save_template":
+            secteur_tpl = (request.POST.get("template_secteur") or "Email").strip()
+
+            p1 = (request.POST.get("paragraph_1") or "").strip()
+            if not p1:
+                messages.error(request, f"⚠ Le Paragraphe 1 est obligatoire pour le template « {secteur_tpl} ».")
+                return redirect('settings_page#templates')
+
+            tpl, _ = LettreSecteurTemplate.objects.get_or_create(
+                utilisateur=request.user,
+                secteur_nom=secteur_tpl,
+            )
+            tpl.objet       = (request.POST.get("objet")        or "").strip()
+            tpl.salutation  = (request.POST.get("introduction")  or "").strip()
+            tpl.paragraph_1 = p1
+            tpl.paragraph_2 = (request.POST.get("paragraph_2") or "").strip()
+            tpl.paragraph_3 = (request.POST.get("paragraph_3") or "").strip()
+            tpl.paragraph_4 = (request.POST.get("paragraph_4") or "").strip()
+            tpl.conclusion  = (request.POST.get("conclusion")   or "").strip()
+            tpl.save()
+
+            messages.success(request, f"✅ Template « {secteur_tpl} » sauvegardé.")
+            # Redirect vers l'onglet templates avec le secteur actif en paramètre
+            return redirect(f"/settings/?tab=templates&secteur={secteur_tpl}")
+
+        # Fallback
+        return redirect('settings_page')
+
     else:
         form = ProfilForm(instance=profil, required_fields=required_fields)
 
-    return render(request, 'core/settings.html', {
-        'form': form,
-        'profil': profil,
-        'secteurs_templates': secteurs_templates,
-        'templates_json': templates_json,
-        'default_template_secteur': default_template_secteur,
-        "gmail_connected": GmailOAuthToken.objects.filter(utilisateur=request.user).exists(),
-    })
+    status = _get_setup_status(request.user)
 
+    # Secteur et onglet actifs (après redirect save_template)
+    active_tab     = request.GET.get("tab", "identite")
+    active_secteur = request.GET.get("secteur", "Email")
+
+    return render(request, 'core/settings.html', {
+    'form':                   form,
+    'profil':                 profil,
+    'secteurs_requis_list':   secteurs_requis_list,
+    'templates_json':         templates_json,
+    'templates_by_secteur':   {t.secteur_nom: t for t in LettreSecteurTemplate.objects.filter(utilisateur=request.user)},
+    'gmail_connected':        status["gmail_connected"],
+    'secteurs_manquants':     sorted(status["secteurs_manquants"]),
+    'profil_ok':              status["profil_ok"],
+    'setup_complete':         status["setup_complete"],
+    'active_tab':             active_tab,
+    'active_secteur':         active_secteur,
+})
+ 
 
 def _safe_format(text: str, ctx: dict) -> str:
     if not text:

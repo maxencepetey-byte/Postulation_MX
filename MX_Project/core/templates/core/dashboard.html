@@ -1,52 +1,13 @@
-<!DOCTYPE html>
 {% load static %}
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MX | Explorateur de Données</title>
-
+    <title>MX | Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}{% if static_version %}?v={{ static_version }}{% endif %}">
-    <style>
-        .group-label {
-            font-size: 0.65rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: .5px;
-            color: #6c757d;
-            margin: 1rem 0 0.4rem;
-            padding-bottom: 3px;
-            border-bottom: 1px solid rgba(0,0,0,.06);
-        }
-        .secteurs-grid-container {
-            max-height: 400px;
-            overflow-y: auto;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            border: 1px solid #eee;
-            transition: all 0.3s ease;
-        }
-        .custom-check:hover {
-            background: rgba(0,0,0,0.03);
-            border-radius: 4px;
-        }
-        .category-nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 15px;
-        }
-        .category-btn {
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.8rem;
-            padding: 5px 15px;
-            transition: all 0.2s ease;
-        }
-    </style>
 </head>
 <body>
     <div class="animated-bg">
@@ -55,20 +16,27 @@
         <div class="orbe orbe-3"></div>
     </div>
 
+    {# ── Navbar ── #}
     <nav class="navbar navbar-mx sticky-top">
         <div class="container-fluid">
             <a href="{% url 'dashboard' %}" class="logo-mx">M<span>X</span></a>
             <div class="d-flex align-items-center gap-3">
                 <div class="text-end d-none d-sm-block">
                     <div class="fw-bold small">{{ request.user.username }}</div>
+                    <div class="text-muted" style="font-size:0.7rem;">{{ total_entreprises }} entreprises</div>
                 </div>
                 <a href="{% url 'settings_page' %}" class="btn btn-sm btn-light border px-3">
-                    <i class="bi bi-person-vcard-fill text-primary"></i> <span class="small fw-bold">Profil & LM</span>
+                    <i class="bi bi-person-vcard-fill text-primary"></i>
+                    <span class="small fw-bold">Profil & LM</span>
+                </a>
+                <a href="{% url 'historique_scans' %}" class="btn btn-sm btn-light border px-3">
+                    <i class="bi bi-clock-history text-secondary"></i>
+                    <span class="small fw-bold d-none d-md-inline">Historique</span>
                 </a>
                 <form action="{% url 'logout' %}" method="POST" class="m-0 p-0">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-link text-danger small p-0" title="Se déconnecter">
-                        <i class="bi bi-box-arrow-right"></i>
+                        <i class="bi bi-box-arrow-right fs-5"></i>
                     </button>
                 </form>
             </div>
@@ -76,24 +44,30 @@
     </nav>
 
     <div class="container-fluid py-4 px-md-5">
+
+        {# ── Messages flash ── #}
         {% if messages %}
-            <div class="row">
-                <div class="col-lg-12 mb-3">
+            <div class="row mb-3">
+                <div class="col-12">
                     {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} mb-2" role="alert">{{ message }}</div>
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-2" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
                     {% endfor %}
                 </div>
             </div>
         {% endif %}
 
-        <div class="row">
-            {# ── Colonne gauche : Documents + Gmail ── #}
+        <div class="row g-4">
             <div class="col-lg-3 mb-4">
                 <div class="card shadow-sm border-0 h-100">
                     <div class="card-body p-4">
-                        <h6 class="section-title mb-4"><i class="bi bi-folder-fill me-2"></i>Documents</h6>
 
-                        <div class="list-group list-group-flush mb-4">
+                        {# ── Documents ── #}
+                        <h6 class="section-title mb-3"><i class="bi bi-folder-fill me-2"></i>Documents</h6>
+
+                        <div class="list-group list-group-flush mb-3">
                             {% for doc in tous_les_docs %}
                             <div class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent border-light">
                                 <div class="text-truncate" style="max-width: 140px;">
@@ -101,10 +75,13 @@
                                     <span class="badge badge-secteur">{{ doc.get_type_doc_display }}</span>
                                 </div>
                                 <div class="d-flex align-items-center gap-2">
-                                    <a href="{{ doc.fichier.url }}" target="_blank" class="text-primary"><i class="bi bi-eye"></i></a>
+                                    <a href="{{ doc.fichier.url }}" target="_blank" class="text-primary" title="Voir">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
                                     <form action="{% url 'delete_document' doc.id %}" method="POST" class="m-0">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-link p-0 text-danger" onclick="return confirm('Supprimer ce document ?')">
+                                        <button type="submit" class="btn btn-link p-0 text-danger"
+                                                onclick="return confirm('Supprimer ce document ?')">
                                             <i class="bi bi-x-circle"></i>
                                         </button>
                                     </form>
@@ -115,36 +92,42 @@
                             {% endfor %}
                         </div>
 
-                        <div class="hr-text">Nouveau CV/Doc</div>
+                        <div class="hr-text">Nouveau CV / Doc</div>
                         <form action="{% url 'upload_cv' %}" method="POST" enctype="multipart/form-data">
                             {% csrf_token %}
-                            <input type="text" name="nom_doc" class="form-control form-control-sm mb-2" placeholder="Nom du doc" required>
-                            <input type="file" name="cv_file" class="form-control form-control-sm mb-3" accept=".pdf" required>
-                            <button type="submit" class="btn btn-dark btn-sm w-100 btn-mx">Charger</button>
+                            <input type="text" name="nom_doc" class="form-control form-control-sm mb-2"
+                                   placeholder="Nom du document" required>
+                            <input type="file" name="cv_file" class="form-control form-control-sm mb-3"
+                                   accept=".pdf" required>
+                            <button type="submit" class="btn btn-dark btn-sm w-100 btn-mx">
+                                <i class="bi bi-upload me-1"></i> Charger
+                            </button>
                         </form>
-                        
+
+                        {# ── Gmail ── #}
                         <div class="hr-text">Gmail</div>
-                        {# Barre de progression Gmail — Utilise la variable calculée dans la vue #}
+
+                        {# Barre de progression Gmail #}
                         {% with n=nb_restants %}
                         <div id="gmailProgressWrap"
-                            data-url="{% url 'gmail_progress' %}"
-                            data-active="{% if n > 0 and gmail_connected %}1{% else %}0{% endif %}"
-                            style="display:none; margin-bottom: 0.75rem;">
+                             data-url="{% url 'gmail_progress' %}"
+                             data-active="{% if n > 0 and gmail_connected %}1{% else %}0{% endif %}"
+                             style="display:none; margin-bottom: 0.75rem;">
                             <div class="d-flex justify-content-between mb-1">
                                 <span id="gmailProgressText" class="small text-muted">Création en cours…</span>
                             </div>
                             <div class="progress" style="height: 6px; border-radius: 99px;">
                                 <div id="gmailProgressBar"
-                                    class="progress-bar bg-danger"
-                                    role="progressbar"
-                                    style="width: 0%; transition: width 0.5s ease;"
-                                    aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                     class="progress-bar bg-danger"
+                                     role="progressbar"
+                                     style="width: 0%; transition: width 0.5s ease;"
+                                     aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
                                 </div>
                             </div>
                         </div>
                         {% endwith %}
 
-                        {# Formulaire Gmail unique #}
+                        {# Boutons Gmail #}
                         {% if gmail_connected %}
                             <form action="{% url 'creer_brouillons_gmail' %}" method="POST" id="gmailForm">
                                 {% csrf_token %}
@@ -155,81 +138,72 @@
                             </form>
                             <form action="{% url 'gmail_disconnect' %}" method="POST">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-secondary btn-sm w-100 py-2">Déconnecter</button>
+                                <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+                                    Déconnecter Gmail
+                                </button>
                             </form>
                         {% else %}
-                            <a href="{% url 'gmail_connect' %}" class="btn btn-gmail w-100 py-2 btn-mx mb-2">
+                            {# Ne devrait jamais apparaître car setup_complete exige Gmail #}
+                            <a href="{% url 'gmail_connect' %}" class="btn btn-gmail w-100 py-2 btn-mx">
                                 <i class="bi bi-google me-2"></i> Connecter Gmail
                             </a>
                         {% endif %}
 
-                        {# Champ caché pour transmettre le secteur sélectionné aux actions Gmail #}
-                        <input type="hidden" id="gmailSecteurHidden" name="secteur" value="">
+                        {# ── Actions de nettoyage ── #}
+                        <div class="hr-text">Gestion</div>
+                        <div class="d-grid gap-2">
+                            <form action="{% url 'vider_liste_et_documents' %}" method="POST"
+                                  onsubmit="return confirm('Vider la liste des entreprises et supprimer les packs ?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-warning btn-sm w-100">
+                                    <i class="bi bi-trash me-1"></i> Vider la liste
+                                </button>
+                            </form>
+                            <form action="{% url 'supprimer_tout' %}" method="POST"
+                                  onsubmit="return confirm('Supprimer TOUTES les données ?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                    <i class="bi bi-x-octagon me-1"></i> Tout supprimer
+                                </button>
+                            </form>
+                        </div>
+
                     </div>
                 </div>
             </div>
-
-            {# ── Colonne droite : Scan + Tableau + Packs ── #}
             <div class="col-lg-9">
 
-                {# Card Scan #}
+                {# ── Filtres secteurs (pills) ── #}
                 <div class="card mb-4 shadow-sm border-0">
-                    <div class="card-body p-4">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h6 class="section-title mb-1">SITG Genève : Scan Massif NOGA</h6>
-                                <p class="small text-muted mb-0">Sélectionnez une catégorie pour filtrer les secteurs</p>
-                            </div>
-                            <div class="btn-group shadow-sm">
-                                <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="checkAll"><i class="bi bi-check2-all"></i> Tout cocher</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary fw-bold" id="uncheckAll"><i class="bi bi-eraser"></i> Décocher</button>
-                            </div>
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="small fw-bold text-muted me-1">
+                                <i class="bi bi-funnel me-1"></i>Secteur :
+                            </span>
+                            <button class="btn btn-sm btn-primary btn-mx secteur-filter-btn active"
+                                    data-secteur="">
+                                Tous ({{ total_entreprises }})
+                            </button>
+                            {% for s in secteurs_uniques %}
+                            <button class="btn btn-sm btn-outline-primary btn-mx secteur-filter-btn"
+                                    data-secteur="{{ s }}">
+                                {{ s }}
+                            </button>
+                            {% endfor %}
                         </div>
-
-                        <form action="{% url 'lancer_scan' %}" method="GET" id="scanForm">
-                            <div class="category-nav">
-                                <button type="button" class="btn btn-primary category-btn active" data-target="all">Tous les secteurs</button>
-                                {% for groupe, items in secteurs_noga.items %}
-                                    <button type="button" class="btn btn-outline-primary category-btn" data-target="cat_{{ forloop.counter }}">{{ groupe }}</button>
-                                {% endfor %}
-                            </div>
-
-                            <div class="secteurs-grid-container mb-4">
-                                <div class="row" id="secteursWrapper">
-                                    {% for groupe, items in secteurs_noga.items %}
-                                        <div class="col-md-4 mb-3 category-group" id="cat_{{ forloop.counter }}">
-                                            <div class="group-label">{{ groupe }}</div>
-                                            {% for code, label in items %}
-                                                <div class="form-check custom-check py-1">
-                                                    <input class="form-check-input" type="checkbox" name="secteurs" value="{{ code }}" id="noga_{{ code }}">
-                                                    <label class="form-check-label small d-flex justify-content-between pe-2" for="noga_{{ code }}">
-                                                        <span class="text-truncate" title="{{ label }}">{{ label }}</span>
-                                                        <b class="ms-2 text-primary">{{ code }}</b>
-                                                    </label>
-                                                </div>
-                                            {% endfor %}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-
-                            <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded-3 border">
-                                <div class="form-check form-switch small mb-0">
-                                    <input class="form-check-input" type="checkbox" checked disabled>
-                                    <label class="form-check-label text-muted fw-bold">Mode Massif Illimité (2000+)</label>
-                                </div>
-                                <button type="submit" class="btn btn-primary btn-mx shadow px-5 py-2 fw-bold text-uppercase">
-                                    <i class="bi bi-radar me-2"></i> Lancer le scan
-                                </button>
-                            </div>
-                        </form>
                     </div>
                 </div>
 
-                {# ── Section Packs (cachée par défaut, affichée via JS) ── #}
+                {# ── Packs disponibles (affiché via JS quand secteur sélectionné) ── #}
                 <div id="packsSection" class="card mb-4 shadow-sm border-0" style="display:none;">
-                    <div class="card-header bg-white py-3 border-0">
-                        <h6 class="section-title mb-0"><i class="bi bi-folder-zip me-2"></i>Packs disponibles</h6>
+                    <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="section-title mb-0">
+                            <i class="bi bi-folder-zip me-2"></i>Packs disponibles
+                            <span id="packsSecteurLabel" class="text-primary ms-1"></span>
+                        </h6>
+                        <a href="{% url 'telecharger_toutes_lm' %}" class="btn btn-sm btn-outline-dark btn-mx">
+                            <i class="bi bi-download me-1"></i> Tout télécharger
+                        </a>
                     </div>
                     <div class="card-body p-4">
                         <div id="packsGrid" class="pack-grid"></div>
@@ -239,9 +213,16 @@
                 {# ── Tableau entreprises ── #}
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-                        <h6 class="section-title mb-0">Base de données ({{ total_entreprises }})</h6>
-                        <select id="secteurSelect" class="form-select form-select-sm w-auto shadow-sm" data-url="{% url 'entreprises_filtrer_secteur' %}">
-                            <option value="">Tous les secteurs scannés</option>
+                        <h6 class="section-title mb-0">
+                            <i class="bi bi-building me-2"></i>
+                            Base de données
+                            <span id="tableauCount" class="ms-1">({{ total_entreprises }})</span>
+                        </h6>
+                        <select id="secteurSelect"
+                                class="form-select form-select-sm w-auto shadow-sm"
+                                data-url="{% url 'entreprises_filtrer_secteur' %}"
+                                style="display:none;">
+                            <option value="">Tous les secteurs</option>
                             {% for s in secteurs_uniques %}
                                 <option value="{{ s }}">{{ s }}</option>
                             {% endfor %}
@@ -253,7 +234,7 @@
                                 <tr class="small text-muted text-uppercase" style="font-size: 0.65rem;">
                                     <th class="ps-4">Entreprise & Contact</th>
                                     <th>Secteur</th>
-                                    <th>Pack Id</th>
+                                    <th>Pack</th>
                                     <th>Statut</th>
                                     <th class="text-end pe-4">Action</th>
                                 </tr>
@@ -263,59 +244,133 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
 
+                    {# Pagination #}
+                    {% if entreprises.has_other_pages %}
+                    <div class="card-footer bg-white py-3 border-0">
+                        <nav class="d-flex justify-content-center">
+                            <ul class="pagination pagination-sm mb-0">
+                                {% if entreprises.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ entreprises.previous_page_number }}">
+                                            Précédent
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ entreprises.number }} / {{ entreprises.paginator.num_pages }}</span>
+                                </li>
+                                {% if entreprises.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ entreprises.next_page_number }}">
+                                            Suivant
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+
+                </div>
             </div>{# fin col-lg-9 #}
+
         </div>{# fin row #}
     </div>{# fin container #}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{% static 'js/scan-history.min.js' %}{% if static_version %}?v={{ static_version }}{% endif %}"></script>
+
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const categoryBtns = document.querySelectorAll('.category-btn');
-            const categoryGroups = document.querySelectorAll('.category-group');
+    document.addEventListener('DOMContentLoaded', () => {
 
-            categoryBtns.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    categoryBtns.forEach(b => {
-                        b.classList.remove('btn-primary', 'active');
-                        b.classList.add('btn-outline-primary');
-                    });
-                    e.target.classList.remove('btn-outline-primary');
-                    e.target.classList.add('btn-primary', 'active');
+        const filterUrl = "{% url 'entreprises_filtrer_secteur' %}";
+        let currentSecteur = '';
 
-                    const target = e.target.getAttribute('data-target');
-                    categoryGroups.forEach(group => {
-                        if (target === 'all' || group.id === target) {
-                            group.style.display = 'block';
-                            if (target !== 'all') {
-                                group.classList.remove('col-md-4');
-                                group.classList.add('col-md-12');
-                            } else {
-                                group.classList.add('col-md-4');
-                                group.classList.remove('col-md-12');
-                            }
-                        } else {
-                            group.style.display = 'none';
-                        }
-                    });
+        // ── Filtre secteur via pills ──
+        document.querySelectorAll('.secteur-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.secteur-filter-btn').forEach(b => {
+                    b.classList.remove('active', 'btn-primary');
+                    b.classList.add('btn-outline-primary');
                 });
-            });
+                btn.classList.add('active', 'btn-primary');
+                btn.classList.remove('btn-outline-primary');
 
-            document.getElementById('checkAll').addEventListener('click', () => {
-                const visibleGroups = Array.from(categoryGroups).filter(g => g.style.display !== 'none');
-                visibleGroups.forEach(group => {
-                    group.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = true);
-                });
-            });
+                currentSecteur = btn.dataset.secteur;
 
-            document.getElementById('uncheckAll').addEventListener('click', () => {
-                document.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = false);
-            });
+                // Sync le champ caché Gmail
+                const gmailField = document.getElementById('gmailSecteurField');
+                if (gmailField) gmailField.value = currentSecteur;
 
-            // ← SUPPRIMÉ : la sync Gmail est maintenant gérée par scan-history.min.js
+                // Sync le select caché (compatibilité scan-history.min.js)
+                const sel = document.getElementById('secteurSelect');
+                if (sel) sel.value = currentSecteur;
+
+                fetchSecteur(currentSecteur);
+            });
         });
+
+        function fetchSecteur(secteur) {
+            const url = secteur ? `${filterUrl}?secteur=${encodeURIComponent(secteur)}` : filterUrl;
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('entreprisesTbody').innerHTML = data.tbody || '';
+
+                    const packsSection = document.getElementById('packsSection');
+                    const packsGrid   = document.getElementById('packsGrid');
+                    const packsLabel  = document.getElementById('packsSecteurLabel');
+
+                    if (secteur && data.packs) {
+                        packsGrid.innerHTML = data.packs;
+                        packsLabel.textContent = `— ${secteur}`;
+                        packsSection.style.display = '';
+                    } else {
+                        packsSection.style.display = 'none';
+                        packsGrid.innerHTML = '';
+                        if (packsLabel) packsLabel.textContent = '';
+                    }
+                })
+                .catch(err => console.error('Erreur filtre secteur:', err));
+        }
+
+        // ── Progression Gmail ──
+        const wrap = document.getElementById('gmailProgressWrap');
+        if (wrap && wrap.dataset.active === '1') {
+            wrap.style.display = 'block';
+            const bar  = document.getElementById('gmailProgressBar');
+            const text = document.getElementById('gmailProgressText');
+            const progressUrl = wrap.dataset.url;
+
+            const poll = setInterval(() => {
+                fetch(progressUrl)
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.total > 0) {
+                            const pct = Math.round((d.done / d.total) * 100);
+                            bar.style.width = pct + '%';
+                            bar.setAttribute('aria-valuenow', pct);
+                            text.textContent = `${d.done} / ${d.total} brouillons créés`;
+                            if (d.done >= d.total) {
+                                clearInterval(poll);
+                                text.textContent = '✅ Brouillons créés avec succès';
+                                setTimeout(() => { wrap.style.display = 'none'; }, 3000);
+                            }
+                        }
+                    })
+                    .catch(() => clearInterval(poll));
+            }, 2000);
+        }
+
+        // Charger le premier secteur disponible par défaut si présent
+        {% if secteurs_uniques %}
+        const firstBtn = document.querySelector('.secteur-filter-btn[data-secteur="{{ secteurs_uniques.0 }}"]');
+        if (firstBtn) firstBtn.click();
+        {% endif %}
+
+    });
     </script>
-    </body>
-    </html>
+
+</body>
+</html>
