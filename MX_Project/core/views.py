@@ -1824,8 +1824,10 @@ def creer_brouillons_gmail(request):
                     created += 1
                     print(f">>> brouillon créé: {ent.email}", flush=True)
                 except Exception as e:
+                    import traceback
+                    print(f">>> ERREUR COMPLÈTE pour {ent.email}:", flush=True)
+                    traceback.print_exc()
                     err_str = str(e)
-                    print(f">>> Gmail API error pour {ent.email}: {err_str[:200]}", flush=True)
                     if "401" in err_str or "403" in err_str or "invalid_grant" in err_str.lower():
                         logger.error("brouillons_bg: auth error, stopping. %s", err_str[:200])
                         break
@@ -1833,10 +1835,13 @@ def creer_brouillons_gmail(request):
                     skipped += 1
                     continue
 
+            # ← ICI : même niveau que "for ent in entreprises" (8 espaces)
             print(f">>> TERMINÉ: {created} créés, {skipped} ignorés", flush=True)
             logger.info("brouillons_bg: terminé — %d créés, %d ignorés (user %s)", created, skipped, user_id)
 
         except Exception:
+            import traceback
+            traceback.print_exc()
             logger.exception("brouillons_bg: exception non gérée (user %s)", user_id)
 
     threading.Thread(
