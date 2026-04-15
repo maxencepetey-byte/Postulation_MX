@@ -314,15 +314,8 @@
                 document.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = false);
             });
 
-            // Sync champ Gmail avec secteur sélectionné
-            const secteurSelect = document.getElementById('secteurSelect');
-            const gmailSecteurField = document.getElementById('gmailSecteurField');
-            if (secteurSelect && gmailSecteurField) {
-                secteurSelect.addEventListener('change', () => {
-                    gmailSecteurField.value = secteurSelect.value;
-                });
-            }
+            // ← SUPPRIMÉ : la sync Gmail est maintenant gérée par scan-history.min.js
         });
     </script>
-</body>
-</html>
+    </body>
+    </html>
