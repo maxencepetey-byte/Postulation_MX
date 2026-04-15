@@ -1212,14 +1212,13 @@ def generer_pdf_lm(profil, ent):
     accroche = get_accroche(profil, ent.secteur_activite)
     secteur_nom = (ent.secteur_activite or "Général").strip()
 
-    # ✅ FIX : ent.utilisateur est nullable → fallback sur profil.user
+    
     _tpl_user = ent.utilisateur or (profil.user if profil else None)
     tpl = None
     if _tpl_user:
-        tpl = (
-            LettreSecteurTemplate.objects.filter(utilisateur=_tpl_user, secteur_nom=secteur_nom).first()
-            or LettreSecteurTemplate.objects.filter(utilisateur=_tpl_user, secteur_nom="Général").first()
-        )
+        tpl = LettreSecteurTemplate.objects.filter(
+            utilisateur=_tpl_user, secteur_nom=secteur_nom
+        ).first()
 
     ctx = {
         "accroche": accroche,
@@ -1586,38 +1585,40 @@ def creer_brouillons_gmail(request):
             skipped = 0
 
             for ent in entreprises:
-                secteur_nom = (ent.secteur_activite or "Général").strip()
+                secteur_nom = (ent.secteur_activite or "").strip()
 
-                tpl = (
-                    LettreSecteurTemplate.objects.filter(utilisateur=user, secteur_nom=secteur_nom).first()
-                    or LettreSecteurTemplate.objects.filter(utilisateur=user, secteur_nom="Général").first()
-                )
+                # Template "Email" = TOUJOURS utilisé pour le corps du mail Gmail
+                tpl_email = LettreSecteurTemplate.objects.filter(
+                    utilisateur=user, secteur_nom="Email"
+                ).first()
 
                 accroche = get_accroche(profil, ent.secteur_activite)
                 ctx = {
                     "accroche": accroche,
                     "entreprise": ent.nom,
-                    "secteur": secteur_nom,
+                    "secteur": secteur_nom or "Général",
                     "ville": profil.ville or "Genève",
                     "prenom": profil.prenom_lm or "",
                     "nom": profil.nom_lm or "",
                 }
 
-                print(f">>> traitement: {ent.email} | tpl={tpl.secteur_nom if tpl else 'FALLBACK'}", flush=True)
+                print(f">>> traitement: {ent.email} | tpl_email={tpl_email.secteur_nom if tpl_email else 'FALLBACK'}", flush=True)
 
-                base_subject = _safe_format((tpl.objet if tpl else "") or "Candidature spontanée", ctx).strip()
+                # ── Sujet ──
+                base_subject = _safe_format((tpl_email.objet if tpl_email else "") or "Candidature spontanée", ctx).strip()
                 subject = f"{base_subject} — {ent.nom}".strip()
 
-                if tpl and (tpl.salutation or tpl.paragraph_1 or tpl.paragraph_2 or tpl.paragraph_3 or tpl.paragraph_4 or tpl.conclusion):
-                    intro = _safe_format(tpl.salutation or "Madame, Monsieur,", ctx).strip()
+                # ── Corps du MAIL — toujours depuis template "Email" ──
+                if tpl_email and (tpl_email.salutation or tpl_email.paragraph_1 or tpl_email.paragraph_2 or tpl_email.paragraph_3 or tpl_email.paragraph_4 or tpl_email.conclusion):
+                    intro = _safe_format(tpl_email.salutation or "Madame, Monsieur,", ctx).strip()
                     paras = [
-                        _safe_format(tpl.paragraph_1, ctx).strip(),
-                        _safe_format(tpl.paragraph_2, ctx).strip(),
-                        _safe_format(tpl.paragraph_3, ctx).strip(),
-                        _safe_format(tpl.paragraph_4, ctx).strip(),
+                        _safe_format(tpl_email.paragraph_1, ctx).strip(),
+                        _safe_format(tpl_email.paragraph_2, ctx).strip(),
+                        _safe_format(tpl_email.paragraph_3, ctx).strip(),
+                        _safe_format(tpl_email.paragraph_4, ctx).strip(),
                     ]
                     closing = _safe_format(
-                        tpl.conclusion or "Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.",
+                        tpl_email.conclusion or "Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.",
                         ctx,
                     ).strip()
                     signature = f"{profil.prenom_lm or ''} {profil.nom_lm or ''}".strip()

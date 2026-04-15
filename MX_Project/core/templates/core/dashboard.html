@@ -124,27 +124,47 @@
                         </form>
                         
                         <div class="hr-text">Gmail</div>
-                        {# Barre de progression Gmail — Utilise la variable calculée dans la vue #}
-                        {% with n=nb_restants %}
-                        <div id="gmailProgressWrap"
-                            data-url="{% url 'gmail_progress' %}"
-                            data-active="{% if n > 0 and gmail_connected %}1{% else %}0{% endif %}"
-                            style="display:none; margin-bottom: 0.75rem;">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span id="gmailProgressText" class="small text-muted">Création en cours…</span>
-                            </div>
-                            <div class="progress" style="height: 6px; border-radius: 99px;">
-                                <div id="gmailProgressBar"
-                                    class="progress-bar bg-danger"
-                                    role="progressbar"
-                                    style="width: 0%; transition: width 0.5s ease;"
-                                    aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                            {# Barre de progression Gmail — On utilise la variable nb_restants calculée dans la vue #}
+                            {% with n=nb_restants %}
+                            <div id="gmailProgressWrap"
+                                data-url="{% url 'gmail_progress' %}"
+                                data-active="{% if n > 0 and gmail_connected %}1{% else %}0{% endif %}"
+                                style="display:none; margin-bottom: 0.75rem;">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span id="gmailProgressText" class="small text-muted">Création en cours…</span>
+                                </div>
+                                <div class="progress" style="height: 6px; border-radius: 99px;">
+                                    <div id="gmailProgressBar"
+                                        class="progress-bar bg-danger"
+                                        role="progressbar"
+                                        style="width: 0%; transition: width 0.5s ease;"
+                                        aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        {% endwith %}
+                            {% endwith %}
 
-                        {# Formulaire Gmail unique #}
+                            {# Formulaire brouillons #}
+                            {% if gmail_connected %}
+                                <form action="{% url 'creer_brouillons_gmail' %}" method="POST" id="gmailForm">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="secteur" id="gmailSecteurField" value="">
+                                    <button type="submit" class="btn btn-gmail w-100 py-2 btn-mx mb-2">
+                                        <i class="bi bi-google me-2"></i> Créer Brouillons
+                                    </button>
+                                </form>
+                                <form action="{% url 'gmail_disconnect' %}" method="POST">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm w-100 py-2">Déconnecter</button>
+                                </form>
+                            {% else %}
+                                <a href="{% url 'gmail_connect' %}" class="btn btn-gmail w-100 py-2 btn-mx mb-2">
+                                    <i class="bi bi-google me-2"></i> Connecter Gmail
+                                </a>
+                            {% endif %}
+
+                            {# Champ caché pour transmettre le secteur sélectionné aux actions Gmail #}
+                            <input type="hidden" id="gmailSecteurHidden" name="secteur" value="">
                         {% if gmail_connected %}
                             <form action="{% url 'creer_brouillons_gmail' %}" method="POST" id="gmailForm">
                                 {% csrf_token %}
@@ -158,13 +178,8 @@
                                 <button type="submit" class="btn btn-outline-secondary btn-sm w-100 py-2">Déconnecter</button>
                             </form>
                         {% else %}
-                            <a href="{% url 'gmail_connect' %}" class="btn btn-gmail w-100 py-2 btn-mx mb-2">
-                                <i class="bi bi-google me-2"></i> Connecter Gmail
-                            </a>
+                            <a href="{% url 'gmail_connect' %}" class="btn btn-gmail w-100 py-2 btn-mx">Connecter Gmail</a>
                         {% endif %}
-
-                        {# Champ caché pour transmettre le secteur sélectionné aux actions Gmail #}
-                        <input type="hidden" id="gmailSecteurHidden" name="secteur" value="">
                     </div>
                 </div>
             </div>
