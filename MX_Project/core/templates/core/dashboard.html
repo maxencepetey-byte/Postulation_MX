@@ -78,6 +78,7 @@
                                     <a href="{{ doc.fichier.url }}" target="_blank" class="text-primary" title="Voir">
                                         <i class="bi bi-eye"></i>
                                     </a>
+                                    {% if doc.type_doc != 'PACK_LM' %}
                                     <form action="{% url 'delete_document' doc.id %}" method="POST" class="m-0">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-link p-0 text-danger"
@@ -85,6 +86,7 @@
                                             <i class="bi bi-x-circle"></i>
                                         </button>
                                     </form>
+                                    {% endif %}
                                 </div>
                             </div>
                             {% empty %}
@@ -148,26 +150,6 @@
                                 <i class="bi bi-google me-2"></i> Connecter Gmail
                             </a>
                         {% endif %}
-
-                        {# ── Actions de nettoyage ── #}
-                        <div class="hr-text">Gestion</div>
-                        <div class="d-grid gap-2">
-                            <form action="{% url 'vider_liste_et_documents' %}" method="POST"
-                                  onsubmit="return confirm('Vider la liste des entreprises et supprimer les packs ?')">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-warning btn-sm w-100">
-                                    <i class="bi bi-trash me-1"></i> Vider la liste
-                                </button>
-                            </form>
-                            <form action="{% url 'supprimer_tout' %}" method="POST"
-                                  onsubmit="return confirm('Supprimer TOUTES les données ?')">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-danger btn-sm w-100">
-                                    <i class="bi bi-x-octagon me-1"></i> Tout supprimer
-                                </button>
-                            </form>
-                        </div>
-
                     </div>
                 </div>
             </div>
@@ -206,7 +188,7 @@
                         </a>
                     </div>
                     <div class="card-body p-4">
-                        <div id="packsGrid" class="pack-grid"></div>
+                        <div id="packsGrid" class="pack-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
                     </div>
                 </div>
 

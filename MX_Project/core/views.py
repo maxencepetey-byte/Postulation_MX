@@ -829,21 +829,18 @@ def settings_page(request):
     secteurs_requis_list = ["Email"] + secteurs_cibles
 
     templates_qs = LettreSecteurTemplate.objects.filter(utilisateur=request.user)
-    templates_json = json.dumps(
-        {
-            t.secteur_nom: {
-                "objet":       t.objet,
-                "salutation":  t.salutation,
-                "paragraph_1": t.paragraph_1,
-                "paragraph_2": t.paragraph_2,
-                "paragraph_3": t.paragraph_3,
-                "paragraph_4": t.paragraph_4,
-                "conclusion":  t.conclusion,
-            }
-            for t in templates_qs
-        },
-        ensure_ascii=False,
-    )
+    templates_data = {
+        t.secteur_nom: {
+            "objet":       t.objet or "",
+            "salutation":  t.salutation or "",
+            "paragraph_1": t.paragraph_1 or "",
+            "paragraph_2": t.paragraph_2 or "",
+            "paragraph_3": t.paragraph_3 or "",
+            "paragraph_4": t.paragraph_4 or "",
+            "conclusion":  t.conclusion or "",
+        }
+        for t in templates_qs
+    }
 
     if request.method == 'POST':
         action = request.POST.get("action", "")
@@ -902,7 +899,7 @@ def settings_page(request):
     'form':                   form,
     'profil':                 profil,
     'secteurs_requis_list':   secteurs_requis_list,
-    'templates_json':         templates_json,
+    'templates_data':         templates_data,
     'templates_by_secteur':   {t.secteur_nom: t for t in LettreSecteurTemplate.objects.filter(utilisateur=request.user)},
     'gmail_connected':        status["gmail_connected"],
     'secteurs_manquants':     sorted(status["secteurs_manquants"]),
@@ -1599,10 +1596,14 @@ def creer_brouillons_gmail(request):
         return redirect("settings_page")
 
     secteur = (request.POST.get("secteur") or "").strip()
+    pack_num_raw = (request.POST.get("pack_num") or "").strip()
+    pack_num = int(pack_num_raw) if pack_num_raw.isdigit() else None
 
     qs_ent = EntrepriseCible.objects.filter(utilisateur=request.user, est_dans_paquet=False).exclude(email="")
     if secteur:
         qs_ent = qs_ent.filter(secteur_activite=secteur)
+    if pack_num:
+        qs_ent = qs_ent.filter(numero_pack=pack_num)
     if not qs_ent.exists():
         messages.info(request, "Aucune entreprise à traiter (toutes déjà traitées ou sans email).")
         return redirect("dashboard")
@@ -1612,9 +1613,9 @@ def creer_brouillons_gmail(request):
         messages.error(request, "Aucun CV trouvé. Ajoute un document de type CV dans Réglages avant de créer des brouillons.")
         return redirect("settings_page")
 
-    def _run_brouillons(user_id, secteur, access_token):
+    def _run_brouillons(user_id, secteur, access_token, pack_num=None):
         from django.contrib.auth.models import User
-        print(f">>> THREAD DÉMARRÉ user={user_id} secteur='{secteur}'", flush=True)
+        print(f">>> THREAD DÉMARRÉ user={user_id} secteur='{secteur}' pack_num={pack_num}", flush=True)
         try:
             user = User.objects.get(id=user_id)
             profil, _ = ProfilUtilisateur.objects.get_or_create(user=user)
@@ -1623,6 +1624,8 @@ def creer_brouillons_gmail(request):
             qs = EntrepriseCible.objects.filter(utilisateur=user, est_dans_paquet=False).exclude(email="")
             if secteur:
                 qs = qs.filter(secteur_activite=secteur)
+            if pack_num:
+                qs = qs.filter(numero_pack=pack_num)
             entreprises = list(qs.order_by("id")[:500])
             print(f">>> {len(entreprises)} entreprises à traiter", flush=True)
 
@@ -1758,7 +1761,7 @@ def creer_brouillons_gmail(request):
 
     threading.Thread(
         target=_run_brouillons,
-        args=(request.user.id, secteur, access_token),
+        args=(request.user.id, secteur, access_token, pack_num),
         daemon=False,
     ).start()
 
