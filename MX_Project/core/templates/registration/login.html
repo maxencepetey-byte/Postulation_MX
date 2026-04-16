@@ -1,29 +1,309 @@
+Login · HTML
+Copier
+
 <!DOCTYPE html>
 {% load static %}
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>MX | Connexion</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MX | Bienvenue</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --mx-accent: #0d6efd;
+      --mx-main: #212529;
+      --mx-muted: #6c757d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f0f2f5;
+      font-family: 'Inter', sans-serif;
+      color: var(--mx-main);
+      overflow-x: hidden;
+      position: relative;
+    }
+    /* Orbes animés (cohérent avec le dashboard) */
+    .animated-bg {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background: linear-gradient(135deg, #f0f2f5 0%, #e2e8f0 100%);
+      overflow: hidden;
+    }
+    .orbe {
+      position: absolute; border-radius: 50%;
+      filter: blur(80px); opacity: .35;
+      animation: move 20s infinite alternate;
+    }
+    .orbe-1 { width: 400px; height: 400px; background: var(--mx-accent); top: -100px; right: -100px; }
+    .orbe-2 { width: 300px; height: 300px; background: #6366f1; bottom: -50px; left: -50px; animation-delay: -5s; }
+    .orbe-3 { width: 250px; height: 250px; background: #a855f7; top: 40%; left: 25%; animation-delay: -10s; }
+    @keyframes move {
+      0%   { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(50px, 50px) scale(1.1); }
+    }
+ 
+    /* Topbar */
+    .topbar {
+      position: relative; z-index: 10;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1.2rem 2rem;
+    }
+    .logo-mx {
+      font-weight: 800; font-size: 1.6rem;
+      letter-spacing: -1px; color: var(--mx-main);
+      text-decoration: none;
+    }
+    .logo-mx span { color: var(--mx-accent); }
+    .topbar .signin-link {
+      font-size: .85rem; font-weight: 600;
+      color: var(--mx-muted); text-decoration: none;
+      transition: color .2s;
+    }
+    .topbar .signin-link:hover { color: var(--mx-accent); }
+ 
+    /* Hero */
+    .hero {
+      position: relative; z-index: 1;
+      max-width: 920px; margin: 0 auto;
+      padding: 3rem 2rem 5rem;
+      text-align: center;
+    }
+    .hero .badge-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(13,110,253,.08);
+      color: var(--mx-accent);
+      padding: 6px 14px; border-radius: 20px;
+      font-size: .78rem; font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 800; letter-spacing: -1.5px;
+      line-height: 1.1; margin-bottom: 1.2rem;
+    }
+    .hero h1 .grad {
+      background: linear-gradient(135deg, #0d6efd 0%, #6366f1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero .lead {
+      font-size: 1.05rem; color: var(--mx-muted);
+      max-width: 620px; margin: 0 auto 2rem;
+      line-height: 1.6;
+    }
+    .cta-row {
+      display: flex; gap: 12px; justify-content: center;
+      flex-wrap: wrap; margin-bottom: 1rem;
+    }
+    .btn-try {
+      background: var(--mx-accent); color: #fff;
+      border: none; border-radius: 10px;
+      padding: 14px 32px; font-size: 1rem; font-weight: 700;
+      text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+      box-shadow: 0 6px 24px rgba(13,110,253,.3);
+      transition: transform .2s, box-shadow .2s, background .2s;
+    }
+    .btn-try:hover {
+      background: #0b5ed7; color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 32px rgba(13,110,253,.4);
+    }
+    .btn-secondary-mx {
+      background: #fff; color: var(--mx-main);
+      border: 1px solid #dee2e6; border-radius: 10px;
+      padding: 14px 24px; font-size: 1rem; font-weight: 600;
+      text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+      transition: all .2s;
+    }
+    .btn-secondary-mx:hover {
+      border-color: var(--mx-accent); color: var(--mx-accent);
+      transform: translateY(-1px);
+    }
+    .micro {
+      font-size: .78rem; color: var(--mx-muted);
+      margin-top: .8rem;
+    }
+ 
+    /* Features */
+    .features {
+      position: relative; z-index: 1;
+      max-width: 1080px; margin: 0 auto;
+      padding: 0 2rem 5rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.2rem;
+    }
+    .feature {
+      background: rgba(255,255,255,.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,.4);
+      border-radius: 14px;
+      padding: 1.6rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,.04);
+      transition: transform .25s, box-shadow .25s;
+    }
+    .feature:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 14px 40px rgba(13,110,253,.1);
+    }
+    .feature .icon {
+      width: 44px; height: 44px;
+      border-radius: 11px;
+      background: rgba(13,110,253,.1);
+      color: var(--mx-accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+    }
+    .feature h3 {
+      font-size: 1rem; font-weight: 700;
+      margin-bottom: .4rem;
+    }
+    .feature p {
+      font-size: .88rem; color: var(--mx-muted);
+      line-height: 1.55; margin: 0;
+    }
+ 
+    /* Steps */
+    .steps {
+      position: relative; z-index: 1;
+      max-width: 920px; margin: 0 auto 4rem;
+      padding: 0 2rem;
+    }
+    .steps h2 {
+      text-align: center; font-weight: 800;
+      font-size: 1.6rem; margin-bottom: 2rem;
+    }
+    .step-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    .step {
+      text-align: center; padding: 1rem;
+    }
+    .step .num {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--mx-accent); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .95rem;
+      margin-bottom: .8rem;
+    }
+    .step h4 {
+      font-size: .95rem; font-weight: 700;
+      margin-bottom: .3rem;
+    }
+    .step p {
+      font-size: .82rem; color: var(--mx-muted);
+      margin: 0;
+    }
+ 
+    /* Footer */
+    footer {
+      position: relative; z-index: 1;
+      text-align: center; padding: 1.5rem;
+      font-size: .78rem; color: var(--mx-muted);
+    }
+ 
+    @media (max-width: 760px) {
+      .features, .step-row { grid-template-columns: 1fr; }
+      .hero { padding: 2rem 1.2rem 3rem; }
+    }
+  </style>
 </head>
 <body>
-    <div class="login-card">
-        <div class="logo-mx">M<span>X</span></div>
-        <h5 class="text-center mb-4 text-muted">Connexion au projet</h5>
-        
-        <form method="post">
-            {% csrf_token %}
-            <div class="mb-3">
-                {{ form.as_p }}
-            </div>
-            <button type="submit" class="btn btn-mx w-100 py-2">Se connecter</button>
-        </form>
-        
-        <div class="text-center mt-4">
-            <span class="small text-muted">Pas de compte ?</span>
-            <a href="{% url 'register' %}" class="small text-decoration-none fw-bold"> Créer un compte</a>
-        </div>
+  <div class="animated-bg">
+    <div class="orbe orbe-1"></div>
+    <div class="orbe orbe-2"></div>
+    <div class="orbe orbe-3"></div>
+  </div>
+ 
+  <!-- Topbar -->
+  <nav class="topbar">
+    <a href="#" class="logo-mx">M<span>X</span></a>
+    <a href="{% url 'signin' %}" class="signin-link">
+      Déjà un compte ? <span style="color:var(--mx-accent);text-decoration:underline">Se connecter</span>
+    </a>
+  </nav>
+ 
+  <!-- Hero -->
+  <section class="hero">
+    <span class="badge-pill"><i class="bi bi-stars"></i> Candidature spontanée automatisée</span>
+    <h1>
+      Envoyez <span class="grad">500 candidatures</span><br>
+      en moins d'une heure.
+    </h1>
+    <p class="lead">
+      MX scanne le registre du commerce de Genève par secteur d'activité,
+      génère automatiquement vos lettres de motivation personnalisées,
+      et prépare vos brouillons Gmail prêts à l'envoi.
+    </p>
+    <div class="cta-row">
+      <a href="{% url 'register' %}" class="btn-try">
+        <i class="bi bi-rocket-takeoff-fill"></i> Essayer gratuitement
+      </a>
+      <a href="#how" class="btn-secondary-mx">
+        <i class="bi bi-play-circle"></i> Voir comment ça marche
+      </a>
     </div>
+    <p class="micro">Aucune carte bancaire requise · Configuration en 5 minutes</p>
+  </section>
+ 
+  <!-- Features -->
+  <section class="features">
+    <div class="feature">
+      <div class="icon"><i class="bi bi-search"></i></div>
+      <h3>Scan ciblé par secteur</h3>
+      <p>Sélectionnez vos secteurs NOGA et obtenez instantanément la liste des entreprises de la région genevoise.</p>
+    </div>
+    <div class="feature">
+      <div class="icon"><i class="bi bi-file-earmark-text"></i></div>
+      <h3>Lettres personnalisées</h3>
+      <p>Un template par secteur, des variables dynamiques (nom, ville, accroche), et un PDF généré pour chaque entreprise.</p>
+    </div>
+    <div class="feature">
+      <div class="icon"><i class="bi bi-envelope-paper"></i></div>
+      <h3>Brouillons Gmail prêts</h3>
+      <p>Connectez votre Gmail : MX prépare automatiquement vos brouillons avec PDF en pièce jointe. Vous n'avez plus qu'à envoyer.</p>
+    </div>
+  </section>
+ 
+  <!-- Steps -->
+  <section class="steps" id="how">
+    <h2>3 étapes, c'est tout.</h2>
+    <div class="step-row">
+      <div class="step">
+        <div class="num">1</div>
+        <h4>Choisissez vos secteurs</h4>
+        <p>Cochez les secteurs NOGA qui vous intéressent dans le panneau d'onboarding.</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h4>Configurez vos templates</h4>
+        <p>Rédigez un template par secteur avec vos paragraphes et formules de politesse.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h4>Lancez le pack</h4>
+        <p>MX génère 500 LM et autant de brouillons Gmail. Vous validez, vous envoyez.</p>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:2.2rem">
+      <a href="{% url 'register' %}" class="btn-try">
+        <i class="bi bi-arrow-right-circle-fill"></i> Créer mon compte
+      </a>
+    </div>
+  </section>
+ 
+  <footer>
+    © {% now "Y" %} MX · Genève · <a href="{% url 'signin' %}" style="color:var(--mx-muted);text-decoration:underline">Se connecter</a>
+  </footer>
 </body>
 </html>
+ 
