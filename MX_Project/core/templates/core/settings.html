@@ -621,7 +621,49 @@ textarea.auto-resize { min-height:80px; overflow:hidden; resize:none; }
 
 </div>
 
+    <!-- Bouton aide flottant -->
+    <button class="btn-help-video" data-bs-toggle="modal" data-bs-target="#videoAideModal" title="Aide — voir la vidéo">
+        <i class="bi bi-question-lg"></i>
+    </button>
+    <div class="modal fade" id="videoAideModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header border-0 pb-0 px-4 pt-3">
+                    <h6 class="modal-title fw-bold">
+                        <i class="bi bi-play-circle-fill text-primary me-2"></i>Guide d'utilisation MX
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="ratio ratio-16x9">
+                        <iframe id="helpIframe" src="https://www.youtube.com/embed/Gg_y8EAsJAk"
+                                title="Guide MX"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <style>
+    .btn-help-video {
+        position: fixed; bottom: 24px; right: 24px;
+        width: 48px; height: 48px; border-radius: 50%;
+        background: #0d6efd; color: #fff; border: none;
+        box-shadow: 0 4px 16px rgba(13,110,253,.4);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.25rem; cursor: pointer; z-index: 1050;
+        transition: transform .2s, box-shadow .2s;
+    }
+    .btn-help-video:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(13,110,253,.5); }
+    </style>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.getElementById('videoAideModal')?.addEventListener('hide.bs.modal', () => {
+    const f = document.getElementById('helpIframe');
+    if (f) { const s = f.src; f.src = ''; f.src = s; }
+});
+</script>
 <script>
 const TPL = JSON.parse(document.getElementById('tpl-json-data').textContent || '{}');
 

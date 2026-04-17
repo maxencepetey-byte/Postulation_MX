@@ -26,6 +26,7 @@ from core.views import (
     historique_scans,
     detail_scan,
     gmail_progress,
+
 )
 
 urlpatterns = [
@@ -80,6 +81,8 @@ urlpatterns = [
     # ─── Cron ───
     path('cron/sync-registre/', cron_sync_registre, name='cron_sync_registre'),
     path('tasks/sync-data/', cron_sync_view, name='cron_sync'),
+
+
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

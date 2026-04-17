@@ -1226,10 +1226,6 @@ def cron_sync_registre(request):
         status=202,
     )
 
-    import os
-import threading
-from django.http import HttpResponse, HttpResponseForbidden
-from django.core.management import call_command
 
 def cron_sync_view(request):
     # Sécurité par Token
