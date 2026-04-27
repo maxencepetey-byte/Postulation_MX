@@ -174,6 +174,7 @@ class EntrepriseReferentiel(models.Model):
     code_noga = models.CharField(max_length=20, blank=True, default="")
     adresse = models.TextField(blank=True, default="")
     date_update = models.DateTimeField(auto_now=True)
+    email_valide = models.BooleanField(default=True)
 
     class Meta:
         indexes = [

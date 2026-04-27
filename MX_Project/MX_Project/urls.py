@@ -26,7 +26,6 @@ from core.views import (
     historique_scans,
     detail_scan,
     gmail_progress,
-
 )
 
 urlpatterns = [

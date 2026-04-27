@@ -345,6 +345,7 @@ def verifier_email_existence(email):
         return False
 
 
+
 def get_accroche(profil, secteur_activite):
     """Retourne la phrase d'accroche adaptée au secteur — utilisée partout."""
     mapping = {
@@ -645,8 +646,9 @@ def dashboard(request):
     if not profil.onboarding_done and ScanSession.objects.filter(utilisateur=request.user).count() == 0:
         return redirect("onboarding")
 
-    if profil.onboarding_done and (not profil.prenom_lm or not profil.nom_lm or not profil.email_lm):
-        return redirect("settings_page")
+    # TEMPORAIRE — blocage désactivé
+    # if profil.onboarding_done and (not profil.prenom_lm or not profil.nom_lm or not profil.email_lm):
+    #     return redirect("settings_page")
 
     # Données principales
     entreprises_list = EntrepriseCible.objects.filter(utilisateur=request.user).order_by('-id')
@@ -904,7 +906,7 @@ def settings_page(request):
     'gmail_connected':        status["gmail_connected"],
     'secteurs_manquants':     sorted(status["secteurs_manquants"]),
     'profil_ok':              status["profil_ok"],
-    'setup_complete':         status["setup_complete"],
+    'setup_complete':         True,  # TEMPORAIRE — blocage désactivé
     'active_tab':             active_tab,
     'active_secteur':         active_secteur,
 })
@@ -1135,7 +1137,7 @@ def lancer_scan(request):
             ajoutes_par_secteur[secteur_nom] = 0
         # Entreprises du référentiel pour ce secteur (code NOGA préfixe)
         qs = (
-            EntrepriseReferentiel.objects.filter(code_noga__startswith=s)
+            EntrepriseReferentiel.objects.filter(code_noga__startswith=s, email_valide=True)
             .only("raison_sociale", "email", "adresse")
             .order_by("raison_sociale")
         )
@@ -1235,12 +1237,15 @@ def cron_sync_view(request):
     if not token_recu or token_recu != token_attendu:
         return HttpResponseForbidden("Token invalide.")
 
-    # Lancement du scan dans un thread séparé (Arrière-plan)
     def run_task():
-        # Appelle la commande de management définie plus haut
-        call_command('sync_registre')
+        try:
+            logger.info("cron_sync_view: démarrage sync_registre")
+            call_command('sync_registre')
+            logger.info("cron_sync_view: sync_registre terminé")
+        except Exception:
+            logger.exception("cron_sync_view: sync_registre a échoué")
 
-    thread = threading.Thread(target=run_task)
+    thread = threading.Thread(target=run_task, daemon=True)
     thread.start()
 
     # Réponse immédiate (Render ne coupera pas la connexion)
@@ -1795,6 +1800,7 @@ def gmail_progress(request):
         "remaining": remaining,
         "percent": round((done / total * 100) if total > 0 else 0),
     })
+
 
 # ---------------------------------------------------------------------------
 # ACTIONS CRUD
