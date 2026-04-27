@@ -1,12 +1,11 @@
 import logging
 import requests
-import logging
-import requests
-import dns.resolver
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from core.models import EntrepriseReferentiel
+from core.management.commands.check_emails import _verifier_email, STATUTS_HARD_KO
 
 logger = logging.getLogger(__name__)
 
@@ -106,16 +105,6 @@ NOGA_MAP = {
 }
 
 
-def _verifier_email_mx(email: str) -> bool:
-    if not email:
-        return False
-    try:
-        domaine = email.split("@")[1]
-        dns.resolver.resolve(domaine, "MX")
-        return True
-    except Exception:
-        return False
-
 
 def _fetch_sector(noga_code, since_ms=None):
     API_URL = f"{SERVICE_URL}/query"
@@ -181,6 +170,9 @@ class Command(BaseCommand):
 
         since_ms = int((datetime.now() - timedelta(hours=since_hours)).timestamp() * 1000)
 
+        candidates = []
+        seen_this_run = set()
+
         for code in codes_a_sync:
             if code not in NOGA_MAP:
                 self.stdout.write(self.style.WARNING(f"Code NOGA inconnu ignoré : {code}"))
@@ -189,12 +181,27 @@ class Command(BaseCommand):
             entreprises = _fetch_sector(code, since_ms=since_ms)
             for ent in entreprises:
                 mail = ent["email"]
-                if mail not in emails_existants:
-                    if _verifier_email_mx(mail):
-                        buffer_new.append(ent)
-                        emails_existants.add(mail)
-                else:
+                if mail in emails_existants:
                     buffer_update.append(ent)
+                elif mail not in seen_this_run:
+                    seen_this_run.add(mail)
+                    candidates.append(ent)
+
+        if candidates:
+            self.stdout.write(f"  → Validation email de {len(candidates)} nouveaux candidats...")
+
+            def _validate(ent):
+                statut, raison = _verifier_email(ent["email"], timeout=8)
+                return ent, statut, raison
+
+            with ThreadPoolExecutor(max_workers=20) as pool:
+                futures = [pool.submit(_validate, ent) for ent in candidates]
+                for fut in as_completed(futures):
+                    ent, statut, _ = fut.result()
+                    if statut not in STATUTS_HARD_KO:
+                        buffer_new.append(ent)
+                    else:
+                        self.stdout.write(f"    ✗ {ent['email']} ({statut})")
 
         if dry_run:
             self.stdout.write(self.style.WARNING(
