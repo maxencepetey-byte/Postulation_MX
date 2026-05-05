@@ -16,6 +16,7 @@ from core.views import (
     generer_pack_secteur_numero,
     logout_view,
     onboarding,
+    add_secteurs,
     gmail_connect,
     gmail_callback,
     gmail_disconnect,
@@ -50,6 +51,7 @@ urlpatterns = [
     # ─── Application ───
     path('', dashboard, name='dashboard'),
     path('onboarding/', onboarding, name='onboarding'),
+    path('add-secteurs/', add_secteurs, name='add_secteurs'),
     path('scan/', lancer_scan, name='lancer_scan'),
     path('upload-cv/', upload_cv, name='upload_cv'),
     path('delete-doc/<int:doc_id>/', delete_document, name='delete_document'),

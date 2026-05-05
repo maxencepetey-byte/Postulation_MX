@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MX | Ajouter des secteurs</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="{% static 'css/login.css' %}">
+  <style>
+    body { background: #f0f2f5; display: block; padding: 2rem 0; }
+    .onboard-card {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 2.5rem;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .logo-mx { font-weight: 800; font-size: 2rem; text-align: center; margin-bottom: 0.5rem; display: block; }
+    .logo-mx span { color: #0d6efd; }
+    .group-title {
+      font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 1px; color: #0d6efd;
+      border-bottom: 1px solid rgba(13,110,253,0.15);
+      padding-bottom: 6px; margin: 1.2rem 0 0.6rem;
+    }
+    .form-check-label { font-size: 0.85rem; color: #313d4f; }
+    .form-check { margin-bottom: 0.3rem; }
+    .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+    @media(max-width:500px){ .check-grid { grid-template-columns: 1fr; } }
+    .btn-mx { background: #0d6efd; color: white; border-radius: 8px; font-weight: 600; border: none; }
+    .btn-mx:hover { filter: brightness(0.93); color: white; }
+    .select-all-link { font-size: 0.75rem; color: #0d6efd; cursor: pointer; text-decoration: underline; }
+
+    /* Secteurs déjà actifs */
+    .form-check.already-active .form-check-label {
+      color: #198754;
+      font-weight: 600;
+    }
+    .form-check.already-active .form-check-input {
+      border-color: #198754;
+      background-color: #198754;
+    }
+    .already-badge {
+      font-size: 0.6rem; font-weight: 700;
+      background: rgba(25,135,84,0.12); color: #198754;
+      border-radius: 6px; padding: 1px 6px;
+      vertical-align: middle; margin-left: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="onboard-card">
+    <span class="logo-mx">M<span>X</span></span>
+    <h5 class="text-center mb-1 text-muted">Ajouter des secteurs</h5>
+    <p class="small text-muted text-center mb-3">
+      Coche les nouveaux secteurs à scanner. Les secteurs <span class="text-success fw-bold">déjà actifs</span> sont pré-cochés.<br>
+      Un nouveau scan démarrera et tu devras compléter les templates LM associés.
+    </p>
+
+    <div class="d-flex justify-content-end mb-2 gap-3">
+      <span class="select-all-link" id="selectAll">Tout sélectionner</span>
+      <span class="select-all-link" id="clearAll">Tout désélectionner</span>
+    </div>
+
+    {% if erreur %}
+    <div class="alert alert-danger py-2 small" role="alert">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ erreur }}
+    </div>
+    {% endif %}
+
+    <form method="post" id="addSecteursForm">
+      {% csrf_token %}
+
+      {% for group_name, items in groups.items %}
+      <p class="group-title"><i class="bi bi-layers me-1"></i>{{ group_name }}</p>
+      <div class="check-grid">
+        {% for code, label in items %}
+        <div class="form-check {% if code in existing_codes %}already-active{% endif %}">
+          <input class="form-check-input" type="checkbox" name="secteurs"
+                 id="s{{ code }}" value="{{ code }}"
+                 {% if code in existing_codes %}checked{% endif %}>
+          <label class="form-check-label" for="s{{ code }}">
+            {{ label }} ({{ code }})
+            {% if code in existing_codes %}<span class="already-badge">actif</span>{% endif %}
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+
+      <div class="d-grid mt-4">
+        <button type="submit" class="btn btn-mx w-100 py-2">
+          <i class="bi bi-plus-circle me-1"></i>Confirmer la sélection
+        </button>
+      </div>
+    </form>
+
+    <div class="text-center mt-3">
+      <a href="{% url 'dashboard' %}" class="small text-muted">
+        <i class="bi bi-arrow-left me-1"></i>Retour au dashboard
+      </a>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.getElementById('selectAll').addEventListener('click', () => {
+      document.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = true);
+    });
+    document.getElementById('clearAll').addEventListener('click', () => {
+      document.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = false);
+    });
+    document.getElementById('addSecteursForm').addEventListener('submit', function(e) {
+      const checked = document.querySelectorAll('input[name="secteurs"]:checked').length;
+      if (checked === 0) {
+        e.preventDefault();
+        const existing = document.getElementById('js-error');
+        if (!existing) {
+          const alert = document.createElement('div');
+          alert.id = 'js-error';
+          alert.className = 'alert alert-danger py-2 small mt-2';
+          alert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>Coche au moins un secteur pour continuer.';
+          this.prepend(alert);
+        }
+        document.getElementById('js-error').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  </script>
+</body>
+</html>

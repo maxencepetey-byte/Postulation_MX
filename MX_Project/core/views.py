@@ -638,6 +638,53 @@ def onboarding(request):
     return render(request, "core/onboarding.html", {"secteurs": secteurs})
 
 
+@login_required
+def add_secteurs(request):
+    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+
+    existing_codes = set(
+        c.strip() for c in profil.onboarding_secteurs.split(",") if c.strip()
+    )
+
+    if request.method == "POST":
+        submitted_codes = set(request.POST.getlist("secteurs"))
+
+        if not submitted_codes:
+            return render(request, "core/add_secteurs.html", {
+                "existing_codes": existing_codes,
+                "groups": SECTEURS_NOGA_GROUPS,
+                "erreur": "Coche au moins un secteur pour continuer.",
+            })
+
+        new_codes = submitted_codes - existing_codes
+        all_codes = existing_codes | submitted_codes
+
+        profil.onboarding_secteurs = ",".join(sorted(all_codes))
+        profil.save(update_fields=["onboarding_secteurs"])
+
+        if new_codes:
+            t = threading.Thread(
+                target=_run_scan_for_user,
+                args=(request.user, list(new_codes)),
+                daemon=True,
+            )
+            t.start()
+            n = len(new_codes)
+            messages.success(
+                request,
+                f"✅ {n} nouveau(x) secteur(s) ajouté(s). Configure les templates LM associés pour débloquer le dashboard."
+            )
+        else:
+            messages.info(request, "Aucun nouveau secteur — ta sélection est déjà active.")
+
+        return redirect("/settings/?tab=templates")
+
+    return render(request, "core/add_secteurs.html", {
+        "existing_codes": existing_codes,
+        "groups": SECTEURS_NOGA_GROUPS,
+    })
+
+
 # ---------------------------------------------------------------------------
 # DASHBOARD
 # ---------------------------------------------------------------------------
