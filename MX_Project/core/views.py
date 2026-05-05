@@ -651,9 +651,9 @@ def dashboard(request):
     if not profil.onboarding_done and ScanSession.objects.filter(utilisateur=request.user).count() == 0:
         return redirect("onboarding")
 
-    # TEMPORAIRE — blocage désactivé
-    # if profil.onboarding_done and (not profil.prenom_lm or not profil.nom_lm or not profil.email_lm):
-    #     return redirect("settings_page")
+    status = _get_setup_status(request.user)
+    if not status["setup_complete"]:
+        return redirect("settings_page")
 
     # Données principales
     entreprises_list = EntrepriseCible.objects.filter(utilisateur=request.user).order_by('-id')
@@ -911,7 +911,7 @@ def settings_page(request):
     'gmail_connected':        status["gmail_connected"],
     'secteurs_manquants':     sorted(status["secteurs_manquants"]),
     'profil_ok':              status["profil_ok"],
-    'setup_complete':         True,  # TEMPORAIRE — blocage désactivé
+    'setup_complete':         status["setup_complete"],
     'active_tab':             active_tab,
     'active_secteur':         active_secteur,
 })
