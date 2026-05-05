@@ -618,6 +618,11 @@ def onboarding(request):
 
     if request.method == "POST":
         choix = request.POST.getlist("secteurs")
+        if not choix:
+            return render(request, "core/onboarding.html", {
+                "secteurs": secteurs,
+                "erreur": "Coche au moins un secteur pour continuer.",
+            })
         profil.onboarding_done = True
         profil.onboarding_secteurs = ",".join(choix)
         profil.save(update_fields=["onboarding_done", "onboarding_secteurs"])

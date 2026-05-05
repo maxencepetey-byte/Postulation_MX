@@ -49,7 +49,13 @@
       <span class="select-all-link" id="clearAll">Tout désélectionner</span>
     </div>
 
-    <form method="post">
+    {% if erreur %}
+    <div class="alert alert-danger py-2 small" role="alert">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ erreur }}
+    </div>
+    {% endif %}
+
+    <form method="post" id="onboardingForm">
       {% csrf_token %}
 
       <p class="group-title"><i class="bi bi-tree me-1"></i>Secteur primaire</p>
@@ -170,6 +176,21 @@
     });
     document.getElementById('clearAll').addEventListener('click', () => {
       document.querySelectorAll('input[name="secteurs"]').forEach(cb => cb.checked = false);
+    });
+    document.getElementById('onboardingForm').addEventListener('submit', function(e) {
+      const checked = document.querySelectorAll('input[name="secteurs"]:checked').length;
+      if (checked === 0) {
+        e.preventDefault();
+        const existing = document.getElementById('js-error-secteurs');
+        if (!existing) {
+          const alert = document.createElement('div');
+          alert.id = 'js-error-secteurs';
+          alert.className = 'alert alert-danger py-2 small mt-2';
+          alert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>Coche au moins un secteur pour continuer.';
+          this.prepend(alert);
+        }
+        document.getElementById('js-error-secteurs').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     });
     document.getElementById('videoAideModal')?.addEventListener('hide.bs.modal', () => {
       const f = document.getElementById('helpIframe');
