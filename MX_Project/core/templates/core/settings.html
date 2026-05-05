@@ -879,17 +879,21 @@ function updateAllSecteurCards() {
 }
 updateAllSecteurCards();
 
+function escHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 /* Template editor */
 function buildPreviewHTML(name) {
     const t = TPL[name] || {};
     let html = '';
-    if (t.objet)       html += `<div class="preview-label">Objet</div><div class="preview-text">${t.objet}</div>`;
-    if (t.salutation)  html += `<div class="preview-label">Salutation</div><div class="preview-text">${t.salutation}</div>`;
-    if (t.paragraph_1) html += `<div class="preview-label">§1 — À propos de moi</div><div class="preview-text">${trunc(t.paragraph_1,200)}</div>`;
-    if (t.paragraph_2) html += `<div class="preview-label">§2 — Votre entreprise</div><div class="preview-text">${trunc(t.paragraph_2,140)}</div>`;
-    if (t.paragraph_3) html += `<div class="preview-label">§3 — Valeur ajoutée</div><div class="preview-text">${trunc(t.paragraph_3,140)}</div>`;
-    if (t.paragraph_4) html += `<div class="preview-label">§4 — Disponibilité</div><div class="preview-text">${trunc(t.paragraph_4,100)}</div>`;
-    if (t.conclusion)  html += `<div class="preview-label">Formule de politesse</div><div class="preview-text">${trunc(t.conclusion,80)}</div>`;
+    if (t.objet)       html += `<div class="preview-label">Objet</div><div class="preview-text">${escHtml(t.objet)}</div>`;
+    if (t.salutation)  html += `<div class="preview-label">Salutation</div><div class="preview-text">${escHtml(t.salutation)}</div>`;
+    if (t.paragraph_1) html += `<div class="preview-label">§1 — À propos de moi</div><div class="preview-text">${escHtml(trunc(t.paragraph_1,200))}</div>`;
+    if (t.paragraph_2) html += `<div class="preview-label">§2 — Votre entreprise</div><div class="preview-text">${escHtml(trunc(t.paragraph_2,140))}</div>`;
+    if (t.paragraph_3) html += `<div class="preview-label">§3 — Valeur ajoutée</div><div class="preview-text">${escHtml(trunc(t.paragraph_3,140))}</div>`;
+    if (t.paragraph_4) html += `<div class="preview-label">§4 — Disponibilité</div><div class="preview-text">${escHtml(trunc(t.paragraph_4,100))}</div>`;
+    if (t.conclusion)  html += `<div class="preview-label">Formule de politesse</div><div class="preview-text">${escHtml(trunc(t.conclusion,80))}</div>`;
     return html || '<div class="text-muted fst-italic small">Aucun contenu enregistré</div>';
 }
 

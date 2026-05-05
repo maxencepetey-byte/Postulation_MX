@@ -3,17 +3,14 @@ import zipfile
 import requests
 import dns.resolver
 from datetime import date
-import math
 import os
 import threading
-import json
 import re
 import base64
 import secrets
+import unicodedata
 from datetime import timedelta
 from urllib.parse import urlencode
-import zipfile
-import unicodedata
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.conf import settings
@@ -58,63 +55,6 @@ from .forms import ProfilForm
 logger = logging.getLogger(__name__)
 SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREPRISE_ETABLISSEMENT/MapServer/0"
 
-
-
-SECTEURS_NOGA_GROUPS = {
-    "Primaire": [
-        ("01", "Agriculture et chasse"), ("02", "Sylviculture"),
-        ("03", "Pêche et aquaculture"), ("05", "Extraction de houille"),
-        ("06", "Extraction d'hydrocarbures"), ("07", "Extraction de minerais"),
-        ("08", "Autres industries extractives"), ("09", "Soutien extractives"),
-    ],
-    "Industrie": [
-        ("10", "Industrie alimentaire"), ("11", "Fabrication de boissons"),
-        ("12", "Industrie du tabac"), ("13", "Fabrication de textiles"),
-        ("14", "Industrie de l'habillement"), ("15", "Industrie du cuir"),
-        ("16", "Travail du bois"), ("17", "Industrie du papier"),
-        ("18", "Imprimerie et reproduction"), ("19", "Cokéfaction et raffinage"),
-        ("20", "Industrie chimique"), ("21", "Industrie pharmaceutique"),
-        ("22", "Caoutchouc et plastique"), ("23", "Minéraux non métalliques"),
-        ("24", "Métallurgie"), ("25", "Produits métalliques"),
-        ("26", "Produits informatiques/électroniques"), ("27", "Équipements électriques"),
-        ("28", "Machines et équipements"), ("29", "Industrie automobile"),
-        ("30", "Autres matériels de transport"), ("31", "Fabrication de meubles"),
-        ("32", "Autres industries manufacturières"), ("33", "Réparation de machines"),
-    ],
-    "Construction & Énergie": [
-        ("35", "Électricité et gaz"), ("36", "Distribution d'eau"),
-        ("37", "Gestion des eaux usées"), ("38", "Traitement des déchets"),
-        ("39", "Dépollution"), ("41", "Construction de bâtiments"),
-        ("42", "Génie civil"), ("43", "Travaux de construction spécialisés"),
-    ],
-    "Services & Tertiaire": [
-        ("45", "Commerce automobile"), ("46", "Commerce de gros"),
-        ("47", "Commerce de détail / Luxe"), ("49", "Transports terrestres"),
-        ("50", "Transports par eau"), ("51", "Transports aériens"),
-        ("52", "Entreposage et logistique"), ("53", "Poste et courrier"),
-        ("55", "Hébergement"), ("56", "Restauration"),
-        ("58", "Édition"), ("59", "Cinéma et musique"),
-        ("60", "Radio et Télévision"), ("61", "Télécommunications"),
-        ("62", "Informatique et programmation"), ("63", "Services d'information"),
-        ("64", "Services financiers / Banques"), ("65", "Assurances"),
-        ("66", "Activités auxiliaires financières"), ("68", "Activités immobilières"),
-        ("69", "Juridique et comptabilité"), ("70", "Conseil de gestion / Sièges"),
-        ("71", "Architecture et ingénierie"), ("72", "Recherche-développement"),
-        ("73", "Publicité et marketing"), ("74", "Design, Photo…"),
-        ("75", "Activités vétérinaires"), ("77", "Location et location-bail"),
-        ("78", "Activités liées à l'emploi"), ("79", "Agences de voyage"),
-        ("80", "Enquêtes et sécurité"), ("81", "Services aux bâtiments"),
-        ("82", "Administration et soutien bureau"),
-    ],
-    "Santé & Social": [
-        ("84", "Administration publique"), ("85", "Enseignement"),
-        ("86", "Santé humaine"), ("87", "Hébergement médico-social"),
-        ("88", "Action sociale sans hébergement"), ("90", "Arts et spectacles"),
-        ("91", "Musées et culture"), ("92", "Jeux de hasard"),
-        ("93", "Sport, loisirs et récréation"), ("94", "Organisations associatives"),
-        ("95", "Réparation ordinateurs et biens"), ("96", "Autres services personnels / Esthétique"),
-    ],
-}
 
 
 # ---------------------------------------------------------------------------
@@ -392,7 +332,7 @@ def _google_oauth_config():
 
 @login_required
 def gmail_connect(request):
-    client_id, _client_secret, redirect_uri = _google_oauth_config()
+    client_id, _, redirect_uri = _google_oauth_config()
     if not client_id or not redirect_uri:
         return HttpResponse(
             "Config OAuth Gmail manquante. Vérifie `GOOGLE_CLIENT_ID` et `GOOGLE_REDIRECT_URI` dans `.env`, puis redémarre le serveur.",
@@ -483,6 +423,16 @@ def gmail_callback(request):
 @login_required
 @require_POST
 def gmail_disconnect(request):
+    tok = GmailOAuthToken.objects.filter(utilisateur=request.user).first()
+    if tok and tok.access_token:
+        try:
+            requests.post(
+                "https://oauth2.googleapis.com/revoke",
+                params={"token": tok.access_token},
+                timeout=10,
+            )
+        except Exception:
+            pass
     GmailOAuthToken.objects.filter(utilisateur=request.user).delete()
     return redirect("settings_page")
 
@@ -495,7 +445,7 @@ def _gmail_get_access_token(user) -> str:
     if tok.access_token and tok.expires_at and tok.expires_at > timezone.now() + timedelta(seconds=30):
         return tok.access_token
 
-    client_id, client_secret, _redirect_uri = _google_oauth_config()
+    client_id, client_secret, _ = _google_oauth_config()
     if not client_id or not client_secret:
         raise RuntimeError("Missing Google OAuth server config")
 
@@ -546,6 +496,9 @@ def _run_scan_for_user(user, secteurs):
     total_user_initial = EntrepriseCible.objects.filter(utilisateur=user).count()
 
     for s in secteurs:
+        if not re.match(r'^\d{2}$', s):
+            logger.warning("_run_scan_for_user: code NOGA invalide ignoré: %r", s)
+            continue
         offset = 0
         limit = 1000
 
@@ -677,7 +630,8 @@ def add_secteurs(request):
         else:
             messages.info(request, "Aucun nouveau secteur — ta sélection est déjà active.")
 
-        return redirect("/settings/?tab=templates")
+        from django.urls import reverse
+        return redirect(reverse('settings_page') + '?tab=templates')
 
     return render(request, "core/add_secteurs.html", {
         "existing_codes": existing_codes,
@@ -695,7 +649,7 @@ def dashboard(request):
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
     
     # Redirections de sécurité
-    if not profil.onboarding_done and ScanSession.objects.filter(utilisateur=request.user).count() == 0:
+    if not profil.onboarding_done:
         return redirect("onboarding")
 
     status = _get_setup_status(request.user)
@@ -913,12 +867,14 @@ def settings_page(request):
 
         # ── Action 2 : sauvegarde template (onglet Templates LM) ──
         elif action == "save_template":
-            secteur_tpl = (request.POST.get("template_secteur") or "Email").strip()
+            secteur_tpl = (request.POST.get("template_secteur") or "Email").strip()[:100]
+            if not secteur_tpl:
+                secteur_tpl = "Email"
 
             p1 = (request.POST.get("paragraph_1") or "").strip()
             if not p1:
                 messages.error(request, f"⚠ Le Paragraphe 1 est obligatoire pour le template « {secteur_tpl} ».")
-                return redirect('settings_page#templates')
+                return redirect('/settings/?tab=templates')
 
             tpl, _ = LettreSecteurTemplate.objects.get_or_create(
                 utilisateur=request.user,
@@ -954,7 +910,7 @@ def settings_page(request):
     'profil':                 profil,
     'secteurs_requis_list':   secteurs_requis_list,
     'templates_data':         templates_data,
-    'templates_by_secteur':   {t.secteur_nom: t for t in LettreSecteurTemplate.objects.filter(utilisateur=request.user)},
+    'templates_by_secteur':   {t.secteur_nom: t for t in templates_qs},
     'gmail_connected':        status["gmail_connected"],
     'secteurs_manquants':     sorted(status["secteurs_manquants"]),
     'profil_ok':              status["profil_ok"],
@@ -1002,118 +958,6 @@ def _read_filefield_bytes(ff) -> bytes:
             pass
 
 
-def _lm_from_pack_zip_bytes(zip_bytes: bytes, ent_name: str) -> tuple[str, bytes] | None:
-    needle = _slugify_loose(ent_name)
-    # tokens pour un matching robuste (ignore stopwords/forme juridique)
-    stop = {
-        "sa",
-        "sarl",
-        "gmbh",
-        "suisse",
-        "geneve",
-        "genève",
-        "des",
-        "de",
-        "du",
-        "la",
-        "le",
-        "les",
-        "et",
-        "the",
-        "a",
-    }
-    tokens = [t for t in needle.split("_") if t and t not in stop]
-    tokens_long = [t for t in tokens if len(t) >= 3]
-    try:
-        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
-            # Cherche le meilleur PDF du pack (nom proche du nom entreprise)
-            best: tuple[int, int, str] | None = None  # (score, token_hits, filename)
-            for name in zf.namelist():
-                base = os.path.basename(name)
-                if not base.lower().endswith(".pdf"):
-                    continue
-                base_slug = _slugify_loose(base)
-
-                # 1) match direct (ancien comportement)
-                if needle and needle in base_slug:
-                    return base, zf.read(name)
-
-                # 2) match sans underscores (ex: "pcshop" vs "pc_shop")
-                if needle and needle.replace("_", "") in base_slug.replace("_", ""):
-                    return base, zf.read(name)
-
-                # 3) scoring par recouvrement de tokens (tolérant)
-                if tokens_long:
-                    compact = base_slug.replace("_", "")
-                    hits = sum(1 for t in tokens_long if t in compact)
-                    if hits <= 0:
-                        continue
-                    # score: privilégie + de hits, puis plus proche de la longueur du nom
-                    score = hits * 100 - abs(len(compact) - len(needle.replace("_", "")))
-                    cand = (score, hits, name)
-                    if best is None or cand > best:
-                        best = cand
-
-            # seuil: au moins 2 tokens matchés (ou 1 si un seul token significatif)
-            if best is not None:
-                _score, hits, best_name = best
-                min_hits = 2 if len(tokens_long) >= 2 else 1
-                if hits >= min_hits:
-                    return os.path.basename(best_name), zf.read(best_name)
-    except Exception:
-        return None
-
-    return None
-
-
-def _lm_candidates_from_pack_zip_bytes(zip_bytes: bytes, ent_name: str, limit: int = 5) -> list[str]:
-    """
-    Renvoie une liste de noms de PDF "candidats" (top N) pour debug UX.
-    """
-    needle = _slugify_loose(ent_name)
-    stop = {
-        "sa",
-        "sarl",
-        "gmbh",
-        "suisse",
-        "geneve",
-        "genève",
-        "des",
-        "de",
-        "du",
-        "la",
-        "le",
-        "les",
-        "et",
-        "the",
-        "a",
-    }
-    tokens = [t for t in needle.split("_") if t and t not in stop]
-    tokens_long = [t for t in tokens if len(t) >= 3]
-    scored: list[tuple[int, int, str]] = []
-    try:
-        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
-            for name in zf.namelist():
-                base = os.path.basename(name)
-                if not base.lower().endswith(".pdf"):
-                    continue
-                base_slug = _slugify_loose(base)
-                compact = base_slug.replace("_", "")
-                hits = 0
-                if tokens_long:
-                    hits = sum(1 for t in tokens_long if t in compact)
-                if hits <= 0:
-                    continue
-                score = hits * 100 - abs(len(compact) - len(needle.replace("_", "")))
-                scored.append((score, hits, base))
-    except Exception:
-        return []
-
-    scored.sort(reverse=True)
-    out: list[str] = []
-    for score, hits, base in scored[: max(1, limit)]:
-        out.append(f"{base} (match {hits})")
-    return out
 
 
 
@@ -1153,73 +997,73 @@ def lancer_scan(request):
     if secteur_libre:
         secteurs.append(secteur_libre)
 
+    secteurs = [s for s in secteurs if re.match(r'^\d{2}$', s)]
+
     if not secteurs:
         return redirect('dashboard')
 
     noms_secteurs = [NOGA_MAP.get(s[:2], s) for s in secteurs]
 
-    # Création de la session de scan
     session = ScanSession.objects.create(
         utilisateur=request.user,
         secteurs=', '.join(noms_secteurs),
     )
 
-    # Compatibilité avec l'ancien modèle Recherche
-    recherche, _ = Recherche.objects.get_or_create(
-        utilisateur=request.user, secteur_noga="SCAN_GENEVE"
-    )
+    def _run(user_id, session_id, secteurs_list):
+        from django.contrib.auth.models import User
+        from core.models import EntrepriseReferentiel
+        try:
+            user = User.objects.get(id=user_id)
+            session = ScanSession.objects.get(id=session_id)
+            recherche, _ = Recherche.objects.get_or_create(
+                utilisateur=user, secteur_noga="SCAN_GENEVE"
+            )
+            total_ajoutes = 0
+            total_doublons = 0
+            base_par_secteur: dict[str, int] = {}
+            ajoutes_par_secteur: dict[str, int] = {}
 
-    # On ne requête plus le SITG ici: on utilise le référentiel global.
-    from core.models import EntrepriseReferentiel
-
-    total_ajoutes = 0
-    total_doublons = 0
-    # Numérotation par secteur: chaque secteur redémarre à Pack 1.
-    # On garde une base par secteur pour rester stable avec les anciens scans.
-    base_par_secteur: dict[str, int] = {}
-    ajoutes_par_secteur: dict[str, int] = {}
-
-    for s in secteurs:
-        secteur_nom = NOGA_MAP.get(s[:2], "Général")
-        if secteur_nom not in base_par_secteur:
-            base_par_secteur[secteur_nom] = EntrepriseCible.objects.filter(
-                utilisateur=request.user,
-                secteur_activite=secteur_nom,
-            ).count()
-            ajoutes_par_secteur[secteur_nom] = 0
-        # Entreprises du référentiel pour ce secteur (code NOGA préfixe)
-        qs = (
-            EntrepriseReferentiel.objects.filter(code_noga__startswith=s, email_valide=True)
-            .only("raison_sociale", "email", "adresse")
-            .order_by("raison_sociale")
-        )
-
-        for ref in qs.iterator(chunk_size=2000):
-            # Numéro de pack par secteur (tranches de 500)
-            total_courant_secteur = base_par_secteur[secteur_nom] + ajoutes_par_secteur[secteur_nom]
-            pack_id = (total_courant_secteur // 500) + 1
-            try:
-                EntrepriseCible.objects.create(
-                    recherche=recherche,
-                    scan_session=session,
-                    utilisateur=request.user,
-                    nom=ref.raison_sociale,
-                    email=ref.email,
-                    numero_pack=pack_id,
-                    secteur_activite=secteur_nom,
-                    adresse=ref.adresse or "",
+            for s in secteurs_list:
+                secteur_nom = NOGA_MAP.get(s[:2], "Général")
+                if secteur_nom not in base_par_secteur:
+                    base_par_secteur[secteur_nom] = EntrepriseCible.objects.filter(
+                        utilisateur=user, secteur_activite=secteur_nom,
+                    ).count()
+                    ajoutes_par_secteur[secteur_nom] = 0
+                qs = (
+                    EntrepriseReferentiel.objects.filter(code_noga__startswith=s, email_valide=True)
+                    .only("raison_sociale", "email", "adresse")
+                    .order_by("raison_sociale")
                 )
-                total_ajoutes += 1
-                ajoutes_par_secteur[secteur_nom] += 1
-            except IntegrityError:
-                total_doublons += 1
+                for ref in qs.iterator(chunk_size=2000):
+                    total_courant = base_par_secteur[secteur_nom] + ajoutes_par_secteur[secteur_nom]
+                    pack_id = (total_courant // 500) + 1
+                    try:
+                        EntrepriseCible.objects.create(
+                            recherche=recherche,
+                            scan_session=session,
+                            utilisateur=user,
+                            nom=ref.raison_sociale,
+                            email=ref.email,
+                            numero_pack=pack_id,
+                            secteur_activite=secteur_nom,
+                            adresse=ref.adresse or "",
+                        )
+                        total_ajoutes += 1
+                        ajoutes_par_secteur[secteur_nom] += 1
+                    except IntegrityError:
+                        total_doublons += 1
 
-    # Mise à jour des compteurs de la session
-    session.nb_entreprises = total_ajoutes
-    session.nb_doublons_evites = total_doublons
-    session.save()
+            session.nb_entreprises = total_ajoutes
+            session.nb_doublons_evites = total_doublons
+            session.save()
+            logger.info("lancer_scan: terminé — %d ajoutés, %d doublons (user %s)", total_ajoutes, total_doublons, user_id)
+        except Exception:
+            logger.exception("lancer_scan thread failed (user %s, session %s)", user_id, session_id)
 
-    # Après scan: on pré-sélectionne le secteur dans le dashboard (historique + packs)
+    threading.Thread(target=_run, args=(request.user.id, session.id, secteurs), daemon=True).start()
+
+    messages.success(request, f"⏳ Scan lancé pour {', '.join(noms_secteurs)}. Les résultats apparaîtront dans quelques instants.")
     secteur_default = (noms_secteurs[0] if noms_secteurs else "").strip()
     if secteur_default:
         return redirect(f"/?{urlencode({'secteur': secteur_default})}")
@@ -1346,12 +1190,6 @@ def generer_pdf_lm(profil, ent):
         tpl = LettreSecteurTemplate.objects.filter(
             utilisateur=_tpl_user, secteur_nom=secteur_nom
         ).first()
-
-    # DEBUG — à retirer après validation
-    print(f">>> PDF_DEBUG: ent='{ent.nom}' secteur='{secteur_nom}' _tpl_user={_tpl_user} tpl={tpl.secteur_nom if tpl else 'NONE'}", flush=True)
-    if not tpl and _tpl_user:
-        all_tpls = list(LettreSecteurTemplate.objects.filter(utilisateur=_tpl_user).values_list('secteur_nom', flat=True))
-        print(f">>> PDF_DEBUG: templates dispo pour user={_tpl_user}: {all_tpls}", flush=True)
 
     ctx = {
         "accroche": accroche,
@@ -1668,11 +1506,9 @@ def creer_brouillons_gmail(request):
 
     def _run_brouillons(user_id, secteur, access_token, pack_num=None):
         from django.contrib.auth.models import User
-        print(f">>> THREAD DÉMARRÉ user={user_id} secteur='{secteur}' pack_num={pack_num}", flush=True)
         try:
             user = User.objects.get(id=user_id)
             profil, _ = ProfilUtilisateur.objects.get_or_create(user=user)
-            print(f">>> user trouvé: {user.username}", flush=True)
 
             qs = EntrepriseCible.objects.filter(utilisateur=user, est_dans_paquet=False).exclude(email="")
             if secteur:
@@ -1680,12 +1516,10 @@ def creer_brouillons_gmail(request):
             if pack_num:
                 qs = qs.filter(numero_pack=pack_num)
             entreprises = list(qs.order_by("id")[:500])
-            print(f">>> {len(entreprises)} entreprises à traiter", flush=True)
+            logger.info("brouillons_bg: %d entreprises à traiter (user %s)", len(entreprises), user_id)
 
             cv_doc = DocumentUtilisateur.objects.filter(utilisateur=user, type_doc="CV").order_by("-date_upload").first()
-            print(f">>> CV: {cv_doc}", flush=True)
             if not cv_doc:
-                print(">>> STOP: CV introuvable", flush=True)
                 logger.error("brouillons_bg: CV introuvable pour user %s", user_id)
                 return
 
@@ -1698,9 +1532,7 @@ def creer_brouillons_gmail(request):
 
             try:
                 cv_bytes = _read_filefield_bytes(cv_doc.fichier)
-                print(f">>> CV lu: {len(cv_bytes)} bytes", flush=True)
             except Exception as e:
-                print(f">>> STOP: impossible de lire le CV: {e}", flush=True)
                 logger.error("brouillons_bg: impossible de lire le CV: %s", e)
                 return
 
@@ -1715,16 +1547,16 @@ def creer_brouillons_gmail(request):
                 except Exception:
                     continue
 
+            # PERF-04: requête unique hors boucle
+            tpl_email = LettreSecteurTemplate.objects.filter(
+                utilisateur=user, secteur_nom="Email"
+            ).first()
+
             created = 0
             skipped = 0
 
             for ent in entreprises:
                 secteur_nom = (ent.secteur_activite or "").strip()
-
-                # Corps du mail → TOUJOURS template "Email"
-                tpl_email = LettreSecteurTemplate.objects.filter(
-                    utilisateur=user, secteur_nom="Email"
-                ).first()
 
                 accroche = get_accroche(profil, ent.secteur_activite)
                 ctx = {
@@ -1735,8 +1567,6 @@ def creer_brouillons_gmail(request):
                     "prenom": profil.prenom_lm or "",
                     "nom": profil.nom_lm or "",
                 }
-
-                print(f">>> traitement: {ent.email} | tpl_email={tpl_email.secteur_nom if tpl_email else 'FALLBACK'}", flush=True)
 
                 base_subject = _safe_format((tpl_email.objet if tpl_email else "") or "Candidature spontanée", ctx).strip()
                 subject = f"{base_subject} — {ent.nom}".strip()
@@ -1772,7 +1602,6 @@ def creer_brouillons_gmail(request):
                     lm_pdf = generer_pdf_lm(profil, ent)
                     lm_name = _email_to_pdf_name(ent.email)
                 except Exception as e:
-                    print(f">>> PDF failed {ent.email}: {e}", flush=True)
                     logger.warning("brouillons_bg: PDF failed '%s': %s", ent.email, e)
                     skipped += 1
                     continue
@@ -1787,14 +1616,11 @@ def creer_brouillons_gmail(request):
                 try:
                     _gmail_create_draft(access_token, raw)
                     ent.est_dans_paquet = True
+                    ent.brouillon_gmail_cree = True
                     ent.date_traitement = now()
-                    ent.save(update_fields=["est_dans_paquet", "date_traitement"])
+                    ent.save(update_fields=["est_dans_paquet", "brouillon_gmail_cree", "date_traitement"])
                     created += 1
-                    print(f">>> brouillon créé: {ent.email}", flush=True)
                 except Exception as e:
-                    import traceback
-                    print(f">>> ERREUR COMPLÈTE pour {ent.email}:", flush=True)
-                    traceback.print_exc()
                     err_str = str(e)
                     if "401" in err_str or "403" in err_str or "invalid_grant" in err_str.lower():
                         logger.error("brouillons_bg: auth error, stopping. %s", err_str[:200])
@@ -1803,13 +1629,9 @@ def creer_brouillons_gmail(request):
                     skipped += 1
                     continue
 
-            # ← ICI : même niveau que "for ent in entreprises" (8 espaces)
-            print(f">>> TERMINÉ: {created} créés, {skipped} ignorés", flush=True)
             logger.info("brouillons_bg: terminé — %d créés, %d ignorés (user %s)", created, skipped, user_id)
 
         except Exception:
-            import traceback
-            traceback.print_exc()
             logger.exception("brouillons_bg: exception non gérée (user %s)", user_id)
 
     threading.Thread(
@@ -1874,19 +1696,28 @@ def telecharger_lm(request, ent_id):
 
     resp = HttpResponse(pdf_bytes, content_type="application/pdf")
     safe_name = _slugify_loose(ent.nom or "lettre")
-    resp["Content-Disposition"] = f'inline; filename="LM_{safe_name}.pdf"'
+    resp["Content-Disposition"] = f'attachment; filename="LM_{safe_name}.pdf"'
     return resp
 
 
 @login_required
 def upload_cv(request):
     if request.method == 'POST' and request.FILES.get('cv_file'):
-        DocumentUtilisateur.objects.create(
+        from django.core.exceptions import ValidationError
+        doc = DocumentUtilisateur(
             utilisateur=request.user,
             nom_affichage=request.POST.get('nom_doc', 'Document'),
             type_doc=request.POST.get('type_doc', 'CV'),
             fichier=request.FILES['cv_file'],
         )
+        try:
+            doc.full_clean()
+            doc.save()
+            messages.success(request, "Document ajouté avec succès.")
+        except ValidationError as e:
+            messages.error(request, " ".join(e.messages))
+    elif request.method == 'POST':
+        messages.error(request, "Aucun fichier sélectionné.")
     return redirect('dashboard')
 
 
@@ -1934,15 +1765,7 @@ def vider_liste_et_documents(request):
         messages.success(request, "Liste et documents (CV + packs ZIP) vidés. L’historique a été conservé.")
         return redirect("dashboard")
     except Exception as e:
-        # Render n'affiche parfois que les access logs: on renvoie le détail aussi côté client.
         logger.exception("vider_liste_et_documents failed user=%s", request.user.id)
-        try:
-            import traceback
-
-            print("vider_liste_et_documents exception:", repr(e))
-            print(traceback.format_exc())
-        except Exception:
-            pass
         return HttpResponse(
             f"Erreur suppression: {type(e).__name__}: {str(e)[:500]}",
             status=500,

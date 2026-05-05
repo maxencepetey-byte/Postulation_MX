@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('DJANGO_SECRET_KEY')
 
 # --- CRITIQUE 2 : DEBUG et ALLOWED_HOSTS sécurisés ---
-DEBUG = config('DJANGO_DEBUG', default=True, cast=bool)
+DEBUG = config('DJANGO_DEBUG', default=False, cast=bool)
 
 #ALLOWED_HOSTS = config(
    # 'DJANGO_ALLOWED_HOSTS',
@@ -97,7 +97,7 @@ STATICFILES_DIRS = [
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in (config("DJANGO_CSRF_TRUSTED_ORIGINS", default="") or "").split(",") if o.strip()]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in (config("DJANGO_CSRF_TRUSTED_ORIGINS", default="https://postulation-mx.onrender.com") or "").split(",") if o.strip()]
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = '/'
@@ -127,7 +127,7 @@ LOGGING = {
     },
     'root': {
         'handlers': ['console'],
-        'level': 'ERROR',
+        'level': 'WARNING',
     },
     'loggers': {
         'django': {
