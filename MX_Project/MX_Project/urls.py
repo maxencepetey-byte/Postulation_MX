@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.urls import path
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.contrib.auth import views as auth_views
 from django.views.generic import TemplateView
@@ -27,6 +26,7 @@ from core.views import (
     historique_scans,
     detail_scan,
     gmail_progress,
+    serve_protected_media,
 )
 
 urlpatterns = [
@@ -83,10 +83,9 @@ urlpatterns = [
     path('cron/sync-registre/', cron_sync_registre, name='cron_sync_registre'),
     path('tasks/sync-data/', cron_sync_view, name='cron_sync'),
 
-
+    # ─── Media protégée (auth requise) ───
+    path('media/<path:path>', serve_protected_media, name='serve_protected_media'),
 ]
-
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
     urlpatterns += staticfiles_urlpatterns()

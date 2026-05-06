@@ -21,7 +21,7 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.utils.timezone import now
 from django.db import IntegrityError
-from django.db.models import Max
+from django.db.models import Max, Count
 from django.views.decorators.http import require_POST, require_GET
 from django.http import JsonResponse
 from django.template.loader import render_to_string
@@ -122,154 +122,7 @@ def _email_to_pdf_name(email: str) -> str:
     e = re.sub(r"_+", "_", e).strip("_")
     return f"LM_{e}.pdf"
 
-NOGA_MAP = {
-    # SECTEUR PRIMAIRE
-    "01": "Agriculture et chasse",
-    "02": "Sylviculture et exploitation forestière",
-    "03": "Pêche et aquaculture",
-    "05": "Extraction de houille",
-    "06": "Extraction d'hydrocarbures",
-    "07": "Extraction de minerais",
-    "08": "Autres industries extractives",
-    "09": "Soutien aux industries extractives",
-    # SECTEUR SECONDAIRE
-    "10": "Industrie alimentaire",
-    "11": "Fabrication de boissons",
-    "12": "Industrie du tabac",
-    "13": "Fabrication de textiles",
-    "14": "Industrie de l'habillement",
-    "15": "Industrie du cuir",
-    "16": "Travail du bois",
-    "17": "Industrie du papier",
-    "18": "Imprimerie et reproduction",
-    "19": "Cokéfaction et raffinage",
-    "20": "Industrie chimique",
-    "21": "Industrie pharmaceutique",
-    "22": "Produits en caoutchouc et plastique",
-    "23": "Produits minéraux non métalliques",
-    "24": "Métallurgie",
-    "25": "Produits métalliques (hors machines)",
-    "26": "Produits informatiques et électroniques",
-    "27": "Équipements électriques",
-    "28": "Machines et équipements n.c.a.",
-    "29": "Industrie automobile",
-    "30": "Autres matériels de transport",
-    "31": "Fabrication de meubles",
-    "32": "Autres industries manufacturières",
-    "33": "Réparation et installation de machines",
-    # ÉNERGIE & CONSTRUCTION
-    "35": "Production d'électricité et gaz",
-    "36": "Captage et distribution d'eau",
-    "37": "Gestion des eaux usées",
-    "38": "Collecte et traitement des déchets",
-    "39": "Dépollution",
-    "41": "Construction de bâtiments",
-    "42": "Génie civil",
-    "43": "Travaux de construction spécialisés",
-    # TERTIAIRE
-    "45": "Commerce et réparation automobile",
-    "46": "Commerce de gros",
-    "47": "Commerce de détail (incl. Luxe)",
-    "49": "Transports terrestres",
-    "50": "Transports par eau",
-    "51": "Transports aériens",
-    "52": "Entreposage et soutien aux transports",
-    "53": "Activités de poste et de courrier",
-    "55": "Hébergement",
-    "56": "Restauration",
-    "58": "Édition",
-    "59": "Cinéma et musique",
-    "60": "Radio et Télévision",
-    "61": "Télécommunications",
-    "62": "Informatique et programmation",
-    "63": "Services d'information",
-    "64": "Services financiers (Banques)",
-    "65": "Assurances",
-    "66": "Activités auxiliaires financières",
-    "68": "Activités immobilières",
-    "69": "Juridique et comptabilité",
-    "70": "Conseil de gestion (Sièges sociaux)",
-    "71": "Architecture et ingénierie",
-    "72": "Recherche-développement",
-    "73": "Publicité et études de marché (Marketing)",
-    "74": "Activités spécialisées (Design, Photo)",
-    "75": "Activités vétérinaires",
-    "77": "Location et location-bail",
-    "78": "Activités liées à l'emploi",
-    "79": "Agences de voyage",
-    "80": "Enquêtes et sécurité",
-    "81": "Services relatifs aux bâtiments",
-    "82": "Administration et soutien bureau",
-    # SERVICES PUBLICS & HUMAINS
-    "84": "Administration publique",
-    "85": "Enseignement",
-    "86": "Santé humaine",
-    "87": "Hébergement médico-social",
-    "88": "Action sociale sans hébergement",
-    "90": "Arts et spectacles",
-    "91": "Musées et culture",
-    "92": "Jeux de hasard",
-    "93": "Sport, loisirs et récréation",
-    "94": "Activités des organisations associatives",
-    "95": "Réparation d'ordinateurs et biens personnels",
-    "96": "Autres services personnels (Esthétique)",
-}  # ← FIN DE NOGA_MAP
-
-SECTEURS_NOGA_GROUPS = {
-    "Primaire": [
-        ("01", "Agriculture et chasse"), ("02", "Sylviculture"),
-        ("03", "Pêche et aquaculture"), ("05", "Extraction de houille"),
-        ("06", "Extraction d'hydrocarbures"), ("07", "Extraction de minerais"),
-        ("08", "Autres industries extractives"), ("09", "Soutien extractives"),
-    ],
-    "Industrie": [
-        ("10", "Industrie alimentaire"), ("11", "Fabrication de boissons"),
-        ("12", "Industrie du tabac"), ("13", "Fabrication de textiles"),
-        ("14", "Industrie de l'habillement"), ("15", "Industrie du cuir"),
-        ("16", "Travail du bois"), ("17", "Industrie du papier"),
-        ("18", "Imprimerie et reproduction"), ("19", "Cokéfaction et raffinage"),
-        ("20", "Industrie chimique"), ("21", "Industrie pharmaceutique"),
-        ("22", "Caoutchouc et plastique"), ("23", "Minéraux non métalliques"),
-        ("24", "Métallurgie"), ("25", "Produits métalliques"),
-        ("26", "Produits informatiques/électroniques"), ("27", "Équipements électriques"),
-        ("28", "Machines et équipements"), ("29", "Industrie automobile"),
-        ("30", "Autres matériels de transport"), ("31", "Fabrication de meubles"),
-        ("32", "Autres industries manufacturières"), ("33", "Réparation de machines"),
-    ],
-    "Construction & Énergie": [
-        ("35", "Électricité et gaz"), ("36", "Distribution d'eau"),
-        ("37", "Gestion des eaux usées"), ("38", "Traitement des déchets"),
-        ("39", "Dépollution"), ("41", "Construction de bâtiments"),
-        ("42", "Génie civil"), ("43", "Travaux de construction spécialisés"),
-    ],
-    "Services & Tertiaire": [
-        ("45", "Commerce automobile"), ("46", "Commerce de gros"),
-        ("47", "Commerce de détail / Luxe"), ("49", "Transports terrestres"),
-        ("50", "Transports par eau"), ("51", "Transports aériens"),
-        ("52", "Entreposage et logistique"), ("53", "Poste et courrier"),
-        ("55", "Hébergement"), ("56", "Restauration"),
-        ("58", "Édition"), ("59", "Cinéma et musique"),
-        ("60", "Radio et Télévision"), ("61", "Télécommunications"),
-        ("62", "Informatique et programmation"), ("63", "Services d'information"),
-        ("64", "Services financiers / Banques"), ("65", "Assurances"),
-        ("66", "Activités auxiliaires financières"), ("68", "Activités immobilières"),
-        ("69", "Juridique et comptabilité"), ("70", "Conseil de gestion / Sièges"),
-        ("71", "Architecture et ingénierie"), ("72", "Recherche-développement"),
-        ("73", "Publicité et marketing"), ("74", "Design, Photo…"),
-        ("75", "Activités vétérinaires"), ("77", "Location et location-bail"),
-        ("78", "Activités liées à l'emploi"), ("79", "Agences de voyage"),
-        ("80", "Enquêtes et sécurité"), ("81", "Services aux bâtiments"),
-        ("82", "Administration et soutien bureau"),
-    ],
-    "Santé & Social": [
-        ("84", "Administration publique"), ("85", "Enseignement"),
-        ("86", "Santé humaine"), ("87", "Hébergement médico-social"),
-        ("88", "Action sociale sans hébergement"), ("90", "Arts et spectacles"),
-        ("91", "Musées et culture"), ("92", "Jeux de hasard"),
-        ("93", "Sport, loisirs et récréation"), ("94", "Organisations associatives"),
-        ("95", "Réparation ordinateurs et biens"), ("96", "Autres services personnels / Esthétique"),
-    ],
-}
+from .constants import NOGA_MAP, SECTEURS_NOGA_GROUPS
 # ---------------------------------------------------------------------------
 # UTILS
 # ---------------------------------------------------------------------------
@@ -743,11 +596,17 @@ def entreprises_filtrer_secteur(request):
                 secteur_nom=secteur,
             )
         }
+        all_counts = dict(
+            qs_pack_all.values("numero_pack").annotate(n=Count("id")).values_list("numero_pack", "n")
+        )
+        remaining_counts = dict(
+            qs_pack_remaining.values("numero_pack").annotate(n=Count("id")).values_list("numero_pack", "n")
+        )
         for i in range(1, int(max_pack) + 1):
             nom_base = f"MX_SCAN_{secteur_clean}_PACK_{i}"
             doc = docs.get(nom_base)
-            total_cnt = qs_pack_all.filter(numero_pack=i).count()
-            remaining_cnt = qs_pack_remaining.filter(numero_pack=i).count()
+            total_cnt = all_counts.get(i, 0)
+            remaining_cnt = remaining_counts.get(i, 0)
 
             # On affiche le pack s'il y a des entreprises dedans OU s'il existe déjà un ZIP sauvegardé.
             if not total_cnt and not doc:
@@ -1078,11 +937,12 @@ def lancer_scan(request):
 def cron_sync_registre(request):
     """
     Endpoint appelé par cron-job.org pour lancer `sync_registre`.
-    Protection: token dans l'URL (?token=...).
+    Protection: token dans le header Authorization: Bearer <token>.
 
     Lance le sync en arrière-plan pour éviter les timeouts HTTP.
     """
-    token = (request.GET.get("token") or "").strip()
+    auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+    token = auth_header.removeprefix("Bearer ").strip()
     expected = (getattr(settings, "CRON_SYNC_TOKEN", "") or "").strip()
     if not expected or token != expected:
         return HttpResponseForbidden("Forbidden")
@@ -1126,9 +986,9 @@ def cron_sync_registre(request):
 
 
 def cron_sync_view(request):
-    # Sécurité par Token
-    token_recu = request.GET.get('token')
-    token_attendu = os.environ.get('CRON_SYNC_TOKEN')
+    auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+    token_recu = auth_header.removeprefix("Bearer ").strip()
+    token_attendu = (getattr(settings, "CRON_SYNC_TOKEN", "") or "").strip()
 
     if not token_recu or token_recu != token_attendu:
         return HttpResponseForbidden("Token invalide.")
@@ -1267,11 +1127,11 @@ def generer_pdf_lm(profil, ent):
     buffer.seek(0)
 
     logger.info(
-        "brouillons_bg: ent=%s email=%s secteur=%s tpl=%s",
-        ent.nom, ent.email,
+        "generer_pdf_lm: ent_id=%s secteur=%s tpl=%s",
+        ent.pk,
         secteur_nom,
-        tpl.secteur_nom if tpl else "FALLBACK_GÉNÉRIQUE"
-    )  # ← parenthèse fermante manquante ici
+        tpl.secteur_nom if tpl else "FALLBACK_GÉNÉRIQUE",
+    )
     return buffer.read()
 
 # ---------------------------------------------------------------------------
@@ -1280,15 +1140,18 @@ def generer_pdf_lm(profil, ent):
 
 def _generer_zip(profil, entreprises, marquer_traitees=False):
     zip_buffer = io.BytesIO()
+    to_update = []
     with zipfile.ZipFile(zip_buffer, 'w') as zf:
         for ent in entreprises:
             pdf = generer_pdf_lm(profil, ent)
             nom = _email_to_pdf_name(ent.email)
             zf.writestr(nom, pdf)
-            if marquer_traitees:          
+            if marquer_traitees:
                 ent.est_dans_paquet = True
                 ent.date_traitement = now()
-                ent.save()
+                to_update.append(ent)
+    if to_update:
+        EntrepriseCible.objects.bulk_update(to_update, ["est_dans_paquet", "date_traitement"])
     zip_buffer.seek(0)
     return zip_buffer.read()
 
@@ -1637,7 +1500,7 @@ def creer_brouillons_gmail(request):
     threading.Thread(
         target=_run_brouillons,
         args=(request.user.id, secteur, access_token, pack_num),
-        daemon=False,
+        daemon=True,
     ).start()
 
     nb = qs_ent.count()
@@ -1755,7 +1618,7 @@ def supprimer_documents(request):
 def vider_liste_et_documents(request):
     """
     Action unique: vide la liste + les documents.
-    L'historique (ScanSession) est conservé.
+    L’historique (ScanSession) est conservé.
     """
     try:
         with transaction.atomic():
@@ -1771,4 +1634,31 @@ def vider_liste_et_documents(request):
             status=500,
             content_type="text/plain; charset=utf-8",
         )
-    
+
+
+# ---------------------------------------------------------------------------
+# MEDIA PROTÉGÉE
+# ---------------------------------------------------------------------------
+
+@login_required
+def serve_protected_media(request, path):
+    """
+    Sert les fichiers media uniquement aux utilisateurs authentifiés.
+    Remplace le serving direct de MEDIA_ROOT en développement.
+    """
+    import mimetypes
+    from django.http import FileResponse, Http404
+
+    media_root = settings.MEDIA_ROOT
+    full_path = os.path.normpath(os.path.join(media_root, path))
+
+    # Empêche le path traversal (ex: ../../etc/passwd)
+    if not full_path.startswith(os.path.normpath(media_root) + os.sep):
+        raise Http404
+
+    if not os.path.isfile(full_path):
+        raise Http404
+
+    content_type, _ = mimetypes.guess_type(full_path)
+    content_type = content_type or "application/octet-stream"
+    return FileResponse(open(full_path, "rb"), content_type=content_type)

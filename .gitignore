@@ -68,3 +68,10 @@ logs/
 
 # --- Zips générés ---
 zips_generes/
+
+# --- Fichiers de données / rapports locaux (données personnelles) ---
+emails_invalides.csv
+emails_invalides.html
+MX_Project/emails_invalides.csv
+MX_Project/emails_invalides.html
+MX_Project/csv_to_html.py

@@ -1,5 +1,4 @@
 from pathlib import Path
-import os
 from decouple import config
 import dj_database_url
 
@@ -98,6 +97,24 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in (config("DJANGO_CSRF_TRUSTED_ORIGINS", default="https://postulation-mx.onrender.com") or "").split(",") if o.strip()]
+
+# Cookies sécurisés en production (HTTPS uniquement)
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# HSTS + HTTPS en production
+# Render termine le SSL au niveau du load balancer et transmet X-Forwarded-Proto.
+# Sans SECURE_PROXY_SSL_HEADER, SECURE_SSL_REDIRECT bouclerait infiniment.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = True
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = '/'
