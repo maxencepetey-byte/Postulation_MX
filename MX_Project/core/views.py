@@ -646,7 +646,16 @@ def _get_setup_status(user):
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=user)
     profil_ok = bool(profil.prenom_lm and profil.nom_lm and profil.email_lm)
 
-    # Secteurs présents dans les entreprises cibles de l'utilisateur
+    # Secteurs choisis par l'utilisateur (source de vérité immédiate, même si le scan
+    # tourne encore en arrière-plan et qu'aucune EntrepriseCible n'existe encore).
+    secteurs_profil = set(
+        NOGA_MAP.get(c.strip()[:2], c.strip())
+        for c in profil.onboarding_secteurs.split(",")
+        if c.strip()
+    )
+
+    # Secteurs déjà présents dans les entreprises scannées (peuvent s'ajouter
+    # au cours du temps si le scan révèle des secteurs hors profil).
     secteurs_cibles = set(
         EntrepriseCible.objects
         .filter(utilisateur=user)
@@ -655,8 +664,8 @@ def _get_setup_status(user):
         .values_list("secteur_activite", flat=True)
         .distinct()
     )
-    # On exige : template "Email" + un template par secteur cible (avec paragraph_1 rempli)
-    secteurs_requis = {"Email"} | secteurs_cibles
+    # On exige : template "Email" + un template par secteur du profil ET par secteur scanné
+    secteurs_requis = {"Email"} | secteurs_profil | secteurs_cibles
 
     templates_ok = set(
         LettreSecteurTemplate.objects
