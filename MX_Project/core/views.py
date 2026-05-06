@@ -692,7 +692,14 @@ def settings_page(request):
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
     required_fields = ["prenom_lm", "nom_lm", "email_lm"]
 
-    # ── Secteurs requis : Email + secteurs des entreprises cibles ──
+    # ── Secteurs requis : Email + secteurs du profil + secteurs déjà scannés ──
+    # On inclut profil.onboarding_secteurs pour afficher l'éditeur immédiatement
+    # après add_secteurs, même si le scan n'a pas encore créé d'entreprises.
+    secteurs_profil = [
+        NOGA_MAP.get(c.strip()[:2], c.strip())
+        for c in profil.onboarding_secteurs.split(",")
+        if c.strip()
+    ]
     secteurs_cibles = list(
         EntrepriseCible.objects
         .filter(utilisateur=request.user)
@@ -702,7 +709,8 @@ def settings_page(request):
         .distinct()
         .order_by("secteur_activite")
     )
-    secteurs_requis_list = ["Email"] + secteurs_cibles
+    secteurs_requis_set = {"Email"} | set(secteurs_profil) | set(secteurs_cibles)
+    secteurs_requis_list = ["Email"] + sorted(secteurs_requis_set - {"Email"})
 
     templates_qs = LettreSecteurTemplate.objects.filter(utilisateur=request.user)
     templates_data = {
