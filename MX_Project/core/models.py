@@ -30,8 +30,6 @@ class ProfilUtilisateur(models.Model):
     rue = models.CharField(max_length=255, blank=True, null=True)
     npa = models.CharField(max_length=10, blank=True, null=True)
     ville = models.CharField(max_length=100, blank=True, null=True)
-    dernier_zip = models.FileField(upload_to='zips_generes/', blank=True, null=True)
-
     phrase_informatique = models.TextField(default="votre expertise dans le développement et l'innovation numérique")
     phrase_banque = models.TextField(default="la rigueur et l'excellence de votre institution financière")
     phrase_luxe = models.TextField(default="votre savoir-faire d'exception et votre rayonnement international")
@@ -106,10 +104,6 @@ class EntrepriseCible(models.Model):
     adresse = models.TextField(blank=True)
     statut = models.CharField(max_length=50, default="À traiter")
     secteur_activite = models.CharField(max_length=100, null=True, blank=True)
-    cv_utilise = models.ForeignKey(
-        DocumentUtilisateur, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='cv_envoyes'
-    )
     est_dans_paquet = models.BooleanField(default=False)
     numero_pack = models.IntegerField(default=0)
     date_traitement = models.DateTimeField(null=True, blank=True)

@@ -7,11 +7,9 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from core.models import EntrepriseReferentiel
 from core.management.commands.check_emails import _verifier_email, STATUTS_HARD_KO
-from core.constants import NOGA_MAP
+from core.constants import NOGA_MAP, SERVICE_URL
 
 logger = logging.getLogger(__name__)
-
-SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREPRISE_ETABLISSEMENT/MapServer/0"
 
 
 

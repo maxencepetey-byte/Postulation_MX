@@ -22,7 +22,6 @@ from core.views import (
     vider_liste_et_documents,
     delete_document,
     cron_sync_registre,
-    cron_sync_view,
     historique_scans,
     detail_scan,
     gmail_progress,
@@ -81,7 +80,6 @@ urlpatterns = [
 
     # ─── Cron ───
     path('cron/sync-registre/', cron_sync_registre, name='cron_sync_registre'),
-    path('tasks/sync-data/', cron_sync_view, name='cron_sync'),
 
     # ─── Media protégée (auth requise) ───
     path('media/<path:path>', serve_protected_media, name='serve_protected_media'),

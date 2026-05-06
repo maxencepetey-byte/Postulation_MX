@@ -53,7 +53,6 @@ from .models import (
 from .forms import ProfilForm
 
 logger = logging.getLogger(__name__)
-SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREPRISE_ETABLISSEMENT/MapServer/0"
 
 
 
@@ -112,17 +111,15 @@ def _email_to_pdf_name(email: str) -> str:
     Convertit une adresse email en nom de fichier PDF déterministe.
     Même email → toujours même nom de fichier → 0 matching flou nécessaire.
     """
-    import unicodedata as _ud
-
     e = (email or "").strip().lower()
-    e = _ud.normalize("NFKD", e)
-    e = "".join(c for c in e if not _ud.combining(c))
+    e = unicodedata.normalize("NFKD", e)
+    e = "".join(c for c in e if not unicodedata.combining(c))
     e = re.sub(r"[^a-z0-9@._+\-]", "_", e)
     e = e.replace("@", "_AT_")
     e = re.sub(r"_+", "_", e).strip("_")
     return f"LM_{e}.pdf"
 
-from .constants import NOGA_MAP, SECTEURS_NOGA_GROUPS
+from .constants import NOGA_MAP, SECTEURS_NOGA_GROUPS, SERVICE_URL
 # ---------------------------------------------------------------------------
 # UTILS
 # ---------------------------------------------------------------------------
@@ -1000,29 +997,6 @@ def cron_sync_registre(request):
         {"status": "started", "secteurs": secteurs, "min_new": min_new, "since_hours": since_hours, "dry_run": dry_run},
         status=202,
     )
-
-
-def cron_sync_view(request):
-    auth_header = request.META.get("HTTP_AUTHORIZATION", "")
-    token_recu = auth_header.removeprefix("Bearer ").strip()
-    token_attendu = (getattr(settings, "CRON_SYNC_TOKEN", "") or "").strip()
-
-    if not token_recu or token_recu != token_attendu:
-        return HttpResponseForbidden("Token invalide.")
-
-    def run_task():
-        try:
-            logger.info("cron_sync_view: démarrage sync_registre")
-            call_command('sync_registre')
-            logger.info("cron_sync_view: sync_registre terminé")
-        except Exception:
-            logger.exception("cron_sync_view: sync_registre a échoué")
-
-    thread = threading.Thread(target=run_task, daemon=True)
-    thread.start()
-
-    # Réponse immédiate (Render ne coupera pas la connexion)
-    return HttpResponse("Scan démarré en tâche de fond.", status=200)
 
 
 # ---------------------------------------------------------------------------

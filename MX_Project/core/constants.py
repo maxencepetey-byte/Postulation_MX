@@ -1,3 +1,5 @@
+SERVICE_URL = "https://app2.ge.ch/tergeoservices/rest/services/Hosted/REG_ENTREPRISE_ETABLISSEMENT/MapServer/0"
+
 NOGA_MAP = {
     # SECTEUR PRIMAIRE
     "01": "Agriculture et chasse",

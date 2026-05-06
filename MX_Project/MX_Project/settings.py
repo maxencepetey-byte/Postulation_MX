@@ -10,11 +10,6 @@ SECRET_KEY = config('DJANGO_SECRET_KEY')
 # --- CRITIQUE 2 : DEBUG et ALLOWED_HOSTS sécurisés ---
 DEBUG = config('DJANGO_DEBUG', default=False, cast=bool)
 
-#ALLOWED_HOSTS = config(
-   # 'DJANGO_ALLOWED_HOSTS',
-   # default='localhost,127.0.0.1'
-#).split(',')
-# Remplace par ton vrai nom de domaine Render
 ALLOWED_HOSTS = [
     'postulation-mx.onrender.com', 
     '127.0.0.1', 
