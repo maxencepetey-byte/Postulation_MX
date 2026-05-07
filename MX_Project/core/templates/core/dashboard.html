@@ -69,8 +69,10 @@
 
                         <div class="list-group list-group-flush mb-3">
                             {% for doc in tous_les_docs %}
-                            <div class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent border-light">
-                                <div class="text-truncate" style="max-width: 140px;">
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent border-light doc-item"
+                                 data-secteur="{{ doc.secteur_nom|default:'' }}">
+                                <div class="text-truncate{% if doc.secteur_nom %} doc-name-btn{% endif %}"
+                                     style="max-width: 140px;">
                                     <div class="fw-bold small">{{ doc.nom_affichage }}</div>
                                     <span class="badge badge-secteur">{{ doc.get_type_doc_display }}</span>
                                 </div>
@@ -298,6 +300,9 @@
         </div>
     </div>
     <style>
+    .doc-name-btn { cursor: pointer; }
+    .doc-name-btn:hover .fw-bold { color: #0d6efd; text-decoration: underline; }
+    .doc-item.doc-selected { background: rgba(13,110,253,.06) !important; border-radius: 6px; }
     .btn-help-video {
         position: fixed; bottom: 24px; right: 24px;
         width: 48px; height: 48px; border-radius: 50%;
@@ -322,6 +327,16 @@
         const filterUrl = "{% url 'entreprises_filtrer_secteur' %}";
         let currentSecteur = '';
 
+        function syncGmailBtn(secteur) {
+            const btn = document.querySelector('#gmailForm button[type="submit"]');
+            if (!btn) return;
+            btn.disabled = !secteur;
+            btn.title = secteur ? '' : 'Sélectionne un secteur pour créer des brouillons';
+        }
+
+        // État initial : bouton désactivé jusqu'à la sélection d'un secteur
+        syncGmailBtn('');
+
         // ── Filtre secteur via pills ──
         document.querySelectorAll('.secteur-filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -337,6 +352,9 @@
                 // Sync le champ caché Gmail
                 const gmailField = document.getElementById('gmailSecteurField');
                 if (gmailField) gmailField.value = currentSecteur;
+
+                // Active/désactive le bouton Gmail selon la sélection
+                syncGmailBtn(currentSecteur);
 
                 // Sync le select caché (compatibilité scan-history.min.js)
                 const sel = document.getElementById('secteurSelect');
@@ -369,6 +387,26 @@
                 })
                 .catch(err => console.error('Erreur filtre secteur:', err));
         }
+
+        // ── Clic sur un document → filtrer par son secteur ──
+        document.querySelectorAll('.doc-item').forEach(item => {
+            const secteur = item.dataset.secteur;
+            if (!secteur) return;
+            item.querySelector('.doc-name-btn')?.addEventListener('click', () => {
+                document.querySelectorAll('.doc-item').forEach(d => d.classList.remove('doc-selected'));
+                item.classList.add('doc-selected');
+                const pill = document.querySelector(`.secteur-filter-btn[data-secteur="${CSS.escape(secteur)}"]`);
+                if (pill) {
+                    pill.click();
+                } else {
+                    currentSecteur = secteur;
+                    const gmailField = document.getElementById('gmailSecteurField');
+                    if (gmailField) gmailField.value = secteur;
+                    syncGmailBtn(secteur);
+                    fetchSecteur(secteur);
+                }
+            });
+        });
 
         // Charger le premier secteur disponible par défaut si présent
         {% if secteurs_uniques %}
