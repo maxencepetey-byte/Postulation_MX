@@ -16,6 +16,11 @@ ALLOWED_HOSTS = [
     if h.strip()
 ]
 
+# Render injecte RENDER_EXTERNAL_HOSTNAME automatiquement (ex: postulation-mx.onrender.com)
+_render_host = config("RENDER_EXTERNAL_HOSTNAME", default="").strip()
+if _render_host and _render_host not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_render_host)
+
 
 # --- CRITIQUE 3 : django.contrib.admin ajouté ---
 INSTALLED_APPS = [
@@ -91,7 +96,11 @@ STATICFILES_DIRS = [
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in (config("DJANGO_CSRF_TRUSTED_ORIGINS", default="https://postulation-mx.onrender.com") or "").split(",") if o.strip()]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in (config("DJANGO_CSRF_TRUSTED_ORIGINS", default="") or "").split(",") if o.strip()]
+if _render_host:
+    _render_origin = f"https://{_render_host}"
+    if _render_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_render_origin)
 
 # Cookies sécurisés en production (HTTPS uniquement)
 SESSION_COOKIE_SECURE = not DEBUG
