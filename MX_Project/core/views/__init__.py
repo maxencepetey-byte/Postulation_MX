@@ -14,6 +14,7 @@ from .dashboard import (
 )
 from .documents import (
     delete_document,
+    delete_pack,
     supprimer_documents,
     supprimer_tout,
     upload_cv,

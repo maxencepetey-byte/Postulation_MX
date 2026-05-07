@@ -22,6 +22,7 @@ from core.views import (
     gmail_disconnect,
     vider_liste_et_documents,
     delete_document,
+    delete_pack,
     cron_sync_registre,
     historique_scans,
     detail_scan,
@@ -56,6 +57,7 @@ urlpatterns = [
     path('scan/', lancer_scan, name='lancer_scan'),
     path('upload-cv/', upload_cv, name='upload_cv'),
     path('delete-doc/<int:doc_id>/', delete_document, name='delete_document'),
+    path('delete-pack/<int:doc_id>/', delete_pack, name='delete_pack'),
     path('telecharger-lm/<int:ent_id>/', telecharger_lm, name='telecharger_lm'),
     path('settings/', settings_page, name='settings_page'),
 

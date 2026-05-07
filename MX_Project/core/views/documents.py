@@ -1,4 +1,5 @@
 import logging
+import re
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -6,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
+from urllib.parse import urlencode
 from django.views.decorators.http import require_POST
 
 from ..models import DocumentUtilisateur, EntrepriseCible
@@ -70,6 +72,33 @@ def delete_document(request, doc_id: int):
     doc.delete()
     messages.success(request, "Document supprimé.")
     return redirect("dashboard")
+
+
+@login_required
+@require_POST
+def delete_pack(request, doc_id: int):
+    doc = get_object_or_404(DocumentUtilisateur, id=doc_id, utilisateur=request.user, type_doc="PACK_LM")
+    secteur = doc.secteur_nom or ""
+
+    m = re.search(r'_PACK_(\d+)$', doc.nom_affichage)
+    pack_num = int(m.group(1)) if m else None
+
+    with transaction.atomic():
+        qs = EntrepriseCible.objects.filter(utilisateur=request.user, secteur_activite=secteur)
+        if pack_num:
+            qs = qs.filter(numero_pack=pack_num)
+        nb = qs.count()
+        qs.update(est_dans_paquet=False, brouillon_gmail_cree=False, date_traitement=None)
+
+        try:
+            if getattr(doc, "fichier", None):
+                doc.fichier.delete(save=False)
+        except Exception:
+            pass
+        doc.delete()
+
+    messages.success(request, f"Pack supprimé — {nb} entreprise(s) réinitialisées.")
+    return redirect(f"/?{urlencode({'secteur': secteur})}" if secteur else "dashboard")
 
 
 @login_required

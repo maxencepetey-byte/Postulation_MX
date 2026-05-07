@@ -80,7 +80,16 @@
                                     <a href="{{ doc.fichier.url }}" target="_blank" class="text-primary" title="Voir">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    {% if doc.type_doc != 'PACK_LM' %}
+                                    {% if doc.type_doc == 'PACK_LM' %}
+                                    <form action="{% url 'delete_pack' doc.id %}" method="POST" class="m-0">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-link p-0 text-warning"
+                                                title="Supprimer le pack et réinitialiser les entreprises"
+                                                onclick="return confirm('Supprimer ce pack et réinitialiser l\'état des entreprises ?')">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
                                     <form action="{% url 'delete_document' doc.id %}" method="POST" class="m-0">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-link p-0 text-danger"
