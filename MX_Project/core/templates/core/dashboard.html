@@ -370,34 +370,6 @@
                 .catch(err => console.error('Erreur filtre secteur:', err));
         }
 
-        // ── Progression Gmail ──
-        const wrap = document.getElementById('gmailProgressWrap');
-        if (wrap && wrap.dataset.active === '1') {
-            wrap.style.display = 'block';
-            const bar  = document.getElementById('gmailProgressBar');
-            const text = document.getElementById('gmailProgressText');
-            const progressUrl = wrap.dataset.url;
-
-            const poll = setInterval(() => {
-                fetch(progressUrl)
-                    .then(r => r.json())
-                    .then(d => {
-                        if (d.total > 0) {
-                            const pct = Math.round((d.done / d.total) * 100);
-                            bar.style.width = pct + '%';
-                            bar.setAttribute('aria-valuenow', pct);
-                            text.textContent = `${d.done} / ${d.total} brouillons créés`;
-                            if (d.done >= d.total) {
-                                clearInterval(poll);
-                                text.textContent = '✅ Brouillons créés avec succès';
-                                setTimeout(() => { wrap.style.display = 'none'; }, 3000);
-                            }
-                        }
-                    })
-                    .catch(() => clearInterval(poll));
-            }, 2000);
-        }
-
         // Charger le premier secteur disponible par défaut si présent
         {% if secteurs_uniques %}
         const firstBtn = document.querySelector('.secteur-filter-btn[data-secteur="{{ secteurs_uniques.0 }}"]');
