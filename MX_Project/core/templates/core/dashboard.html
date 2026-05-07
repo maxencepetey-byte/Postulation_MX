@@ -349,12 +349,17 @@
         function syncGmailBtn(secteur) {
             const btn = document.querySelector('#gmailForm button[type="submit"]');
             if (!btn) return;
-            btn.disabled = !secteur;
             btn.title = secteur ? '' : 'Sélectionne un secteur pour créer des brouillons';
         }
 
-        // État initial : bouton désactivé jusqu'à la sélection d'un secteur
-        syncGmailBtn('');
+        // Bloquer l'envoi si aucun secteur n'est sélectionné
+        document.getElementById('gmailForm')?.addEventListener('submit', e => {
+            const secteur = document.getElementById('gmailSecteurField')?.value || '';
+            if (!secteur) {
+                e.preventDefault();
+                alert('Sélectionne un secteur avant de créer des brouillons.');
+            }
+        });
 
         // ── Filtre secteur via pills ──
         document.querySelectorAll('.secteur-filter-btn').forEach(btn => {
