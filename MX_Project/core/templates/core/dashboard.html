@@ -422,10 +422,14 @@
             });
         });
 
-        // Charger le premier secteur disponible par défaut si présent
+        // Restaurer le secteur depuis l'URL (?secteur=…) ou charger le premier par défaut
         {% if secteurs_uniques %}
-        const firstBtn = document.querySelector('.secteur-filter-btn[data-secteur="{{ secteurs_uniques.0 }}"]');
-        if (firstBtn) firstBtn.click();
+        const urlSecteur = new URLSearchParams(window.location.search).get('secteur') || '';
+        const targetBtn = urlSecteur
+            ? document.querySelector(`.secteur-filter-btn[data-secteur="${urlSecteur}"]`)
+            : null;
+        const fallbackBtn = document.querySelector('.secteur-filter-btn[data-secteur="{{ secteurs_uniques.0 }}"]');
+        (targetBtn || fallbackBtn)?.click();
         {% endif %}
 
     });
