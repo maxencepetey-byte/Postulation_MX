@@ -97,17 +97,12 @@ def creer_brouillons_gmail(request):
                 logger.error("brouillons_bg: CV introuvable pour user %s", user_id)
                 return
 
-            from django.db.models import Q
-            other_docs_qs = (
+            other_docs = list(
                 DocumentUtilisateur.objects.filter(utilisateur=user)
                 .exclude(type_doc="PACK_LM")
                 .exclude(id=cv_doc.id)
+                .order_by("-date_upload")
             )
-            if secteur:
-                other_docs_qs = other_docs_qs.filter(
-                    Q(secteur_nom="") | Q(secteur_nom__isnull=True) | Q(secteur_nom=secteur)
-                )
-            other_docs = list(other_docs_qs.order_by("-date_upload"))
 
             try:
                 cv_bytes = _read_filefield_bytes(cv_doc.fichier)
