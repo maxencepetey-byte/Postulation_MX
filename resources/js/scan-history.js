@@ -72,7 +72,6 @@
 
     syncHidden();
     select.addEventListener("change", refresh);
-    if (select.value) refresh();
 
     // ── Polling progression Gmail ──────────────────────────────────────
     const progressBar = document.getElementById("gmailProgressBar");
