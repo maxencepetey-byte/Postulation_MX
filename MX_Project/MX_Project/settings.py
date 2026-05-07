@@ -130,10 +130,6 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 
 
-_LOG_HANDLERS = ['console']
-if not DEBUG:
-    _LOG_HANDLERS = ['console', 'file']
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -148,13 +144,6 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'app.log',
-            'maxBytes': 5 * 1024 * 1024,
-            'backupCount': 3,
-            'formatter': 'verbose',
-        },
     },
     'root': {
         'handlers': ['console'],
@@ -162,12 +151,12 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': _LOG_HANDLERS,
+            'handlers': ['console'],
             'level': 'ERROR',
             'propagate': False,
         },
         'core': {
-            'handlers': _LOG_HANDLERS,
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
