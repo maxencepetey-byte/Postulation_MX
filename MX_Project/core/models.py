@@ -1,10 +1,38 @@
+import base64
+import hashlib
+
+from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from cryptography.fernet import Fernet, InvalidToken
 
 # Windows : pip install python-magic-bin
 # Linux/Mac : pip install python-magic
 import magic
+
+
+# ---------------------------------------------------------------------------
+# Chiffrement symétrique des tokens OAuth (clé dérivée du SECRET_KEY Django)
+# ---------------------------------------------------------------------------
+def _fernet() -> Fernet:
+    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode()).digest())
+    return Fernet(key)
+
+
+def _encrypt_token(value: str) -> str:
+    if not value:
+        return value
+    return _fernet().encrypt(value.encode()).decode()
+
+
+def _decrypt_token(value: str) -> str:
+    if not value:
+        return value
+    try:
+        return _fernet().decrypt(value.encode()).decode()
+    except (InvalidToken, Exception):
+        return value  # valeur en clair (pré-migration) — retournée telle quelle
 
 MIME_TYPES_AUTORISES = ['application/pdf']
 
@@ -62,13 +90,6 @@ class DocumentUtilisateur(models.Model):
         return f"{self.nom_affichage} ({self.utilisateur.username})"
 
 
-class Recherche(models.Model):
-    """Conservé pour compatibilité avec les anciennes migrations."""
-    utilisateur = models.ForeignKey(User, on_delete=models.CASCADE)
-    secteur_noga = models.CharField(max_length=255)
-    date_recherche = models.DateTimeField(auto_now_add=True)
-
-
 class ScanSession(models.Model):
     """Un scan lancé par un utilisateur = une ScanSession."""
     utilisateur = models.ForeignKey(User, on_delete=models.CASCADE, related_name='scan_sessions')
@@ -85,10 +106,6 @@ class ScanSession(models.Model):
 
 
 class EntrepriseCible(models.Model):
-    # Ancien FK conservé pour compatibilité migrations existantes
-    recherche = models.ForeignKey(Recherche, on_delete=models.CASCADE, null=True, blank=True)
-
-    # Nouveau : rattachement à la session de scan
     scan_session = models.ForeignKey(
         ScanSession, on_delete=models.CASCADE,
         null=True, blank=True, related_name='entreprises'
@@ -111,8 +128,12 @@ class EntrepriseCible(models.Model):
     brouillon_gmail_cree = models.BooleanField(default=False)
 
     class Meta:
-        # Garantie absolue de déduplication : un email ne peut exister qu'une fois par user
         unique_together = [('utilisateur', 'email')]
+        indexes = [
+            models.Index(fields=['secteur_activite']),
+            models.Index(fields=['est_dans_paquet']),
+            models.Index(fields=['numero_pack']),
+        ]
 
     def __str__(self):
         return self.nom
@@ -143,6 +164,8 @@ class LettreSecteurTemplate(models.Model):
 class GmailOAuthToken(models.Model):
     """
     Tokens OAuth Gmail par utilisateur (refresh token long-terme).
+    Les champs refresh_token et access_token sont chiffrés au repos (Fernet/AES-128).
+    En mémoire Python ils circulent toujours en clair.
     """
     utilisateur = models.OneToOneField(User, on_delete=models.CASCADE, related_name="gmail_oauth")
     refresh_token = models.TextField()
@@ -152,6 +175,26 @@ class GmailOAuthToken(models.Model):
     token_type = models.CharField(max_length=40, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        """Déchiffre les tokens automatiquement à la lecture depuis la DB."""
+        instance = super().from_db(db, field_names, values)
+        instance.refresh_token = _decrypt_token(instance.refresh_token)
+        instance.access_token = _decrypt_token(instance.access_token)
+        return instance
+
+    def save(self, *args, **kwargs):
+        """Chiffre les tokens avant persistance, restaure les valeurs en clair après."""
+        plain_rt = self.refresh_token
+        plain_at = self.access_token
+        self.refresh_token = _encrypt_token(plain_rt) if plain_rt else plain_rt
+        self.access_token = _encrypt_token(plain_at) if plain_at else plain_at
+        try:
+            super().save(*args, **kwargs)
+        finally:
+            self.refresh_token = plain_rt
+            self.access_token = plain_at
 
     def __str__(self):
         return f"Gmail OAuth — {self.utilisateur.username}"

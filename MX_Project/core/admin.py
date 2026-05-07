@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import EntrepriseCible, DocumentUtilisateur, Recherche
+from .models import EntrepriseCible, DocumentUtilisateur
 
 
 class UserFilteredAdmin(admin.ModelAdmin):
@@ -29,9 +29,3 @@ class DocumentUtilisateurAdmin(UserFilteredAdmin):
     list_display = ("nom_affichage", "type_doc", "date_upload", "utilisateur")
     list_filter = ("type_doc",)
     search_fields = ("nom_affichage",)
-
-
-@admin.register(Recherche)
-class RechercheAdmin(UserFilteredAdmin):
-    list_display = ("secteur_noga", "date_recherche", "utilisateur")
-    list_filter = ("secteur_noga",)

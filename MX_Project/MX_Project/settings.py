@@ -11,9 +11,9 @@ SECRET_KEY = config('DJANGO_SECRET_KEY')
 DEBUG = config('DJANGO_DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = [
-    'postulation-mx.onrender.com', 
-    '127.0.0.1', 
-    'localhost'
+    h.strip()
+    for h in config("DJANGO_ALLOWED_HOSTS", default="127.0.0.1,localhost").split(",")
+    if h.strip()
 ]
 
 
@@ -100,6 +100,7 @@ CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = True
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
 
 # HSTS + HTTPS en production
 # Render termine le SSL au niveau du load balancer et transmet X-Forwarded-Proto.
@@ -129,12 +130,30 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 
 
+_LOG_HANDLERS = ['console']
+if not DEBUG:
+    _LOG_HANDLERS = ['console', 'file']
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} {levelname} {name} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'app.log',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+            'formatter': 'verbose',
         },
     },
     'root': {
@@ -143,12 +162,12 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': _LOG_HANDLERS,
             'level': 'ERROR',
             'propagate': False,
         },
         'core': {
-            'handlers': ['console'],
+            'handlers': _LOG_HANDLERS,
             'level': 'INFO',
             'propagate': False,
         },

@@ -84,9 +84,15 @@ def _verifier_email(email: str, timeout: int) -> tuple[str, str]:
     domaine = email.split("@")[1]
 
     # ── Étape 1 : MX records ─────────────────────────────────────────────────
+    # Resolver local pour garantir timeout + lifetime explicites (évite blocage
+    # sur le résolveur global dont les valeurs par défaut varient selon la version).
+    dns_timeout = min(timeout, 4)
     try:
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = dns_timeout
+        resolver.lifetime = dns_timeout
         mx_records = sorted(
-            dns.resolver.resolve(domaine, "MX"),
+            resolver.resolve(domaine, "MX"),
             key=lambda r: r.preference,
         )
     except dns.resolver.NXDOMAIN:
@@ -102,41 +108,48 @@ def _verifier_email(email: str, timeout: int) -> tuple[str, str]:
         return ST_MX_KO, "aucun enregistrement MX"
 
     # ── Étape 2 : SMTP RCPT TO sur les 2 premiers MX ────────────────────────
-    last_err = ""
-    for mx in mx_records[:2]:
-        mx_host = str(mx.exchange).rstrip(".")
-        try:
-            with smtplib.SMTP(timeout=timeout) as smtp:
-                smtp.connect(mx_host, 25)
-                smtp.ehlo_or_helo_if_needed()
-                smtp.mail("")
-                code, raw = smtp.rcpt(email)
-                detail = (raw.decode(errors="replace") if isinstance(raw, bytes) else str(raw))[:100]
+    # socket.setdefaulttimeout() contraint aussi getaddrinfo() qui est appelé
+    # implicitement par smtplib.SMTP.connect() et n'a sinon aucun timeout.
+    old_timeout = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(timeout)
+    try:
+        last_err = ""
+        for mx in mx_records[:2]:
+            mx_host = str(mx.exchange).rstrip(".")
+            try:
+                with smtplib.SMTP(timeout=timeout) as smtp:
+                    smtp.connect(mx_host, 25)
+                    smtp.ehlo_or_helo_if_needed()
+                    smtp.mail("")
+                    code, raw = smtp.rcpt(email)
+                    detail = (raw.decode(errors="replace") if isinstance(raw, bytes) else str(raw))[:100]
 
-                if code == 250:
-                    return ST_VALIDE, "ok"
-                elif code == 452 or (code in (550, 551, 552, 553, 554) and _PAT_OVER_QUOTA.search(detail)):
-                    return ST_PLEIN, f"boîte pleine (SMTP {code} : {detail})"
-                elif code in (550, 551, 552, 553, 554):
-                    if _PAT_IP_BLOQUEE.search(detail):
-                        return ST_IP_BLOQUEE, f"IP bloquée (SMTP {code} : {detail})"
-                    if _PAT_DESACTIVE.search(detail):
-                        return ST_DESACTIVE, f"compte désactivé (SMTP {code} : {detail})"
-                    if _PAT_SYNTAXE.search(detail):
-                        return ST_SYNTAXE, f"syntaxe invalide (SMTP {code} : {detail})"
-                    return ST_INVALIDE, f"adresse inexistante (SMTP {code} : {detail})"
-                elif code in (421, 450, 451):
-                    return ST_TEMP, f"erreur temporaire (SMTP {code} : {detail})"
-                else:
-                    return ST_INCERTAIN, f"code SMTP {code} (non conclusif)"
+                    if code == 250:
+                        return ST_VALIDE, "ok"
+                    elif code == 452 or (code in (550, 551, 552, 553, 554) and _PAT_OVER_QUOTA.search(detail)):
+                        return ST_PLEIN, f"boîte pleine (SMTP {code} : {detail})"
+                    elif code in (550, 551, 552, 553, 554):
+                        if _PAT_IP_BLOQUEE.search(detail):
+                            return ST_IP_BLOQUEE, f"IP bloquée (SMTP {code} : {detail})"
+                        if _PAT_DESACTIVE.search(detail):
+                            return ST_DESACTIVE, f"compte désactivé (SMTP {code} : {detail})"
+                        if _PAT_SYNTAXE.search(detail):
+                            return ST_SYNTAXE, f"syntaxe invalide (SMTP {code} : {detail})"
+                        return ST_INVALIDE, f"adresse inexistante (SMTP {code} : {detail})"
+                    elif code in (421, 450, 451):
+                        return ST_TEMP, f"erreur temporaire (SMTP {code} : {detail})"
+                    else:
+                        return ST_INCERTAIN, f"code SMTP {code} (non conclusif)"
 
-        except (ConnectionRefusedError, socket.timeout,
-                smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected, OSError) as e:
-            last_err = str(e)
-            continue
-        except Exception as e:
-            last_err = str(e)
-            continue
+            except (ConnectionRefusedError, socket.timeout,
+                    smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected, OSError) as e:
+                last_err = str(e)
+                continue
+            except Exception as e:
+                last_err = str(e)
+                continue
+    finally:
+        socket.setdefaulttimeout(old_timeout)
 
     # MX existe mais SMTP injoignable (port 25 souvent bloqué par les FAI/hébergeurs)
     return ST_INCERTAIN, f"SMTP injoignable ({last_err[:80]})" if last_err else "SMTP injoignable"
