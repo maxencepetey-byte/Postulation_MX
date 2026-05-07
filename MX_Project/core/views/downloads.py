@@ -78,6 +78,18 @@ def generer_pack_secteur_numero(request, pack_num: int):
     if not secteur or pack_num < 1:
         return redirect("dashboard")
 
+    # Un seul PACK_LM autorisé à la fois — peu importe le secteur ou le numéro
+    existing_any = DocumentUtilisateur.objects.filter(
+        utilisateur=request.user, type_doc="PACK_LM"
+    ).first()
+    if existing_any:
+        messages.error(
+            request,
+            f"Tu as déjà un pack « {existing_any.nom_affichage} » dans tes documents. "
+            "Supprime-le d'abord pour pouvoir en générer un nouveau."
+        )
+        return redirect(f"/?{urlencode({'secteur': secteur})}")
+
     entreprises = list(
         EntrepriseCible.objects.filter(
             utilisateur=request.user,
@@ -89,23 +101,13 @@ def generer_pack_secteur_numero(request, pack_num: int):
         .order_by("id")[:500]
     )
     if not entreprises:
-        return redirect("dashboard")
+        return redirect(f"/?{urlencode({'secteur': secteur})}")
 
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
     zip_bytes = _generer_zip(profil, entreprises)
 
     secteur_clean = secteur.replace(" ", "_").replace("/", "-")
     nom_base = f"MX_SCAN_{secteur_clean}_PACK_{pack_num}"
-
-    existing = DocumentUtilisateur.objects.filter(
-        utilisateur=request.user,
-        type_doc="PACK_LM",
-        secteur_nom=secteur,
-        nom_affichage=nom_base,
-    ).first()
-    if existing:
-        messages.info(request, "Pack déjà généré.")
-        return redirect(f"/?{urlencode({'secteur': secteur})}")
 
     doc = DocumentUtilisateur(
         utilisateur=request.user,
