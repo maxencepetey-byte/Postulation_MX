@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.contrib.auth import views as auth_views
 from django.views.generic import TemplateView
+from django.http import HttpResponse
 
 from core.views import (
     dashboard, lancer_scan, telecharger_lm, upload_cv,
@@ -30,6 +31,7 @@ from core.views import (
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('favicon.ico', lambda _: HttpResponse(status=204)),
 
     # ─── Authentification ───
     # /login/  → page d'accueil (landing) qui présente le projet
