@@ -327,6 +327,16 @@
         const filterUrl = "{% url 'entreprises_filtrer_secteur' %}";
         let currentSecteur = '';
 
+        function filterDocs(secteur) {
+            document.querySelectorAll('.doc-item').forEach(item => {
+                const docSecteur = item.dataset.secteur;
+                // Toujours afficher les docs sans secteur (CV, etc.)
+                // Pour les PACK_LM : n'afficher que si secteur correspond (ou "Tous")
+                const visible = !secteur || !docSecteur || docSecteur === secteur;
+                item.style.display = visible ? '' : 'none';
+            });
+        }
+
         function syncGmailBtn(secteur) {
             const btn = document.querySelector('#gmailForm button[type="submit"]');
             if (!btn) return;
@@ -355,6 +365,9 @@
 
                 // Active/désactive le bouton Gmail selon la sélection
                 syncGmailBtn(currentSecteur);
+
+                // Filtre les docs de la colonne gauche
+                filterDocs(currentSecteur);
 
                 // Sync le select caché (compatibilité scan-history.min.js)
                 const sel = document.getElementById('secteurSelect');
@@ -403,6 +416,7 @@
                     const gmailField = document.getElementById('gmailSecteurField');
                     if (gmailField) gmailField.value = secteur;
                     syncGmailBtn(secteur);
+                    filterDocs(secteur);
                     fetchSecteur(secteur);
                 }
             });
