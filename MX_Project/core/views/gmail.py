@@ -2,6 +2,7 @@ import base64
 import logging
 import os
 from email.message import EmailMessage
+from urllib.parse import urlencode
 
 import requests
 
@@ -69,13 +70,29 @@ def creer_brouillons_gmail(request):
     if pack_num:
         qs_ent = qs_ent.filter(numero_pack=pack_num)
 
+    redirect_dashboard = redirect(f"/?{urlencode({'secteur': secteur})}" if secteur else "dashboard")
+
     if not qs_ent.exists():
         messages.info(request, "Aucune entreprise à traiter (toutes déjà traitées ou sans email).")
-        return redirect("dashboard")
+        return redirect_dashboard
 
     cv_doc = DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc="CV").order_by("-date_upload").first()
     if not cv_doc:
         messages.error(request, "Aucun CV trouvé. Ajoute un document de type CV dans Réglages avant de créer des brouillons.")
+        return redirect("settings_page")
+
+    # Valider le token Gmail AVANT de lancer le job de fond
+    try:
+        probe = requests.get(
+            "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+        if probe.status_code >= 400:
+            messages.error(request, f"Connexion Gmail rejetée (code {probe.status_code}). Reconnecte ton compte Gmail dans les Réglages.")
+            return redirect("settings_page")
+    except requests.RequestException as e:
+        messages.error(request, f"Impossible de joindre Gmail : {e}. Vérifie ta connexion réseau.")
         return redirect("settings_page")
 
     def _run_brouillons(user_id, secteur, access_token, pack_num=None):
@@ -217,7 +234,7 @@ def creer_brouillons_gmail(request):
         f"⏳ Création de {nb} brouillon(s) lancée en arrière-plan. "
         f"Rafraîchis le dashboard dans quelques minutes pour voir la progression."
     )
-    return redirect("dashboard")
+    return redirect_dashboard
 
 
 @login_required
