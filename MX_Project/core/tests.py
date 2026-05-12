@@ -114,6 +114,36 @@ class DashboardTests(BaseAuthTestCase):
 
 
 # ---------------------------------------------------------------------------
+# Inscription
+# ---------------------------------------------------------------------------
+
+class RegisterTests(TestCase):
+    def test_register_creates_user_and_redirects_to_onboarding(self):
+        resp = self.client.post(reverse("register"), {
+            "username": "nouveau_user",
+            "password1": "MotDePasseStrong123!",
+            "password2": "MotDePasseStrong123!",
+        }, follow=True)
+        # Doit créer le user
+        self.assertTrue(User.objects.filter(username="nouveau_user").exists())
+        # Doit finir sur la page onboarding
+        self.assertEqual(resp.status_code, 200)
+        final_url = resp.redirect_chain[-1][0]
+        self.assertIn(reverse("onboarding"), final_url)
+
+    def test_register_invalid_username_already_exists(self):
+        User.objects.create_user(username="existant", password="Abc123!")
+        resp = self.client.post(reverse("register"), {
+            "username": "existant",
+            "password1": "MotDePasseStrong123!",
+            "password2": "MotDePasseStrong123!",
+        })
+        # Pas de redirect, formulaire re-rendu avec erreur
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.context["form"].is_valid())
+
+
+# ---------------------------------------------------------------------------
 # AJAX filtrage secteur
 # ---------------------------------------------------------------------------
 

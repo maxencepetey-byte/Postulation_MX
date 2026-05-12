@@ -138,7 +138,12 @@ def creer_brouillons_gmail(request):
                 except OSError:
                     continue
 
-            tpl_email = LettreSecteurTemplate.objects.filter(utilisateur=user, secteur_nom="Email").first()
+            # Précharger tous les templates une seule fois
+            templates_map = {
+                t.secteur_nom: t
+                for t in LettreSecteurTemplate.objects.filter(utilisateur=user)
+            }
+            tpl_email_fallback = templates_map.get("Email")
 
             created = 0
             skipped = 0
@@ -147,6 +152,8 @@ def creer_brouillons_gmail(request):
 
             for ent in entreprises:
                 secteur_nom = (ent.secteur_activite or "").strip()
+                # Template du secteur de l'entreprise, sinon fallback "Email"
+                tpl_email = templates_map.get(secteur_nom) or tpl_email_fallback
                 accroche = get_accroche(profil, ent.secteur_activite)
                 ctx = {
                     "accroche": accroche,
