@@ -94,15 +94,19 @@ def dashboard(request):
         .order_by("secteur_activite")
     )
 
+    tous_les_docs = list(DocumentUtilisateur.objects.filter(utilisateur=request.user).order_by("-date_upload"))
+    packs_actifs_secteurs = {d.secteur_nom for d in tous_les_docs if d.type_doc == 'PACK_LM' and d.secteur_nom}
+
     return render(request, 'core/dashboard.html', {
         'entreprises': page_obj,
         'total_entreprises': paginator.count,
-        'tous_les_docs': DocumentUtilisateur.objects.filter(utilisateur=request.user).order_by("-date_upload"),
+        'tous_les_docs': tous_les_docs,
         'secteurs_uniques': secteurs_uniques,
         'secteurs_noga': SECTEURS_NOGA_GROUPS,
         'gmail_connected': status["gmail_connected"],
         'static_version': _STATIC_VERSION,
         'nb_restants': nb_restants,
+        'packs_actifs_secteurs': packs_actifs_secteurs,
     })
 
 
