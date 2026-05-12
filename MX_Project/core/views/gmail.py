@@ -219,7 +219,7 @@ def creer_brouillons_gmail(request):
                     cand.date_traitement = now_dt
                     to_update.append(cand)
                     created += 1
-                except RuntimeError as e:
+                except (RuntimeError, requests.RequestException) as e:
                     err_str = str(e)
                     if "401" in err_str or "403" in err_str or "invalid_grant" in err_str.lower():
                         # Fix 1 : invalider expires_at et tenter un refresh unique

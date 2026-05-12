@@ -25,7 +25,11 @@ def _run_in_background(target, *args, **kwargs):
     """Lance target(*args, **kwargs) dans un thread daemon protégé par sémaphore."""
     def _wrapper():
         with _BG_SEMAPHORE:
-            target(*args, **kwargs)
+            try:
+                target(*args, **kwargs)
+            finally:
+                from django.db import connection
+                connection.close()
     threading.Thread(target=_wrapper, daemon=True).start()
 
 

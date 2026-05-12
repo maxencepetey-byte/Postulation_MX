@@ -1,5 +1,6 @@
 import logging
 import secrets
+import threading
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -18,6 +19,17 @@ from django.views.decorators.http import require_POST
 from ..models import GmailOAuthToken
 
 logger = logging.getLogger(__name__)
+
+# Mutex par user_id pour éviter les double-refresh simultanés (race condition F1/A).
+_TOKEN_REFRESH_LOCKS: dict[int, threading.Lock] = {}
+_TOKEN_REFRESH_LOCKS_MUTEX = threading.Lock()
+
+
+def _get_token_lock(user_id: int) -> threading.Lock:
+    with _TOKEN_REFRESH_LOCKS_MUTEX:
+        if user_id not in _TOKEN_REFRESH_LOCKS:
+            _TOKEN_REFRESH_LOCKS[user_id] = threading.Lock()
+        return _TOKEN_REFRESH_LOCKS[user_id]
 
 
 def register(request):
@@ -132,11 +144,13 @@ def gmail_callback(request):
 @require_POST
 def gmail_disconnect(request):
     tok = GmailOAuthToken.objects.filter(utilisateur=request.user).first()
-    if tok and tok.access_token:
+    if tok and tok.refresh_token:
+        # Révoquer le refresh_token invalide toute la session OAuth (access + refresh).
+        # Révoquer seulement l'access_token laisserait le refresh_token actif.
         try:
             requests.post(
                 "https://oauth2.googleapis.com/revoke",
-                params={"token": tok.access_token},
+                params={"token": tok.refresh_token},
                 timeout=10,
             )
         except requests.RequestException:
@@ -146,34 +160,49 @@ def gmail_disconnect(request):
 
 
 def _gmail_get_access_token(user) -> str:
-    tok = GmailOAuthToken.objects.filter(utilisateur=user).first()
-    if not tok:
-        raise RuntimeError("Gmail not connected")
+    # Lock par user : empêche deux threads de faire un refresh simultané (race condition
+    # qui produirait un double appel à /token avec le même refresh_token — fatal si
+    # Google active la rotation des refresh_tokens → invalid_grant sur le 2e appel).
+    with _get_token_lock(user.id):
+        # Relecture DB à l'intérieur du lock : si un autre thread vient de rafraîchir
+        # le token, on récupère directement la valeur fraîche sans rappeler Google.
+        tok = GmailOAuthToken.objects.filter(utilisateur=user).first()
+        if not tok:
+            raise RuntimeError("Gmail not connected")
 
-    if tok.access_token and tok.expires_at and tok.expires_at > timezone.now() + timedelta(seconds=30):
+        if tok.access_token and tok.expires_at and tok.expires_at > timezone.now() + timedelta(seconds=30):
+            return tok.access_token
+
+        client_id, client_secret, _ = _google_oauth_config()
+        if not client_id or not client_secret:
+            raise RuntimeError("Missing Google OAuth server config")
+
+        r = requests.post("https://oauth2.googleapis.com/token", data={
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": tok.refresh_token,
+            "grant_type": "refresh_token",
+        }, timeout=30)
+        if r.status_code >= 400:
+            raise RuntimeError(f"Token refresh failed: HTTP {r.status_code}")
+        payload = r.json()
+
+        tok.access_token = (payload.get("access_token") or "").strip()
+        tok.token_type = (payload.get("token_type") or tok.token_type or "").strip()
+        try:
+            expires_in = payload.get("expires_in")
+            if expires_in:
+                tok.expires_at = timezone.now() + timedelta(seconds=int(expires_in))
+        except (TypeError, ValueError):
+            tok.expires_at = None
+
+        # Google peut émettre un nouveau refresh_token lors du refresh (rotation).
+        # Si on l'ignore, le prochain refresh échoue avec invalid_grant.
+        new_rt = (payload.get("refresh_token") or "").strip()
+        if new_rt:
+            tok.refresh_token = new_rt
+            tok.save(update_fields=["access_token", "refresh_token", "expires_at", "token_type", "updated_at"])
+        else:
+            tok.save(update_fields=["access_token", "expires_at", "token_type", "updated_at"])
+
         return tok.access_token
-
-    client_id, client_secret, _ = _google_oauth_config()
-    if not client_id or not client_secret:
-        raise RuntimeError("Missing Google OAuth server config")
-
-    r = requests.post("https://oauth2.googleapis.com/token", data={
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "refresh_token": tok.refresh_token,
-        "grant_type": "refresh_token",
-    }, timeout=30)
-    if r.status_code >= 400:
-        raise RuntimeError(f"Token refresh failed {r.status_code}: {r.text[:200]}")
-    payload = r.json()
-
-    tok.access_token = (payload.get("access_token") or "").strip()
-    tok.token_type = (payload.get("token_type") or tok.token_type or "").strip()
-    try:
-        expires_in = payload.get("expires_in")
-        if expires_in:
-            tok.expires_at = timezone.now() + timedelta(seconds=int(expires_in))
-    except (TypeError, ValueError):
-        tok.expires_at = None
-    tok.save(update_fields=["access_token", "expires_at", "token_type", "updated_at"])
-    return tok.access_token
