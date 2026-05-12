@@ -22,12 +22,15 @@
   </div>
 
   {# Action principale #}
-  {% if p.doc_url %}
+  {% if p.remaining == 0 %}
+    <span class="btn btn-sm btn-success disabled w-100" style="font-size:.75rem">
+      <i class="bi bi-check2-all me-1"></i>Terminé
+    </span>
+  {% elif p.doc_url %}
     <div class="d-flex gap-1">
       <a href="{{ p.doc_url }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Télécharger le ZIP des {{ p.count }} LM">
         <i class="bi bi-download"></i>
       </a>
-      {% if p.remaining > 0 %}
       <form action="{% url 'creer_brouillons_gmail' %}" method="POST" class="m-0 flex-fill">
         {% csrf_token %}
         <input type="hidden" name="secteur" value="{{ p.secteur }}">
@@ -36,11 +39,6 @@
           <i class="bi bi-google me-1"></i>{{ p.remaining }} brouillon{{ p.remaining|pluralize }}
         </button>
       </form>
-      {% else %}
-      <span class="btn btn-sm btn-success disabled flex-fill" style="font-size:.75rem">
-        <i class="bi bi-check2-all"></i> Terminé
-      </span>
-      {% endif %}
     </div>
   {% else %}
     <form action="{% url 'generer_pack_secteur_numero' p.pack_num %}" method="POST" class="m-0">
