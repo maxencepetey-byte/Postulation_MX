@@ -14,7 +14,7 @@ from django.shortcuts import redirect
 from django.utils.timezone import now
 from django.views.decorators.http import require_GET, require_POST
 
-from ..models import DocumentUtilisateur, EntrepriseCible, LettreSecteurTemplate, ProfilUtilisateur
+from ..models import Candidature, DocumentUtilisateur, LettreSecteurTemplate, ProfilUtilisateur
 from ._utils import _email_to_pdf_name, _read_filefield_bytes, _run_in_background, _safe_format, get_accroche
 from ._pdf import generer_pdf_lm
 from .auth import _gmail_get_access_token
@@ -64,7 +64,7 @@ def creer_brouillons_gmail(request):
     pack_num_raw = (request.POST.get("pack_num") or "").strip()
     pack_num = int(pack_num_raw) if pack_num_raw.isdigit() else None
 
-    qs_ent = EntrepriseCible.objects.filter(utilisateur=request.user, est_dans_paquet=False).exclude(email="")
+    qs_ent = Candidature.objects.filter(utilisateur=request.user, est_dans_paquet=False)
     if secteur:
         qs_ent = qs_ent.filter(secteur_activite=secteur)
     if pack_num:
@@ -101,13 +101,13 @@ def creer_brouillons_gmail(request):
             user = User.objects.get(id=user_id)
             profil, _ = ProfilUtilisateur.objects.get_or_create(user=user)
 
-            qs = EntrepriseCible.objects.filter(utilisateur=user, est_dans_paquet=False).exclude(email="")
+            qs = Candidature.objects.filter(utilisateur=user, est_dans_paquet=False).select_related('entreprise')
             if secteur:
                 qs = qs.filter(secteur_activite=secteur)
             if pack_num:
                 qs = qs.filter(numero_pack=pack_num)
-            entreprises = list(qs.order_by("id")[:500])
-            logger.info("brouillons_bg: %d entreprises à traiter (user %s)", len(entreprises), user_id)
+            candidatures = list(qs.order_by("id")[:500])
+            logger.info("brouillons_bg: %d candidatures à traiter (user %s)", len(candidatures), user_id)
 
             cv_doc = DocumentUtilisateur.objects.filter(utilisateur=user, type_doc="CV").order_by("-date_upload").first()
             if not cv_doc:
@@ -138,7 +138,6 @@ def creer_brouillons_gmail(request):
                 except OSError:
                     continue
 
-            # Précharger tous les templates une seule fois
             templates_map = {
                 t.secteur_nom: t
                 for t in LettreSecteurTemplate.objects.filter(utilisateur=user)
@@ -147,17 +146,16 @@ def creer_brouillons_gmail(request):
 
             created = 0
             skipped = 0
-            to_update: list[EntrepriseCible] = []
+            to_update: list[Candidature] = []
             now_dt = now()
 
-            for ent in entreprises:
-                secteur_nom = (ent.secteur_activite or "").strip()
-                # Template du secteur de l'entreprise, sinon fallback "Email"
+            for cand in candidatures:
+                secteur_nom = (cand.secteur_activite or "").strip()
                 tpl_email = templates_map.get(secteur_nom) or tpl_email_fallback
-                accroche = get_accroche(profil, ent.secteur_activite)
+                accroche = get_accroche(profil, cand.secteur_activite)
                 ctx = {
                     "accroche": accroche,
-                    "entreprise": ent.nom,
+                    "entreprise": cand.entreprise.raison_sociale,
                     "secteur": secteur_nom,
                     "ville": profil.ville or "Genève",
                     "prenom": profil.prenom_lm or "",
@@ -167,7 +165,7 @@ def creer_brouillons_gmail(request):
                 base_subject = _safe_format(
                     (tpl_email.objet if tpl_email else "") or "Candidature spontanée", ctx
                 ).strip()
-                subject = f"{base_subject} — {ent.nom}".strip()
+                subject = f"{base_subject} — {cand.entreprise.raison_sociale}".strip()
 
                 if tpl_email and (tpl_email.salutation or tpl_email.paragraph_1 or tpl_email.paragraph_2 or tpl_email.paragraph_3 or tpl_email.paragraph_4 or tpl_email.conclusion):
                     intro = _safe_format(tpl_email.salutation or "Madame, Monsieur,", ctx).strip()
@@ -192,10 +190,10 @@ def creer_brouillons_gmail(request):
                     )
 
                 try:
-                    lm_pdf = generer_pdf_lm(profil, ent)
-                    lm_name = _email_to_pdf_name(ent.email)
+                    lm_pdf = generer_pdf_lm(profil, cand)
+                    lm_name = _email_to_pdf_name(cand.entreprise.email)
                 except Exception as e:
-                    logger.warning("brouillons_bg: PDF failed '%s': %s", ent.email, e)
+                    logger.warning("brouillons_bg: PDF failed '%s': %s", cand.entreprise.email, e)
                     skipped += 1
                     continue
 
@@ -204,26 +202,26 @@ def creer_brouillons_gmail(request):
                     (os.path.basename(cv_doc.fichier.name), cv_bytes, "application/pdf"),
                     *other_attachments,
                 ]
-                raw = _build_mime_message(ent.email, subject, body, attachments)
+                raw = _build_mime_message(cand.entreprise.email, subject, body, attachments)
 
                 try:
                     _gmail_create_draft(access_token, raw)
-                    ent.est_dans_paquet = True
-                    ent.brouillon_gmail_cree = True
-                    ent.date_traitement = now_dt
-                    to_update.append(ent)
+                    cand.est_dans_paquet = True
+                    cand.brouillon_gmail_cree = True
+                    cand.date_traitement = now_dt
+                    to_update.append(cand)
                     created += 1
                 except RuntimeError as e:
                     err_str = str(e)
                     if "401" in err_str or "403" in err_str or "invalid_grant" in err_str.lower():
                         logger.error("brouillons_bg: auth error, stopping. %s", err_str[:200])
                         break
-                    logger.warning("brouillons_bg: draft failed '%s': %s", ent.email, err_str[:200])
+                    logger.warning("brouillons_bg: draft failed '%s': %s", cand.entreprise.email, err_str[:200])
                     skipped += 1
 
             if to_update:
                 with transaction.atomic():
-                    EntrepriseCible.objects.bulk_update(
+                    Candidature.objects.bulk_update(
                         to_update,
                         ["est_dans_paquet", "brouillon_gmail_cree", "date_traitement"],
                     )
@@ -249,7 +247,7 @@ def creer_brouillons_gmail(request):
 def gmail_progress(request):
     secteur = (request.GET.get("secteur") or "").strip()
 
-    qs_all = EntrepriseCible.objects.filter(utilisateur=request.user).exclude(email="")
+    qs_all = Candidature.objects.filter(utilisateur=request.user)
     qs_done = qs_all.filter(est_dans_paquet=True)
 
     if secteur:

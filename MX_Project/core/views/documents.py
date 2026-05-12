@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404, redirect
 from urllib.parse import urlencode
 from django.views.decorators.http import require_POST
 
-from ..models import DocumentUtilisateur, EntrepriseCible
+from ..models import Candidature, DocumentUtilisateur
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ def delete_pack(request, doc_id: int):
     pack_num = int(m.group(1)) if m else None
 
     with transaction.atomic():
-        qs = EntrepriseCible.objects.filter(utilisateur=request.user, secteur_activite=secteur)
+        qs = Candidature.objects.filter(utilisateur=request.user, secteur_activite=secteur)
         if pack_num:
             qs = qs.filter(numero_pack=pack_num)
         nb = qs.count()
@@ -104,7 +104,7 @@ def delete_pack(request, doc_id: int):
 @login_required
 @require_POST
 def supprimer_tout(request):
-    EntrepriseCible.objects.filter(utilisateur=request.user).delete()
+    Candidature.objects.filter(utilisateur=request.user).delete()
     return redirect('dashboard')
 
 
@@ -120,7 +120,7 @@ def supprimer_documents(request):
 def vider_liste_et_documents(request):
     try:
         with transaction.atomic():
-            EntrepriseCible.objects.filter(utilisateur=request.user).delete()
+            Candidature.objects.filter(utilisateur=request.user).delete()
             _delete_all_user_documents(request.user)
         messages.success(request, "Liste et documents (CV + packs ZIP) vidés. L'historique a été conservé.")
         return redirect("dashboard")

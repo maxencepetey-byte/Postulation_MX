@@ -11,7 +11,7 @@ from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
-from ..models import DocumentUtilisateur, EntrepriseCible, ProfilUtilisateur
+from ..models import Candidature, DocumentUtilisateur, ProfilUtilisateur
 from ._pdf import _generer_zip, generer_pdf_lm
 from ._utils import _slugify_loose
 
@@ -21,8 +21,9 @@ logger = logging.getLogger(__name__)
 @login_required
 def telecharger_toutes_lm(request):
     entreprises = list(
-        EntrepriseCible.objects.filter(utilisateur=request.user, est_dans_paquet=False)
-        .exclude(email="")[:500]
+        Candidature.objects
+        .filter(utilisateur=request.user, est_dans_paquet=False)
+        .select_related('entreprise')[:500]
     )
     if not entreprises:
         return redirect('dashboard')
@@ -39,11 +40,11 @@ def telecharger_toutes_lm(request):
 @require_POST
 def generer_pack_500_lm(request):
     secteur = (request.POST.get("secteur") or "").strip()
-    qs = EntrepriseCible.objects.filter(utilisateur=request.user, est_dans_paquet=False).exclude(email="").order_by("id")
+    qs = Candidature.objects.filter(utilisateur=request.user, est_dans_paquet=False).order_by("id")
     if secteur:
         qs = qs.filter(secteur_activite=secteur)
 
-    entreprises = list(qs[:500])
+    entreprises = list(qs.select_related('entreprise')[:500])
     if not entreprises:
         return redirect('dashboard')
 
@@ -78,7 +79,6 @@ def generer_pack_secteur_numero(request, pack_num: int):
     if not secteur or pack_num < 1:
         return redirect("dashboard")
 
-    # Un seul PACK_LM autorisé à la fois — peu importe le secteur ou le numéro
     existing_any = DocumentUtilisateur.objects.filter(
         utilisateur=request.user, type_doc="PACK_LM"
     ).first()
@@ -91,13 +91,14 @@ def generer_pack_secteur_numero(request, pack_num: int):
         return redirect(f"/?{urlencode({'secteur': secteur})}")
 
     entreprises = list(
-        EntrepriseCible.objects.filter(
+        Candidature.objects
+        .filter(
             utilisateur=request.user,
             est_dans_paquet=False,
             secteur_activite=secteur,
             numero_pack=pack_num,
         )
-        .exclude(email="")
+        .select_related('entreprise')
         .order_by("id")[:500]
     )
     if not entreprises:
@@ -123,8 +124,9 @@ def generer_pack_secteur_numero(request, pack_num: int):
 @login_required
 def telecharger_pack_specifique(request, pack_num):
     entreprises = list(
-        EntrepriseCible.objects.filter(utilisateur=request.user, numero_pack=pack_num, est_dans_paquet=False)
-        .exclude(email="")
+        Candidature.objects
+        .filter(utilisateur=request.user, numero_pack=pack_num, est_dans_paquet=False)
+        .select_related('entreprise')
     )
     if not entreprises:
         return redirect('dashboard')
@@ -152,7 +154,10 @@ def telecharger_pack_specifique(request, pack_num):
 
 @login_required
 def telecharger_lm(request, ent_id):
-    ent = get_object_or_404(EntrepriseCible, id=ent_id, utilisateur=request.user)
+    ent = get_object_or_404(
+        Candidature.objects.select_related('entreprise'),
+        id=ent_id, utilisateur=request.user,
+    )
     profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
     try:
         pdf_bytes = generer_pdf_lm(profil, ent)
@@ -164,7 +169,7 @@ def telecharger_lm(request, ent_id):
             content_type="text/plain; charset=utf-8",
         )
     resp = HttpResponse(pdf_bytes, content_type="application/pdf")
-    resp["Content-Disposition"] = f'attachment; filename="LM_{_slugify_loose(ent.nom or "lettre")}.pdf"'
+    resp["Content-Disposition"] = f'attachment; filename="LM_{_slugify_loose(ent.entreprise.raison_sociale or "lettre")}.pdf"'
     return resp
 
 

@@ -73,9 +73,9 @@
                     {% for ent in entreprises %}
                     <tr>
                         <td class="ps-4">
-                            <div class="fw-bold text-dark">{{ ent.nom }}</div>
+                            <div class="fw-bold text-dark">{{ ent.entreprise.raison_sociale }}</div>
                             <div class="text-muted" style="font-size:0.7rem;">
-                                <i class="bi bi-envelope-at me-1"></i>{{ ent.email }}
+                                <i class="bi bi-envelope-at me-1"></i>{{ ent.entreprise.email }}
                             </div>
                         </td>
                         <td><span class="badge badge-secteur">{{ ent.secteur_activite }}</span></td>

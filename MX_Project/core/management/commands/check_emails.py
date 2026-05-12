@@ -33,7 +33,7 @@ import dns.resolver
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
-from core.models import EntrepriseCible, EntrepriseReferentiel
+from core.models import Candidature, EntrepriseReferentiel
 
 # ── Statuts ──────────────────────────────────────────────────────────────────
 ST_VALIDE      = "valide"
@@ -449,7 +449,10 @@ class Command(BaseCommand):
                 items.append(("ref", row[0], row[1], row[2] or "", row[3] or "", "—"))
 
         if source in ("all", "cibles"):
-            cible_qs = EntrepriseCible.objects.exclude(email="").select_related("utilisateur")
+            cible_qs = (
+                Candidature.objects
+                .select_related("entreprise", "utilisateur")
+            )
             if username:
                 try:
                     user_obj = User.objects.get(username=username)
@@ -457,9 +460,11 @@ class Command(BaseCommand):
                 except User.DoesNotExist:
                     self.stderr.write(self.style.ERROR(f"Utilisateur '{username}' introuvable."))
                     sys.exit(1)
-            for row in cible_qs.values_list("id", "email", "nom", "secteur_activite",
-                                             "utilisateur__username").iterator(chunk_size=2000):
-                items.append(("cible", row[0], row[1], row[2] or "", row[3] or "", row[4] or ""))
+            for row in cible_qs.values_list(
+                "id", "entreprise__email", "entreprise__raison_sociale",
+                "secteur_activite", "utilisateur__username"
+            ).iterator(chunk_size=2000):
+                items.append(("cible", row[0], row[1] or "", row[2] or "", row[3] or "", row[4] or ""))
 
         total = len(items)
         if total == 0:
@@ -512,7 +517,7 @@ class Command(BaseCommand):
                         if src == "ref":
                             EntrepriseReferentiel.objects.filter(id=ent_id).update(email_valide=False)
                         else:
-                            EntrepriseCible.objects.filter(id=ent_id).update(email_valide=False)
+                            Candidature.objects.filter(id=ent_id).update(email_valide=False)
 
                     pct = round(done / total * 100)
                     self.stdout.write(

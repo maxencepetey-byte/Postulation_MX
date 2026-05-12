@@ -1,16 +1,20 @@
 {% for ent in entreprises %}
 <tr>
   <td class="ps-4">
-    <div class="fw-bold text-dark">{{ ent.nom }}</div>
-    <div class="text-muted" style="font-size: 0.7rem;"><i class="bi bi-envelope-at me-1"></i>{{ ent.email }}</div>
+    <div class="fw-bold text-dark">{{ ent.entreprise.raison_sociale }}</div>
+    <div class="text-muted" style="font-size: 0.7rem;"><i class="bi bi-envelope-at me-1"></i>{{ ent.entreprise.email }}</div>
   </td>
   <td>
-    {% if "Social" in ent.secteur_activite %}
-      <span class="badge bg-info-subtle text-info border border-info-subtle">{{ ent.secteur_activite }}</span>
-    {% elif "Luxe" in ent.secteur_activite %}
-      <span class="badge bg-dark-subtle text-dark border border-dark-subtle">{{ ent.secteur_activite }}</span>
+    {% if ent.secteur_activite %}
+      {% if "Social" in ent.secteur_activite %}
+        <span class="badge bg-info-subtle text-info border border-info-subtle">{{ ent.secteur_activite }}</span>
+      {% elif "Luxe" in ent.secteur_activite %}
+        <span class="badge bg-dark-subtle text-dark border border-dark-subtle">{{ ent.secteur_activite }}</span>
+      {% else %}
+        <span class="badge badge-secteur">{{ ent.secteur_activite }}</span>
+      {% endif %}
     {% else %}
-      <span class="badge badge-secteur">{{ ent.secteur_activite }}</span>
+      <span class="text-muted small">—</span>
     {% endif %}
   </td>
   <td><span class="text-muted fw-bold">#{{ ent.numero_pack }}</span></td>
@@ -28,4 +32,3 @@
 {% empty %}
 <tr><td colspan="5" class="text-center py-5 text-muted">Aucune entreprise pour ce secteur.</td></tr>
 {% endfor %}
-

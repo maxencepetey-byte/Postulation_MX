@@ -12,12 +12,11 @@ from django.urls import reverse
 from ..constants import NOGA_MAP, SECTEURS_NOGA_GROUPS
 from ..forms import ProfilForm
 from ..models import (
+    Candidature,
     DocumentUtilisateur,
-    EntrepriseCible,
     GmailOAuthToken,
     LettreSecteurTemplate,
     ProfilUtilisateur,
-    ScanSession,
 )
 from ._utils import _STATIC_VERSION
 from .scan import _run_scan_for_user
@@ -36,7 +35,7 @@ def _get_setup_status(user):
         if c.strip()
     )
     secteurs_cibles = set(
-        EntrepriseCible.objects
+        Candidature.objects
         .filter(utilisateur=user)
         .exclude(secteur_activite__isnull=True)
         .exclude(secteur_activite="")
@@ -74,15 +73,20 @@ def dashboard(request):
     if not status["setup_complete"]:
         return redirect("settings_page")
 
-    entreprises_list = EntrepriseCible.objects.filter(utilisateur=request.user).order_by('-id')
-    nb_restants = request.user.entreprises.filter(est_dans_paquet=False).exclude(email="").count()
+    entreprises_list = (
+        Candidature.objects
+        .filter(utilisateur=request.user)
+        .select_related('entreprise')
+        .order_by('-id')
+    )
+    nb_restants = request.user.candidatures.filter(est_dans_paquet=False).count()
 
     paginator = Paginator(entreprises_list, 50)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     secteurs_uniques = list(
-        EntrepriseCible.objects
-        .filter(utilisateur=request.user, scan_session__isnull=False)
+        Candidature.objects
+        .filter(utilisateur=request.user)
         .exclude(secteur_activite__isnull=True)
         .exclude(secteur_activite="")
         .values_list("secteur_activite", flat=True)
@@ -94,7 +98,6 @@ def dashboard(request):
         'entreprises': page_obj,
         'total_entreprises': paginator.count,
         'tous_les_docs': DocumentUtilisateur.objects.filter(utilisateur=request.user).order_by("-date_upload"),
-        'sessions_recentes': ScanSession.objects.filter(utilisateur=request.user)[:5],
         'secteurs_uniques': secteurs_uniques,
         'secteurs_noga': SECTEURS_NOGA_GROUPS,
         'gmail_connected': status["gmail_connected"],
@@ -106,10 +109,12 @@ def dashboard(request):
 @login_required
 def entreprises_filtrer_secteur(request):
     secteur = (request.GET.get("secteur") or "").strip()
-    qs = EntrepriseCible.objects.filter(
-        utilisateur=request.user,
-        scan_session__isnull=False,
-    ).order_by("-id")
+    qs = (
+        Candidature.objects
+        .filter(utilisateur=request.user)
+        .select_related('entreprise')
+        .order_by("-id")
+    )
 
     if secteur:
         qs = qs.filter(secteur_activite=secteur)
@@ -124,9 +129,9 @@ def entreprises_filtrer_secteur(request):
 
     pack_infos = []
     if secteur:
-        qs_pack_all = EntrepriseCible.objects.filter(
+        qs_pack_all = Candidature.objects.filter(
             utilisateur=request.user, secteur_activite=secteur,
-        ).exclude(email="")
+        )
         qs_pack_remaining = qs_pack_all.filter(est_dans_paquet=False)
         max_pack = qs_pack_all.aggregate(m=Max("numero_pack")).get("m") or 0
         secteur_clean = secteur.replace(" ", "_").replace("/", "-")
@@ -185,7 +190,7 @@ def settings_page(request):
         if c.strip()
     ]
     secteurs_cibles = list(
-        EntrepriseCible.objects
+        Candidature.objects
         .filter(utilisateur=request.user)
         .exclude(secteur_activite__isnull=True)
         .exclude(secteur_activite="")
