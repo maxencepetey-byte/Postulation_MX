@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import EntrepriseCible, DocumentUtilisateur
+from .models import Candidature, DocumentUtilisateur
 
 
 class UserFilteredAdmin(admin.ModelAdmin):
@@ -17,11 +17,12 @@ class UserFilteredAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
-@admin.register(EntrepriseCible)
-class EntrepriseCibleAdmin(UserFilteredAdmin):
-    list_display = ("nom", "email", "secteur_activite", "statut", "utilisateur")
-    list_filter = ("statut", "secteur_activite")
-    search_fields = ("nom", "email")
+@admin.register(Candidature)
+class CandidatureAdmin(UserFilteredAdmin):
+    list_display = ("entreprise", "secteur_activite", "statut", "est_dans_paquet", "utilisateur")
+    list_filter = ("statut", "secteur_activite", "est_dans_paquet")
+    search_fields = ("entreprise__raison_sociale", "entreprise__email")
+    raw_id_fields = ("entreprise",)
 
 
 @admin.register(DocumentUtilisateur)

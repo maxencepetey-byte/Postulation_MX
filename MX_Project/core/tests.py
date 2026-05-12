@@ -6,11 +6,10 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from core.models import (
+    Candidature,
     DocumentUtilisateur,
-    EntrepriseCible,
     EntrepriseReferentiel,
     ProfilUtilisateur,
-    ScanSession,
 )
 from core.views import get_accroche, verifier_email_existence
 
@@ -61,6 +60,21 @@ class BaseAuthTestCase(TestCase):
         self.user = User.objects.create_user(username="u", password="p")
         self.client.login(username="u", password="p")
 
+    def _make_ref(self, email="contact@testcorp.ch", nom="TestCorp SA", code_noga="62"):
+        return EntrepriseReferentiel.objects.get_or_create(
+            email=email,
+            defaults={"raison_sociale": nom, "code_noga": code_noga, "adresse": "Rue 1"},
+        )[0]
+
+    def _make_candidature(self, ref=None, secteur="Informatique et programmation", pack=1):
+        if ref is None:
+            ref = self._make_ref()
+        return Candidature.objects.get_or_create(
+            utilisateur=self.user,
+            entreprise=ref,
+            defaults={"secteur_activite": secteur, "numero_pack": pack, "secteurs": secteur},
+        )[0]
+
 
 # ---------------------------------------------------------------------------
 # Dashboard
@@ -83,7 +97,6 @@ class DashboardTests(BaseAuthTestCase):
             utilisateur=self.user, secteur_nom="Email",
             defaults={"paragraph_1": "Template email"},
         )
-        # Nom exact issu du NOGA_MAP pour le code "62"
         LettreSecteurTemplate.objects.get_or_create(
             utilisateur=self.user, secteur_nom="Informatique et programmation",
             defaults={"paragraph_1": "Template info"},
@@ -93,14 +106,19 @@ class DashboardTests(BaseAuthTestCase):
     def test_dashboard_renders_and_contains_secteurs_uniques_and_packs(self):
         self._setup_complete_profil()
         secteur = "Informatique et programmation"
-        session = ScanSession.objects.create(utilisateur=self.user, secteurs=secteur, nb_entreprises=0)
-        EntrepriseCible.objects.create(
-            utilisateur=self.user, scan_session=session,
-            nom="A", email="a@example.com", secteur_activite=secteur, numero_pack=1,
+        ref_a = EntrepriseReferentiel.objects.create(
+            raison_sociale="A", email="a@example.com", code_noga="62"
         )
-        EntrepriseCible.objects.create(
-            utilisateur=self.user, scan_session=session,
-            nom="B", email="b@example.com", secteur_activite=secteur, numero_pack=1,
+        ref_b = EntrepriseReferentiel.objects.create(
+            raison_sociale="B", email="b@example.com", code_noga="62"
+        )
+        Candidature.objects.create(
+            utilisateur=self.user, entreprise=ref_a,
+            secteur_activite=secteur, numero_pack=1, secteurs=secteur,
+        )
+        Candidature.objects.create(
+            utilisateur=self.user, entreprise=ref_b,
+            secteur_activite=secteur, numero_pack=1, secteurs=secteur,
         )
 
         resp = self.client.get(reverse("dashboard"))
@@ -114,15 +132,44 @@ class DashboardTests(BaseAuthTestCase):
 
 
 # ---------------------------------------------------------------------------
+# Inscription
+# ---------------------------------------------------------------------------
+
+class RegisterTests(TestCase):
+    def test_register_creates_user_and_redirects_to_onboarding(self):
+        resp = self.client.post(reverse("register"), {
+            "username": "nouveau_user",
+            "password1": "MotDePasseStrong123!",
+            "password2": "MotDePasseStrong123!",
+        }, follow=True)
+        self.assertTrue(User.objects.filter(username="nouveau_user").exists())
+        self.assertEqual(resp.status_code, 200)
+        final_url = resp.redirect_chain[-1][0]
+        self.assertIn(reverse("onboarding"), final_url)
+
+    def test_register_invalid_username_already_exists(self):
+        User.objects.create_user(username="existant", password="Abc123!")
+        resp = self.client.post(reverse("register"), {
+            "username": "existant",
+            "password1": "MotDePasseStrong123!",
+            "password2": "MotDePasseStrong123!",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.context["form"].is_valid())
+
+
+# ---------------------------------------------------------------------------
 # AJAX filtrage secteur
 # ---------------------------------------------------------------------------
 
 class FiltrerSecteurAjaxTests(BaseAuthTestCase):
     def test_filtrer_secteur_returns_partial_html(self):
-        session = ScanSession.objects.create(utilisateur=self.user, secteurs="Informatique", nb_entreprises=0)
-        EntrepriseCible.objects.create(
-            utilisateur=self.user, scan_session=session,
-            nom="A", email="a@example.com", secteur_activite="Informatique", numero_pack=1,
+        ref = EntrepriseReferentiel.objects.create(
+            raison_sociale="A", email="a@example.com", code_noga="62"
+        )
+        Candidature.objects.create(
+            utilisateur=self.user, entreprise=ref,
+            secteur_activite="Informatique", numero_pack=1, secteurs="Informatique",
         )
         resp = self.client.get(
             reverse("entreprises_filtrer_secteur"),
@@ -144,9 +191,13 @@ class PackGenerationTests(BaseAuthTestCase):
     @patch("core.views._pdf.generer_pdf_lm", return_value=b"%PDF-1.4 fake")
     def test_telecharger_toutes_lm_marks_entreprises_and_returns_zip(self, _mock_pdf):
         for i in range(3):
-            EntrepriseCible.objects.create(
-                utilisateur=self.user, nom=f"A{i}", email=f"a{i}@example.com",
+            ref = EntrepriseReferentiel.objects.create(
+                raison_sociale=f"A{i}", email=f"a{i}@example.com", code_noga="62"
+            )
+            Candidature.objects.create(
+                utilisateur=self.user, entreprise=ref,
                 est_dans_paquet=False, numero_pack=1, secteur_activite="Informatique",
+                secteurs="Informatique",
             )
         ProfilUtilisateur.objects.get_or_create(user=self.user)
 
@@ -154,15 +205,19 @@ class PackGenerationTests(BaseAuthTestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/zip")
         self.assertEqual(
-            EntrepriseCible.objects.filter(utilisateur=self.user, est_dans_paquet=False).count(), 0,
+            Candidature.objects.filter(utilisateur=self.user, est_dans_paquet=False).count(), 0,
         )
 
     @patch("core.views._pdf.generer_pdf_lm", return_value=b"%PDF-1.4 fake")
     def test_telecharger_pack_specifique_saves_document_and_returns_zip(self, _mock_pdf):
         for i in range(2):
-            EntrepriseCible.objects.create(
-                utilisateur=self.user, nom=f"P2_{i}", email=f"p2_{i}@example.com",
+            ref = EntrepriseReferentiel.objects.create(
+                raison_sociale=f"P2_{i}", email=f"p2_{i}@example.com", code_noga="86"
+            )
+            Candidature.objects.create(
+                utilisateur=self.user, entreprise=ref,
                 est_dans_paquet=False, numero_pack=2, secteur_activite="Santé",
+                secteurs="Santé",
             )
         ProfilUtilisateur.objects.get_or_create(user=self.user)
 
@@ -170,7 +225,7 @@ class PackGenerationTests(BaseAuthTestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/zip")
         self.assertEqual(
-            EntrepriseCible.objects.filter(utilisateur=self.user, numero_pack=2, est_dans_paquet=False).count(), 0,
+            Candidature.objects.filter(utilisateur=self.user, numero_pack=2, est_dans_paquet=False).count(), 0,
         )
 
 
@@ -180,12 +235,16 @@ class PackGenerationTests(BaseAuthTestCase):
 
 class PDFGenerationTests(BaseAuthTestCase):
     def _make_ent(self, secteur="Informatique"):
-        session = ScanSession.objects.create(utilisateur=self.user, secteurs=secteur, nb_entreprises=0)
-        return EntrepriseCible.objects.create(
-            utilisateur=self.user, scan_session=session,
-            nom="TestCorp SA", email="contact@testcorp.ch",
-            secteur_activite=secteur, numero_pack=1,
+        ref, _ = EntrepriseReferentiel.objects.get_or_create(
+            email="contact@testcorp.ch",
+            defaults={"raison_sociale": "TestCorp SA", "code_noga": "62", "adresse": "Rue Test 1"},
         )
+        cand, _ = Candidature.objects.get_or_create(
+            utilisateur=self.user,
+            entreprise=ref,
+            defaults={"secteur_activite": secteur, "numero_pack": 1, "secteurs": secteur},
+        )
+        return cand
 
     def test_generer_pdf_lm_returns_pdf_bytes(self):
         from core.views import generer_pdf_lm
@@ -225,7 +284,7 @@ class PDFGenerationTests(BaseAuthTestCase):
 
 class ScanFlowTests(BaseAuthTestCase):
     @patch("core.views.scan._run_in_background", side_effect=lambda f, *a, **kw: f(*a, **kw))
-    def test_lancer_scan_creates_session_and_entreprises(self, _mock_bg):
+    def test_lancer_scan_creates_candidatures(self, _mock_bg):
         EntrepriseReferentiel.objects.create(
             raison_sociale="RS1", email="x1@example.com", code_noga="62", adresse="Rue 1",
         )
@@ -234,8 +293,109 @@ class ScanFlowTests(BaseAuthTestCase):
         )
         resp = self.client.get(reverse("lancer_scan"), {"secteurs": ["62"]})
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(ScanSession.objects.filter(utilisateur=self.user).count(), 1)
-        self.assertEqual(EntrepriseCible.objects.filter(utilisateur=self.user).count(), 2)
+        self.assertEqual(Candidature.objects.filter(utilisateur=self.user).count(), 2)
+
+
+# ---------------------------------------------------------------------------
+# Candidature — tests unitaires
+# ---------------------------------------------------------------------------
+
+class CandidatureTests(BaseAuthTestCase):
+    def test_candidature_creation(self):
+        ref = self._make_ref()
+        cand = self._make_candidature(ref=ref)
+        self.assertEqual(cand.utilisateur, self.user)
+        self.assertEqual(cand.entreprise, ref)
+        self.assertEqual(cand.statut, "À traiter")
+        self.assertFalse(cand.est_dans_paquet)
+
+    def test_candidature_unique_per_user_entreprise(self):
+        from django.db import IntegrityError
+        ref = self._make_ref()
+        self._make_candidature(ref=ref)
+        with self.assertRaises(Exception):
+            Candidature.objects.create(
+                utilisateur=self.user,
+                entreprise=ref,
+                secteur_activite="Informatique",
+                secteurs="Informatique",
+            )
+
+    def test_candidature_different_users_same_entreprise(self):
+        """Deux users peuvent candidater dans la même entreprise."""
+        user2 = User.objects.create_user(username="u2", password="p2")
+        ref = self._make_ref()
+        c1 = self._make_candidature(ref=ref)
+        c2, _ = Candidature.objects.get_or_create(
+            utilisateur=user2, entreprise=ref,
+            defaults={"secteur_activite": "Informatique", "secteurs": "Informatique"},
+        )
+        self.assertNotEqual(c1.utilisateur, c2.utilisateur)
+        self.assertEqual(c1.entreprise, c2.entreprise)
+
+    def test_historique_par_date_scan(self):
+        """L'historique groupe les candidatures par (secteurs, date)."""
+        ref_a = EntrepriseReferentiel.objects.create(
+            raison_sociale="RefA", email="refa@example.com", code_noga="62"
+        )
+        ref_b = EntrepriseReferentiel.objects.create(
+            raison_sociale="RefB", email="refb@example.com", code_noga="62"
+        )
+        Candidature.objects.create(
+            utilisateur=self.user, entreprise=ref_a,
+            secteur_activite="Informatique", secteurs="Informatique", numero_pack=1,
+        )
+        Candidature.objects.create(
+            utilisateur=self.user, entreprise=ref_b,
+            secteur_activite="Informatique", secteurs="Informatique", numero_pack=1,
+        )
+
+        profil, _ = ProfilUtilisateur.objects.get_or_create(user=self.user)
+        profil.onboarding_done = True
+        profil.save()
+        from core.models import GmailOAuthToken, LettreSecteurTemplate
+        GmailOAuthToken.objects.get_or_create(
+            utilisateur=self.user, defaults={"refresh_token": "rt", "access_token": "at"}
+        )
+        LettreSecteurTemplate.objects.get_or_create(
+            utilisateur=self.user, secteur_nom="Email",
+            defaults={"paragraph_1": "tpl"},
+        )
+        LettreSecteurTemplate.objects.get_or_create(
+            utilisateur=self.user, secteur_nom="Informatique",
+            defaults={"paragraph_1": "tpl"},
+        )
+
+        resp = self.client.get(reverse("historique_scans"))
+        self.assertEqual(resp.status_code, 200)
+        sessions = resp.context["sessions"]
+        self.assertGreaterEqual(len(sessions), 1)
+        # Toutes les candidatures du même secteur/jour forment une session
+        total = sum(s.nb_entreprises for s in sessions)
+        self.assertEqual(total, 2)
+
+    def test_migration_preserves_data(self):
+        """Vérifie les champs clés sur une Candidature créée directement."""
+        ref = EntrepriseReferentiel.objects.create(
+            raison_sociale="MigCorp", email="migcorp@example.com", code_noga="62", adresse="Rue Mig 1"
+        )
+        cand = Candidature.objects.create(
+            utilisateur=self.user,
+            entreprise=ref,
+            secteurs="Informatique et programmation",
+            secteur_activite="Informatique et programmation",
+            statut="À traiter",
+            est_dans_paquet=False,
+            numero_pack=1,
+            email_valide=True,
+            brouillon_gmail_cree=False,
+        )
+        loaded = Candidature.objects.select_related('entreprise').get(pk=cand.pk)
+        self.assertEqual(loaded.entreprise.raison_sociale, "MigCorp")
+        self.assertEqual(loaded.entreprise.email, "migcorp@example.com")
+        self.assertEqual(loaded.secteurs, "Informatique et programmation")
+        self.assertFalse(loaded.est_dans_paquet)
+        self.assertTrue(loaded.email_valide)
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +418,6 @@ class DocumentTests(BaseAuthTestCase):
 
     def test_delete_document_removes_entry(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
-        # Create a doc directly in DB (bypass file validation)
         doc = DocumentUtilisateur.objects.create(
             utilisateur=self.user, nom_affichage="CV Test",
             type_doc="CV",
@@ -317,7 +476,6 @@ class GmailOAuthTests(TestCase):
                 r = self.client.get(reverse("gmail_callback") + "?code=ccc&state=abc")
         self.assertEqual(r.status_code, 302)
         self.user.refresh_from_db()
-        # Le token est stocké chiffré, from_db le déchiffre → on lit "rt"
         self.assertEqual(self.user.gmail_oauth.refresh_token, "rt")
 
     def test_gmail_callback_wrong_state_redirects(self):
@@ -349,12 +507,19 @@ class SecurityTests(TestCase):
                 if resp.status_code == 302:
                     self.assertIn("login", resp["Location"].lower())
 
-    def test_cross_user_scan_session_is_404(self):
+    def test_cross_user_detail_scan_is_404(self):
+        """Un utilisateur ne peut pas voir le détail de scan d'un autre."""
         owner = User.objects.create_user(username="owner", password="p")
         viewer = User.objects.create_user(username="viewer", password="p")
-        session = ScanSession.objects.create(utilisateur=owner, secteurs="Informatique", nb_entreprises=0)
+        ref = EntrepriseReferentiel.objects.create(
+            raison_sociale="XCorp", email="x@xcorp.ch", code_noga="62"
+        )
+        cand = Candidature.objects.create(
+            utilisateur=owner, entreprise=ref,
+            secteurs="Informatique", secteur_activite="Informatique",
+        )
         self.client.login(username="viewer", password="p")
-        resp = self.client.get(reverse("detail_scan", args=[session.id]))
+        resp = self.client.get(reverse("detail_scan", args=[cand.id]))
         self.assertEqual(resp.status_code, 404)
 
 
@@ -404,17 +569,14 @@ class TokenEncryptionTests(TestCase):
             refresh_token="my_plain_refresh_token",
             access_token="my_plain_access_token",
         )
-        # En mémoire : valeur en clair restaurée par save()
         self.assertEqual(tok.refresh_token, "my_plain_refresh_token")
         self.assertEqual(tok.access_token, "my_plain_access_token")
 
-        # En DB : valeur chiffrée (doit différer du plain text)
         with connection.cursor() as cur:
             cur.execute("SELECT refresh_token, access_token FROM core_gmailoauthtoken WHERE id=%s", [tok.id])
             row = cur.fetchone()
         self.assertNotEqual(row[0], "my_plain_refresh_token")
         self.assertNotEqual(row[1], "my_plain_access_token")
-        # La valeur chiffrée doit être déchiffrable
         self.assertEqual(_decrypt_token(row[0]), "my_plain_refresh_token")
 
     def test_from_db_decrypts_transparently(self):

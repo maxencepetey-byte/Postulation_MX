@@ -17,7 +17,7 @@ import os
 
 from django.core.management.base import BaseCommand
 
-from core.models import EntrepriseCible, EntrepriseReferentiel
+from core.models import Candidature, EntrepriseReferentiel
 
 STATUTS_HARD_BOUNCE = {"invalide", "domaine_ko", "pas_de_mx", "compte_desactive", "syntaxe_invalide"}
 STATUTS_A_RISQUE    = {"boite_pleine", "erreur_temp"}
@@ -96,13 +96,13 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f"  → {deleted} supprimée(s)"))
                 total_supprime += deleted
 
-        # ── Purge EntrepriseCible ─────────────────────────────────────────────
+        # ── Purge Candidature (source "cibles") ───────────────────────────────
         if source in ("all", "cibles") and emails_cibles:
-            qs = EntrepriseCible.objects.filter(
-                email__in=emails_cibles
+            qs = Candidature.objects.filter(
+                entreprise__email__in=emails_cibles
             )
             count = qs.count()
-            self.stdout.write(f"  EntrepriseCible       : {count} ligne(s) à supprimer")
+            self.stdout.write(f"  Candidature           : {count} ligne(s) à supprimer")
             if not dry_run and count:
                 deleted, _ = qs.delete()
                 self.stdout.write(self.style.SUCCESS(f"  → {deleted} supprimée(s)"))

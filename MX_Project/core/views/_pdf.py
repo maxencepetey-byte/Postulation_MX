@@ -10,13 +10,17 @@ from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Frame, Paragraph, Spacer
 
-from ..models import EntrepriseCible, LettreSecteurTemplate
+from ..models import Candidature, LettreSecteurTemplate
 from ._utils import _email_to_pdf_name, _safe_format, get_accroche
 
 logger = logging.getLogger(__name__)
 
 
-def generer_pdf_lm(profil, ent):
+def generer_pdf_lm(profil, ent: Candidature):
+    """
+    Génère le PDF de lettre de motivation pour une Candidature.
+    Les données entreprise sont lues via ent.entreprise (FK → EntrepriseReferentiel).
+    """
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
@@ -35,9 +39,9 @@ def generer_pdf_lm(profil, ent):
     p.drawString(2 * cm, height - 3.6 * cm, profil.email_lm or "")
 
     p.setFont("Helvetica-Bold", 11)
-    p.drawString(12 * cm, height - 5 * cm, ent.nom)
+    p.drawString(12 * cm, height - 5 * cm, ent.entreprise.raison_sociale)
     p.setFont("Helvetica", 10)
-    p.drawString(12 * cm, height - 5.5 * cm, (ent.adresse or '')[:40])
+    p.drawString(12 * cm, height - 5.5 * cm, (ent.entreprise.adresse or '')[:40])
     p.drawRightString(
         width - 2 * cm, height - 8.5 * cm,
         f"Fait à {profil.ville or 'Genève'}, le {date.today().strftime('%d.%m.%Y')}"
@@ -46,16 +50,15 @@ def generer_pdf_lm(profil, ent):
     accroche = get_accroche(profil, ent.secteur_activite)
     secteur_nom = (ent.secteur_activite or "").strip()
 
-    _tpl_user = ent.utilisateur or (profil.user if profil else None)
     tpl = None
-    if _tpl_user and secteur_nom:
+    if secteur_nom:
         tpl = LettreSecteurTemplate.objects.filter(
-            utilisateur=_tpl_user, secteur_nom=secteur_nom
+            utilisateur=ent.utilisateur, secteur_nom=secteur_nom
         ).first()
 
     ctx = {
         "accroche": accroche,
-        "entreprise": ent.nom,
+        "entreprise": ent.entreprise.raison_sociale,
         "secteur": secteur_nom,
         "ville": profil.ville or "Genève",
         "prenom": profil.prenom_lm or "",
@@ -136,12 +139,12 @@ def _generer_zip(profil, entreprises, marquer_traitees=False):
     to_update = []
     with zipfile.ZipFile(zip_buffer, 'w') as zf:
         for ent in entreprises:
-            zf.writestr(_email_to_pdf_name(ent.email), generer_pdf_lm(profil, ent))
+            zf.writestr(_email_to_pdf_name(ent.entreprise.email), generer_pdf_lm(profil, ent))
             if marquer_traitees:
                 ent.est_dans_paquet = True
                 ent.date_traitement = now()
                 to_update.append(ent)
     if to_update:
-        EntrepriseCible.objects.bulk_update(to_update, ["est_dans_paquet", "date_traitement"])
+        Candidature.objects.bulk_update(to_update, ["est_dans_paquet", "date_traitement"])
     zip_buffer.seek(0)
     return zip_buffer.read()

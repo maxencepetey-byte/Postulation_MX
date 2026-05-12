@@ -90,54 +90,6 @@ class DocumentUtilisateur(models.Model):
         return f"{self.nom_affichage} ({self.utilisateur.username})"
 
 
-class ScanSession(models.Model):
-    """Un scan lancé par un utilisateur = une ScanSession."""
-    utilisateur = models.ForeignKey(User, on_delete=models.CASCADE, related_name='scan_sessions')
-    date_scan = models.DateTimeField(auto_now_add=True)
-    secteurs = models.CharField(max_length=255)       # "Informatique, Banque"
-    nb_entreprises = models.IntegerField(default=0)   # mis à jour en fin de scan
-    nb_doublons_evites = models.IntegerField(default=0)
-
-    class Meta:
-        ordering = ['-date_scan']
-
-    def __str__(self):
-        return f"Scan {self.date_scan.strftime('%d/%m/%Y %H:%M')} — {self.utilisateur.username}"
-
-
-class EntrepriseCible(models.Model):
-    scan_session = models.ForeignKey(
-        ScanSession, on_delete=models.CASCADE,
-        null=True, blank=True, related_name='entreprises'
-    )
-    # Nouveau : FK directe vers le user pour simplifier les requêtes et le unique_together
-    utilisateur = models.ForeignKey(
-        User, on_delete=models.CASCADE,
-        null=True, blank=True, related_name='entreprises'
-    )
-
-    nom = models.CharField(max_length=255)
-    email = models.EmailField()
-    adresse = models.TextField(blank=True)
-    statut = models.CharField(max_length=50, default="À traiter")
-    secteur_activite = models.CharField(max_length=100, null=True, blank=True)
-    est_dans_paquet = models.BooleanField(default=False)
-    numero_pack = models.IntegerField(default=0)
-    date_traitement = models.DateTimeField(null=True, blank=True)
-    email_valide = models.BooleanField(default=True)
-    brouillon_gmail_cree = models.BooleanField(default=False)
-
-    class Meta:
-        unique_together = [('utilisateur', 'email')]
-        indexes = [
-            models.Index(fields=['secteur_activite']),
-            models.Index(fields=['est_dans_paquet']),
-            models.Index(fields=['numero_pack']),
-        ]
-
-    def __str__(self):
-        return self.nom
-
 
 class LettreSecteurTemplate(models.Model):
     """
@@ -221,3 +173,38 @@ class EntrepriseReferentiel(models.Model):
 
     def __str__(self):
         return f"{self.raison_sociale} <{self.email}>"
+
+
+class Candidature(models.Model):
+    """
+    Association User ↔ EntrepriseReferentiel : une candidature spontanée.
+    Remplace ScanSession + EntrepriseCible : chaque ligne = une entreprise ciblée
+    par un utilisateur, avec le contexte du scan qui l'a générée.
+    """
+    utilisateur = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='candidatures'
+    )
+    entreprise = models.ForeignKey(
+        EntrepriseReferentiel, on_delete=models.PROTECT, related_name='candidatures'
+    )
+    date_scan = models.DateTimeField(auto_now_add=True)
+    secteurs = models.CharField(max_length=255, default="")   # secteurs du scan source
+    statut = models.CharField(max_length=50, default="À traiter")
+    est_dans_paquet = models.BooleanField(default=False)
+    numero_pack = models.IntegerField(default=0)
+    date_traitement = models.DateTimeField(null=True, blank=True)
+    email_valide = models.BooleanField(default=True)
+    brouillon_gmail_cree = models.BooleanField(default=False)
+    secteur_activite = models.CharField(max_length=100, null=True, blank=True)
+
+    class Meta:
+        unique_together = [('utilisateur', 'entreprise')]
+        indexes = [
+            models.Index(fields=['secteur_activite']),
+            models.Index(fields=['est_dans_paquet']),
+            models.Index(fields=['numero_pack']),
+            models.Index(fields=['date_scan']),
+        ]
+
+    def __str__(self):
+        return f"{self.entreprise} — {self.utilisateur}"

@@ -8,26 +8,44 @@ from django.contrib.auth.decorators import login_required
 from django.core.management import call_command
 from django.core.paginator import Paginator
 from django.db import IntegrityError
+from django.db.models import Count, Min
+from django.db.models.functions import TruncDate
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET
 
 from ..constants import NOGA_MAP
-from ..models import EntrepriseCible, EntrepriseReferentiel, ProfilUtilisateur, ScanSession
+from ..models import Candidature, EntrepriseReferentiel, ProfilUtilisateur
 from ._utils import _run_in_background
 
 logger = logging.getLogger(__name__)
 
 
+class _VirtualSession:
+    """
+    Pseudo-objet imitant l'ancienne ScanSession pour la compatibilité des templates.
+    Construit à la volée en groupant les Candidatures par (secteurs, date_scan).
+    """
+    __slots__ = ('id', 'date_scan', 'secteurs', 'nb_entreprises', 'nb_doublons_evites')
+
+    def __init__(self, session_id, date_scan, secteurs, nb_entreprises):
+        self.id = session_id
+        self.date_scan = date_scan
+        self.secteurs = secteurs
+        self.nb_entreprises = nb_entreprises
+        self.nb_doublons_evites = 0  # non stocké après migration — affiché comme 0
+
+
 def _run_scan_for_user(user, secteurs):
+    """
+    Crée une Candidature par entreprise du référentiel pour chaque code NOGA demandé.
+    Les doublons (même user + même entreprise) sont silencieusement ignorés via IntegrityError.
+    """
     if not secteurs:
         return
 
     noms_secteurs = [NOGA_MAP.get(s[:2], s) for s in secteurs]
-    session = ScanSession.objects.create(
-        utilisateur=user,
-        secteurs=", ".join(noms_secteurs),
-    )
+    secteurs_str = ", ".join(noms_secteurs)
 
     try:
         total_ajoutes = 0
@@ -42,7 +60,7 @@ def _run_scan_for_user(user, secteurs):
 
             secteur_nom = NOGA_MAP.get(s[:2], "Général")
             if secteur_nom not in base_par_secteur:
-                base_par_secteur[secteur_nom] = EntrepriseCible.objects.filter(
+                base_par_secteur[secteur_nom] = Candidature.objects.filter(
                     utilisateur=user, secteur_activite=secteur_nom,
                 ).count()
                 ajoutes_par_secteur[secteur_nom] = 0
@@ -50,30 +68,25 @@ def _run_scan_for_user(user, secteurs):
             qs = (
                 EntrepriseReferentiel.objects
                 .filter(code_noga__startswith=s, email_valide=True)
-                .only("raison_sociale", "email", "adresse")
+                .only("id", "raison_sociale", "email", "adresse")
                 .order_by("raison_sociale")
             )
             for ref in qs.iterator(chunk_size=2000):
                 total_courant = base_par_secteur[secteur_nom] + ajoutes_par_secteur[secteur_nom]
                 pack_id = (total_courant // 500) + 1
                 try:
-                    EntrepriseCible.objects.create(
-                        scan_session=session,
+                    Candidature.objects.create(
                         utilisateur=user,
-                        nom=ref.raison_sociale,
-                        email=ref.email,
+                        entreprise=ref,
+                        secteurs=secteurs_str,
                         numero_pack=pack_id,
                         secteur_activite=secteur_nom,
-                        adresse=ref.adresse or "",
                     )
                     total_ajoutes += 1
                     ajoutes_par_secteur[secteur_nom] += 1
                 except IntegrityError:
                     total_doublons += 1
 
-        session.nb_entreprises = total_ajoutes
-        session.nb_doublons_evites = total_doublons
-        session.save()
         logger.info(
             "_run_scan_for_user: terminé — %d ajoutés, %d doublons (user %s)",
             total_ajoutes, total_doublons, user.id,
@@ -150,14 +163,57 @@ def cron_sync_registre(request):
 
 @login_required
 def historique_scans(request):
-    sessions = ScanSession.objects.filter(utilisateur=request.user)
+    """
+    Affiche l'historique des scans sous forme de sessions virtuelles.
+    Chaque session = groupe de Candidatures partageant le même champ 'secteurs'
+    et la même date de scan (tronquée au jour).
+    L'ID de session = ID minimum du groupe (utilisé pour l'URL detail_scan).
+    """
+    groups = (
+        Candidature.objects
+        .filter(utilisateur=request.user)
+        .annotate(scan_date=TruncDate('date_scan'))
+        .values('secteurs', 'scan_date')
+        .annotate(
+            nb_entreprises=Count('id'),
+            date_scan=Min('date_scan'),
+            session_id=Min('id'),
+        )
+        .order_by('-date_scan')
+    )
+    sessions = [
+        _VirtualSession(g['session_id'], g['date_scan'], g['secteurs'], g['nb_entreprises'])
+        for g in groups
+    ]
     return render(request, 'core/historique.html', {'sessions': sessions})
 
 
 @login_required
 def detail_scan(request, session_id):
-    session = get_object_or_404(ScanSession, id=session_id, utilisateur=request.user)
-    paginator = Paginator(session.entreprises.all().order_by('secteur_activite', 'nom'), 50)
+    """
+    Affiche les Candidatures d'une session virtuelle identifiée par l'ID de la
+    première Candidature créée lors de ce scan (même secteurs + même jour).
+    """
+    anchor = get_object_or_404(Candidature, id=session_id, utilisateur=request.user)
+    anchor_date = anchor.date_scan.date()
+
+    qs = (
+        Candidature.objects
+        .filter(utilisateur=request.user, secteurs=anchor.secteurs)
+        .annotate(scan_date=TruncDate('date_scan'))
+        .filter(scan_date=anchor_date)
+        .select_related('entreprise')
+        .order_by('secteur_activite', 'entreprise__raison_sociale')
+    )
+
+    session = _VirtualSession(
+        session_id=session_id,
+        date_scan=anchor.date_scan,
+        secteurs=anchor.secteurs,
+        nb_entreprises=qs.count(),
+    )
+
+    paginator = Paginator(qs, 50)
     return render(request, 'core/detail_scan.html', {
         'session': session,
         'entreprises': paginator.get_page(request.GET.get('page')),
