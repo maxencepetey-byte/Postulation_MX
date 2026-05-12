@@ -14,7 +14,7 @@ from django.shortcuts import redirect
 from django.utils.timezone import now
 from django.views.decorators.http import require_GET, require_POST
 
-from ..models import Candidature, DocumentUtilisateur, LettreSecteurTemplate, ProfilUtilisateur
+from ..models import Candidature, DocumentUtilisateur, GmailOAuthToken, LettreSecteurTemplate, ProfilUtilisateur
 from ._utils import _email_to_pdf_name, _read_filefield_bytes, _run_in_background, _safe_format, get_accroche
 from ._pdf import generer_pdf_lm
 from .auth import _gmail_get_access_token
@@ -95,11 +95,19 @@ def creer_brouillons_gmail(request):
         messages.error(request, f"Impossible de joindre Gmail : {e}. Vérifie ta connexion réseau.")
         return redirect("settings_page")
 
-    def _run_brouillons(user_id, secteur, access_token, pack_num=None):
+    def _run_brouillons(user_id, secteur, pack_num=None):
         from django.contrib.auth.models import User
         try:
             user = User.objects.get(id=user_id)
             profil, _ = ProfilUtilisateur.objects.get_or_create(user=user)
+
+            # Fix 2 : token récupéré ici, pas passé en paramètre (évite le snapshot périmé)
+            try:
+                access_token = _gmail_get_access_token(user)
+            except Exception as e:
+                logger.error("brouillons_bg: token Gmail inaccessible (user %s): %s", user_id, e)
+                GmailOAuthToken.objects.filter(utilisateur=user).update(expires_at=None)
+                return
 
             qs = Candidature.objects.filter(utilisateur=user, est_dans_paquet=False).select_related('entreprise')
             if secteur:
@@ -214,10 +222,19 @@ def creer_brouillons_gmail(request):
                 except RuntimeError as e:
                     err_str = str(e)
                     if "401" in err_str or "403" in err_str or "invalid_grant" in err_str.lower():
-                        logger.error("brouillons_bg: auth error, stopping. %s", err_str[:200])
-                        break
-                    logger.warning("brouillons_bg: draft failed '%s': %s", cand.entreprise.email, err_str[:200])
-                    skipped += 1
+                        # Fix 1 : invalider expires_at et tenter un refresh unique
+                        logger.warning("brouillons_bg: 401 reçu, tentative refresh (user %s)", user_id)
+                        GmailOAuthToken.objects.filter(utilisateur=user).update(expires_at=None)
+                        try:
+                            access_token = _gmail_get_access_token(user)
+                            logger.info("brouillons_bg: token rafraîchi, poursuite (user %s)", user_id)
+                        except Exception:
+                            logger.error("brouillons_bg: refresh impossible, arrêt (user %s)", user_id)
+                            break
+                        skipped += 1  # ce draft est perdu, on continue avec le nouveau token
+                    else:
+                        logger.warning("brouillons_bg: draft failed '%s': %s", cand.entreprise.email, err_str[:200])
+                        skipped += 1
 
             if to_update:
                 with transaction.atomic():
@@ -254,7 +271,7 @@ def creer_brouillons_gmail(request):
         except Exception:
             logger.exception("brouillons_bg: exception non gérée (user %s)", user_id)
 
-    _run_in_background(_run_brouillons, request.user.id, secteur, access_token, pack_num)
+    _run_in_background(_run_brouillons, request.user.id, secteur, pack_num)
 
     nb = qs_ent.count()
     messages.success(

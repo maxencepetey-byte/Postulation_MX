@@ -23,6 +23,8 @@ def _fernet() -> Fernet:
 def _encrypt_token(value: str) -> str:
     if not value:
         return value
+    if value.startswith("gAAAAA"):  # déjà chiffré Fernet — évite le double chiffrement
+        return value
     return _fernet().encrypt(value.encode()).decode()
 
 
