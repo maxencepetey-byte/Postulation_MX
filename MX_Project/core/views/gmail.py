@@ -228,6 +228,29 @@ def creer_brouillons_gmail(request):
 
             logger.info("brouillons_bg: terminé — %d créés, %d ignorés (user %s)", created, skipped, user_id)
 
+            # Auto-supprimer le pack document si toutes les candidatures sont traitées
+            if created > 0:
+                remaining_filter = {"utilisateur": user, "est_dans_paquet": False}
+                if secteur:
+                    remaining_filter["secteur_activite"] = secteur
+                if pack_num:
+                    remaining_filter["numero_pack"] = pack_num
+                if not Candidature.objects.filter(**remaining_filter).exists():
+                    doc_filter = {"utilisateur": user, "type_doc": "PACK_LM"}
+                    if secteur:
+                        doc_filter["secteur_nom"] = secteur
+                    if pack_num:
+                        secteur_clean = secteur.replace(" ", "_").replace("/", "-")
+                        doc_filter["nom_affichage"] = f"MX_SCAN_{secteur_clean}_PACK_{pack_num}"
+                    for pack_doc in DocumentUtilisateur.objects.filter(**doc_filter):
+                        try:
+                            if getattr(pack_doc, "fichier", None):
+                                pack_doc.fichier.delete(save=False)
+                        except Exception:
+                            pass
+                        pack_doc.delete()
+                        logger.info("brouillons_bg: pack '%s' auto-supprimé (user %s)", pack_doc.nom_affichage, user_id)
+
         except Exception:
             logger.exception("brouillons_bg: exception non gérée (user %s)", user_id)
 
