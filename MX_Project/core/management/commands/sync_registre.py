@@ -359,6 +359,13 @@ class Command(BaseCommand):
             self._print_stats(stats_par_secteur)
             return
 
+        # Force la fermeture de la connexion DB potentiellement idle depuis
+        # le début du job (sync SITG + validation email peuvent durer plusieurs
+        # minutes). Django ré-ouvrira une connexion fraîche au prochain query.
+        # Sans ça : "AdminShutdown: terminating connection due to administrator command".
+        from django.db import connection
+        connection.close()
+
         with transaction.atomic():
             to_create = [
                 EntrepriseReferentiel(
