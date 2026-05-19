@@ -131,6 +131,7 @@ def cron_sync_registre(request):
     since_hours_raw = (request.GET.get("since_hours") or "24").strip()
     dry_run = (request.GET.get("dry_run") or "").strip().lower() in ("1", "true", "yes")
     skip_email_check = (request.GET.get("skip_email_check") or "").strip().lower() in ("1", "true", "yes")
+    mx_only = (request.GET.get("mx_only") or "").strip().lower() in ("1", "true", "yes")
 
     try:
         min_new = int(min_new_raw)
@@ -149,13 +150,14 @@ def cron_sync_registre(request):
                 "dry_run": dry_run,
                 "since_hours": since_hours,
                 "skip_email_check": skip_email_check,
+                "mx_only": mx_only,
             }
             if secteurs:
                 kwargs["secteurs"] = secteurs
             call_command("sync_registre", **kwargs)
             logger.info(
-                "cron_sync_registre finished (secteurs=%s, min_new=%s, since_hours=%s, dry_run=%s, skip_email_check=%s)",
-                secteurs, min_new, since_hours, dry_run, skip_email_check,
+                "cron_sync_registre finished (secteurs=%s, min_new=%s, since_hours=%s, dry_run=%s, skip_email_check=%s, mx_only=%s)",
+                secteurs, min_new, since_hours, dry_run, skip_email_check, mx_only,
             )
         except Exception:
             logger.exception("cron_sync_registre failed")
@@ -169,6 +171,7 @@ def cron_sync_registre(request):
             "since_hours": since_hours,
             "dry_run": dry_run,
             "skip_email_check": skip_email_check,
+            "mx_only": mx_only,
         },
         status=202,
     )

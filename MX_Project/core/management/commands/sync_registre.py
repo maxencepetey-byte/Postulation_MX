@@ -183,17 +183,20 @@ _WATCHDOG_SLACK = 5         # secondes de marge supplémentaires avant de décla
 _PROGRESS_INTERVAL = 2.0   # rafraîchissement de la barre de progression (secondes)
 
 
-def _validate_emails(candidates: list[dict], max_workers: int = DEFAULT_EMAIL_WORKERS) -> tuple[list[dict], list[tuple[str, str]]]:
+def _validate_emails(candidates: list[dict], max_workers: int = DEFAULT_EMAIL_WORKERS, mx_only: bool = False) -> tuple[list[dict], list[tuple[str, str]]]:
     """
     Valide les emails en parallèle avec watchdog et barre de progression.
     Retourne (emails_valides, [(email, statut_ko), ...]).
+
+    Si mx_only=True, ne fait que la vérification MX (pas de SMTP), ce qui
+    évite le blocage du port 25 sortant sur Render free / autres hébergeurs.
     """
     valides: list[dict] = []
     rejets: list[tuple[str, str]] = []
     total = len(candidates)
 
     def _worker(ent: dict):
-        statut, raison = _verifier_email(ent["email"], timeout=_EMAIL_TIMEOUT)
+        statut, raison = _verifier_email(ent["email"], timeout=_EMAIL_TIMEOUT, mx_only=mx_only)
         return ent, statut, raison
 
     futures_map: dict = {}
@@ -265,6 +268,9 @@ class Command(BaseCommand):
                             help="Délai en secondes entre secteurs (défaut: 1.0).")
         parser.add_argument("--skip_email_check", action="store_true",
                             help="Ne pas valider les emails (utile pour tests).")
+        parser.add_argument("--mx_only", action="store_true",
+                            help="Validation MX uniquement (skip SMTP). "
+                                 "Recommandé sur les hébergeurs qui bloquent le port 25 sortant (Render, Heroku…).")
         parser.add_argument("--verbose_api", action="store_true",
                             help="Logs détaillés des appels API.")
 
@@ -275,6 +281,7 @@ class Command(BaseCommand):
         email_workers = options["email_workers"]
         inter_sector_delay = options["inter_sector_delay"]
         skip_email_check = options["skip_email_check"]
+        mx_only = options["mx_only"]
 
         if options["verbose_api"]:
             logging.getLogger(__name__).setLevel(logging.DEBUG)
@@ -331,8 +338,12 @@ class Command(BaseCommand):
         # ----- 2. Validation des emails -----
         buffer_new: list[dict] = []
         if candidates and not skip_email_check:
-            self.stdout.write(f"  → Validation email de {len(candidates)} candidats ({email_workers} workers)...")
-            buffer_new, rejets = _validate_emails(candidates, max_workers=email_workers)
+            mode = "MX uniquement" if mx_only else "MX + SMTP"
+            self.stdout.write(
+                f"  → Validation email de {len(candidates)} candidats "
+                f"({email_workers} workers, mode: {mode})..."
+            )
+            buffer_new, rejets = _validate_emails(candidates, max_workers=email_workers, mx_only=mx_only)
             self.stdout.write(f"      → {len(buffer_new)} valides, {len(rejets)} rejetés")
             for email, statut in rejets[:20]:  # log limité
                 self.stdout.write(f"        ✗ {email} ({statut})")

@@ -73,10 +73,13 @@ _PAT_OVER_QUOTA  = _re.compile(
 )
 
 
-def _verifier_email(email: str, timeout: int) -> tuple[str, str]:
+def _verifier_email(email: str, timeout: int, mx_only: bool = False) -> tuple[str, str]:
     """
     Vérifie une adresse email en 2 étapes : MX puis SMTP RCPT TO.
     Retourne (statut, raison).
+
+    Si mx_only=True, la vérification s'arrête après l'étape MX (utile en
+    environnement où le port 25 sortant est bloqué, ex. Render free tier).
     """
     if not email or "@" not in email:
         return ST_INVALIDE, "format invalide"
@@ -106,6 +109,9 @@ def _verifier_email(email: str, timeout: int) -> tuple[str, str]:
 
     if not mx_records:
         return ST_MX_KO, "aucun enregistrement MX"
+
+    if mx_only:
+        return ST_VALIDE, "MX OK (vérification SMTP désactivée)"
 
     # ── Étape 2 : SMTP RCPT TO sur les 2 premiers MX ────────────────────────
     # socket.setdefaulttimeout() contraint aussi getaddrinfo() qui est appelé
