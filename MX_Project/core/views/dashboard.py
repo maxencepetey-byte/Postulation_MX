@@ -102,7 +102,8 @@ def dashboard(request):
         'total_entreprises': paginator.count,
         'tous_les_docs': tous_les_docs,
         'secteurs_uniques': secteurs_uniques,
-        'secteurs_noga': SECTEURS_NOGA_GROUPS,
+        # DEAD CODE (audit 2026-05-19) — clé jamais lue dans dashboard.html (cf. DEAD_CODE_AUDIT.md C2)
+        # 'secteurs_noga': SECTEURS_NOGA_GROUPS,
         'gmail_connected': status["gmail_connected"],
         'static_version': _STATIC_VERSION,
         'nb_restants': nb_restants,
@@ -281,22 +282,24 @@ def onboarding(request):
     if profil.onboarding_done:
         return redirect("settings_page")
 
-    secteurs = [
-        ("62", "Informatique (62)"),
-        ("71", "Architecture (71)"),
-        ("64", "Banque (64)"),
-        ("86", "Santé (86)"),
-        ("43", "Construction (43)"),
-        ("47", "Horlogerie/Luxe (47)"),
-        ("88", "Social (88)"),
-        ("87", "Hébergement (87)"),
-    ]
+    # DEAD CODE (audit 2026-05-19) — variable jamais lue dans onboarding.html (cf. DEAD_CODE_AUDIT.md C1)
+    # secteurs = [
+    #     ("62", "Informatique (62)"),
+    #     ("71", "Architecture (71)"),
+    #     ("64", "Banque (64)"),
+    #     ("86", "Santé (86)"),
+    #     ("43", "Construction (43)"),
+    #     ("47", "Horlogerie/Luxe (47)"),
+    #     ("88", "Social (88)"),
+    #     ("87", "Hébergement (87)"),
+    # ]
 
     if request.method == "POST":
         choix = request.POST.getlist("secteurs")
         if not choix:
             return render(request, "core/onboarding.html", {
-                "secteurs": secteurs,
+                # DEAD CODE (audit 2026-05-19) — cf. DEAD_CODE_AUDIT.md C1
+                # "secteurs": secteurs,
                 "erreur": "Coche au moins un secteur pour continuer.",
             })
         profil.onboarding_done = True
@@ -305,7 +308,9 @@ def onboarding(request):
         _run_in_background(_run_scan_for_user, request.user, choix)
         return redirect("settings_page")
 
-    return render(request, "core/onboarding.html", {"secteurs": secteurs})
+    # DEAD CODE (audit 2026-05-19) — clé "secteurs" jamais lue dans onboarding.html (cf. DEAD_CODE_AUDIT.md C1)
+    # return render(request, "core/onboarding.html", {"secteurs": secteurs})
+    return render(request, "core/onboarding.html", {})
 
 
 @login_required

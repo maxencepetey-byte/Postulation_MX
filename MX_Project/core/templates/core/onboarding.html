@@ -192,10 +192,12 @@
         document.getElementById('js-error-secteurs').scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     });
+    /* DEAD CODE (audit 2026-05-19) — #helpIframe n'existe dans aucun template (cf. DEAD_CODE_AUDIT.md P1)
     document.getElementById('videoAideModal')?.addEventListener('hide.bs.modal', () => {
       const f = document.getElementById('helpIframe');
       if (f) { const s = f.src; f.src = ''; f.src = s; }
     });
+    */
   </script>
 
   <!-- Bouton aide flottant -->
