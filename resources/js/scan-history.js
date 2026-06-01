@@ -9,8 +9,6 @@
     const tbody = document.getElementById("entreprisesTbody");
     const packsSection = document.getElementById("packsSection");
     const packsGrid = document.getElementById("packsGrid");
-    // DEAD CODE (audit 2026-05-19) — #gmailSecteurHidden n'existe dans aucun template (cf. DEAD_CODE_AUDIT.md P2)
-    // const hiddenGmailSecteur = document.getElementById("gmailSecteurHidden");
 
     if (!select || !tbody) return;
 
@@ -27,8 +25,6 @@
 
     function syncHidden() {
       const v = select.value || "";
-      // DEAD CODE (audit 2026-05-19) — cf. DEAD_CODE_AUDIT.md P2
-      // if (hiddenGmailSecteur) hiddenGmailSecteur.value = v;
       const gmailSecteurField = document.getElementById("gmailSecteurField");
       if (gmailSecteurField) gmailSecteurField.value = v;
     }

@@ -177,3 +177,76 @@ Pour rappel :
 - **CERTAIN → action immédiate** sur validation globale.
 - **PROBABLE → confirmation symbole par symbole** requise.
 - **DOUTEUX → on ne touche pas** sans confirmation explicite.
+
+---
+
+## Actions appliquées — 2026-05-26
+
+Validation reçue ("tu peux commanter le def et fonctun qui ne sont pas appeler en dead code").
+Périmètre appliqué : **CERTAIN uniquement** (C1, C2, C3). PROBABLE et DOUTEUX laissés intacts.
+
+| Réf | Fichier | Lignes | Action |
+|-----|---------|--------|--------|
+| C1  | `MX_Project/core/views/dashboard.py` | 285-295, 301-302, 311-312 | Bloc `secteurs = [...]` + clés `"secteurs"` des deux `render()` → commentés avec marqueur `# DEAD CODE (audit 2026-05-19) — cf. DEAD_CODE_AUDIT.md C1` |
+| C2  | `MX_Project/core/views/dashboard.py` | 105-106 | Ligne `'secteurs_noga': SECTEURS_NOGA_GROUPS,` → commentée avec marqueur C2. Import de `SECTEURS_NOGA_GROUPS` conservé (toujours utilisé par `add_secteurs`). |
+| C3  | `resources/js/app.js` | 1 | Fichier annoté `// DEAD CODE (audit 2026-05-19) — fichier vide, jamais chargé par aucun template`. Pas de suppression. |
+
+### Vérification post-action
+
+- **Scan complémentaire 2026-05-26** : audit exhaustif des 56 fonctions Python du périmètre (`MX_Project/core/` + `MX_Project/MX_Project/`). **Aucun nouveau candidat** de fonction/`def` non appelée détecté au-delà des éléments déjà documentés.
+- **Tests Django** : voir résultat en bas de ce fichier.
+
+### Statut courant des autres candidats
+
+- **P1** (`#helpIframe` dans 6 templates) : **commentés** en place (vérification rétrospective — l'audit précédent l'avait sous-estimé).
+- **P2** (`#gmailSecteurHidden` dans `scan-history.js`) : **commenté** en place. Idem.
+- **D1** (`verifier_email_existence`) : **commentée** en place + tests + import. Idem.
+
+### Résultat des tests — 2026-05-26
+
+```
+$ python manage.py test
+Ran 31 tests in 186.141s
+OK
+System check identified no issues (0 silenced).
+```
+
+✅ Aucune régression détectée. Les 31 tests passent.
+
+---
+
+## Phase 2 — Suppression définitive — 2026-05-26
+
+Validation reçue ("tu peux supprimer le code qui est commenter en deadcode").
+Action : **suppression définitive** de tous les blocs `DEAD CODE` précédemment commentés (C1, C2, C3, P1, P2, D1).
+
+### Suppressions effectuées
+
+| Réf | Fichier | Action |
+|-----|---------|--------|
+| C1  | `MX_Project/core/views/dashboard.py` | Suppression du bloc `secteurs = [...]` (8 tuples) + des 2 clés `"secteurs"` dans les `render()` de la vue `onboarding`. |
+| C2  | `MX_Project/core/views/dashboard.py` | Suppression de la ligne `'secteurs_noga': SECTEURS_NOGA_GROUPS,` du contexte `dashboard`. Import conservé (utilisé par `add_secteurs`). |
+| C3  | `resources/js/app.js` | Fichier vidé (1 ligne de commentaire retirée). Fichier conservé vide — pas de `rm` sans confirmation. |
+| P1  | 6 templates HTML | Suppression du bloc `videoAideModal` + `helpIframe` dans `dashboard.html`, `detail_scan.html`, `historique.html`, `onboarding.html`, `settings.html`, `registration/login.html`. Les `<script>` wrappers vidés ont également été retirés quand ils ne contenaient plus que du dead code. |
+| P2  | `resources/js/scan-history.js` | Suppression de la constante `hiddenGmailSecteur` (ligne 12) et de son usage dans `syncHidden()` (ligne 30). |
+| D1  | `MX_Project/core/views/_utils.py` | Suppression définitive de la fonction `verifier_email_existence` + de l'import devenu inutile `import dns.resolver`. |
+| D1  | `MX_Project/core/views/__init__.py` | Suppression du commentaire trail et de l'import commenté de `verifier_email_existence`. |
+| D1  | `MX_Project/core/tests.py` | Suppression des 3 tests commentés (`test_verifier_email_existence_*`) + import commenté. |
+
+### ⚠️ Action complémentaire recommandée
+
+- **`staticfiles/js/scan-history.min.js`** : la version minifiée contient encore l'ancien code (référence à `gmailSecteurHidden`). À regénérer via `python manage.py collectstatic` + pipeline de minification, sinon le navigateur servira l'ancienne version en production.
+
+### Vérification post-suppression
+
+- **Grep `DEAD CODE` (hors `.md`)** → **0 match**. Tous les marqueurs ont été retirés.
+- **Tests Django** :
+
+```
+$ python manage.py test
+Ran 31 tests in 64.422s
+OK
+System check identified no issues (0 silenced).
+```
+
+✅ 31/31 tests passent. Aucune régression.

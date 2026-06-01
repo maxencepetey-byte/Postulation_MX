@@ -11,8 +11,7 @@ from core.models import (
     EntrepriseReferentiel,
     ProfilUtilisateur,
 )
-from core.views import get_accroche  # DEAD CODE (audit 2026-05-19) — verifier_email_existence retiré (cf. DEAD_CODE_AUDIT.md D1)
-# from core.views import verifier_email_existence
+from core.views import get_accroche
 
 
 # ---------------------------------------------------------------------------
@@ -20,20 +19,6 @@ from core.views import get_accroche  # DEAD CODE (audit 2026-05-19) — verifier
 # ---------------------------------------------------------------------------
 
 class UtilsTests(SimpleTestCase):
-    # DEAD CODE (audit 2026-05-19) — tests de verifier_email_existence (cf. DEAD_CODE_AUDIT.md D1)
-    # def test_verifier_email_existence_returns_false_on_empty(self):
-    #     self.assertFalse(verifier_email_existence(""))
-    #     self.assertFalse(verifier_email_existence(None))
-    #
-    # @patch("core.views._utils.dns.resolver.resolve")
-    # def test_verifier_email_existence_returns_true_when_dns_ok(self, mock_resolve):
-    #     mock_resolve.return_value = object()
-    #     self.assertTrue(verifier_email_existence("a@b.com"))
-    #
-    # @patch("core.views._utils.dns.resolver.resolve", side_effect=Exception("DNS fail"))
-    # def test_verifier_email_existence_returns_false_when_dns_fails(self, _):
-    #     self.assertFalse(verifier_email_existence("a@b.com"))
-
     def test_get_accroche_social_overrides(self):
         class P:
             phrase_informatique = "info"

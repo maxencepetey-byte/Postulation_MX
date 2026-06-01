@@ -3,8 +3,6 @@ import re
 import threading
 import unicodedata
 
-import dns.resolver
-
 
 _BG_SEMAPHORE = threading.BoundedSemaphore(3)
 
@@ -31,19 +29,6 @@ def _run_in_background(target, *args, **kwargs):
                 from django.db import connection
                 connection.close()
     threading.Thread(target=_wrapper, daemon=True).start()
-
-
-# DEAD CODE (audit 2026-05-19) — fonction réexportée mais jamais appelée en production
-# (uniquement dans core/tests.py). Cf. DEAD_CODE_AUDIT.md D1
-# def verifier_email_existence(email: str) -> bool:
-#     if not email:
-#         return False
-#     try:
-#         domaine = email.split("@")[1]
-#         dns.resolver.resolve(domaine, "MX")
-#         return True
-#     except Exception:
-#         return False
 
 
 def get_accroche(profil, secteur_activite):

@@ -38,6 +38,5 @@ from .scan import (
     historique_scans,
     lancer_scan,
 )
-from ._utils import get_accroche  # DEAD CODE (audit 2026-05-19) — verifier_email_existence retiré (cf. DEAD_CODE_AUDIT.md D1)
-# from ._utils import verifier_email_existence
+from ._utils import get_accroche
 from ._pdf import generer_pdf_lm
