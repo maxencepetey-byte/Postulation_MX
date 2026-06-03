@@ -1,3 +1,5 @@
+"""Vues documents utilisateur : upload CV, suppression unitaire et purge groupée."""
+
 import logging
 import re
 
@@ -88,7 +90,7 @@ def delete_pack(request, doc_id: int):
         if pack_num:
             qs = qs.filter(numero_pack=pack_num)
         nb = qs.count()
-        qs.update(est_dans_paquet=False, brouillon_gmail_cree=False, date_traitement=None)
+        qs.update(est_dans_paquet=False, date_traitement=None)
 
         try:
             if getattr(doc, "fichier", None):
