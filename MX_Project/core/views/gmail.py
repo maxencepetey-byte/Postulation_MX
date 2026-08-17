@@ -1,3 +1,5 @@
+"""Création de brouillons Gmail via OAuth + suivi de progression côté client."""
+
 import base64
 import logging
 import os
@@ -160,7 +162,7 @@ def creer_brouillons_gmail(request):
             for cand in candidatures:
                 secteur_nom = (cand.secteur_activite or "").strip()
                 tpl_email = templates_map.get(secteur_nom) or tpl_email_fallback
-                accroche = get_accroche(profil, cand.secteur_activite)
+                accroche = get_accroche(cand.secteur_activite)
                 ctx = {
                     "accroche": accroche,
                     "entreprise": cand.entreprise.raison_sociale,

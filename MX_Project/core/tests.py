@@ -1,3 +1,5 @@
+"""Suite de tests Django : utils, dashboard, scan, documents, Gmail OAuth, sécurité, chiffrement."""
+
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -20,22 +22,13 @@ from core.views import get_accroche
 
 class UtilsTests(SimpleTestCase):
     def test_get_accroche_social_overrides(self):
-        class P:
-            phrase_informatique = "info"
-            phrase_banque = "banque"
-            phrase_luxe = "luxe"
-            phrase_generale = "gen"
+        self.assertIn("engagement", get_accroche("Social (Action)"))
 
-        self.assertIn("engagement", get_accroche(P(), "Social (Action)"))
-
-    def test_get_accroche_fallback_to_phrase_generale(self):
-        class P:
-            phrase_informatique = "info"
-            phrase_banque = "banque"
-            phrase_luxe = "luxe"
-            phrase_generale = "gen"
-
-        self.assertEqual(get_accroche(P(), "Secteur inconnu"), "gen")
+    def test_get_accroche_fallback_to_default(self):
+        self.assertEqual(
+            get_accroche("Secteur inconnu"),
+            "le dynamisme et les projets de votre entreprise",
+        )
 
 
 # ---------------------------------------------------------------------------

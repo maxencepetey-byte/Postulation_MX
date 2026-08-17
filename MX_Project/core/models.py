@@ -1,3 +1,5 @@
+"""Modèles ORM : profils, entreprises, candidatures, documents et tokens Gmail chiffrés."""
+
 import base64
 import hashlib
 
@@ -7,8 +9,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from cryptography.fernet import Fernet, InvalidToken
 
-# Windows : pip install python-magic-bin
-# Linux/Mac : pip install python-magic
+
 import magic
 
 
@@ -60,10 +61,6 @@ class ProfilUtilisateur(models.Model):
     rue = models.CharField(max_length=255, blank=True, null=True)
     npa = models.CharField(max_length=10, blank=True, null=True)
     ville = models.CharField(max_length=100, blank=True, null=True)
-    phrase_informatique = models.TextField(default="votre expertise dans le développement et l'innovation numérique")
-    phrase_banque = models.TextField(default="la rigueur et l'excellence de votre institution financière")
-    phrase_luxe = models.TextField(default="votre savoir-faire d'exception et votre rayonnement international")
-    phrase_generale = models.TextField(default="le dynamisme et les projets de votre entreprise")
     onboarding_done = models.BooleanField(default=False)
     onboarding_secteurs = models.CharField(max_length=255, blank=True, default="")
 

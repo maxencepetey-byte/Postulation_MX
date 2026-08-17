@@ -1,3 +1,5 @@
+"""Génération PDF des lettres de motivation + assemblage en archives ZIP."""
+
 import io
 import logging
 import zipfile
@@ -47,7 +49,7 @@ def generer_pdf_lm(profil, ent: Candidature):
         f"Fait à {profil.ville or 'Genève'}, le {date.today().strftime('%d.%m.%Y')}"
     )
 
-    accroche = get_accroche(profil, ent.secteur_activite)
+    accroche = get_accroche(ent.secteur_activite)
     secteur_nom = (ent.secteur_activite or "").strip()
 
     tpl = None

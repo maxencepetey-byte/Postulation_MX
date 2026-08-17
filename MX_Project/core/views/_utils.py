@@ -1,3 +1,5 @@
+"""Helpers transverses : versionnement statique, threads daemon, accroches LM, slug & I/O fichiers."""
+
 import os
 import re
 import threading
@@ -31,18 +33,18 @@ def _run_in_background(target, *args, **kwargs):
     threading.Thread(target=_wrapper, daemon=True).start()
 
 
-def get_accroche(profil, secteur_activite):
+def get_accroche(secteur_activite):
     mapping = {
-        'Informatique': profil.phrase_informatique,
-        'Banque':        profil.phrase_banque,
-        'Luxe':          profil.phrase_luxe,
-        'Architecture':  "votre vision architecturale et la qualité de vos réalisations",
-        'Santé':         "votre engagement dans les soins et le bien-être des patients",
-        'Construction':  "votre expertise technique et vos projets d'envergure",
+        'Informatique': "votre expertise dans le développement et l'innovation numérique",
+        'Banque':       "la rigueur et l'excellence de votre institution financière",
+        'Luxe':         "votre savoir-faire d'exception et votre rayonnement international",
+        'Architecture': "votre vision architecturale et la qualité de vos réalisations",
+        'Santé':        "votre engagement dans les soins et le bien-être des patients",
+        'Construction': "votre expertise technique et vos projets d'envergure",
     }
     if secteur_activite and 'Social' in secteur_activite:
         return "votre engagement quotidien dans l'accompagnement et l'impact social de vos projets"
-    return mapping.get(secteur_activite, profil.phrase_generale)
+    return mapping.get(secteur_activite, "le dynamisme et les projets de votre entreprise")
 
 
 def _email_to_pdf_name(email: str) -> str:
