@@ -101,7 +101,7 @@ def creer_brouillons_gmail(request):
         from django.contrib.auth.models import User
         try:
             user = User.objects.get(id=user_id)
-            profil, _ = ProfilUtilisateur.objects.get_or_create(user=user)
+            profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=user)
 
             # Fix 2 : token récupéré ici, pas passé en paramètre (évite le snapshot périmé)
             try:

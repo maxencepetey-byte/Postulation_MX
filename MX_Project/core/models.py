@@ -53,7 +53,7 @@ def validate_file(value):
 
 
 class ProfilUtilisateur(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    utilisateur = models.OneToOneField(User, on_delete=models.CASCADE)
     prenom_lm = models.CharField(max_length=100, blank=True, null=True)
     nom_lm = models.CharField(max_length=100, blank=True, null=True)
     email_lm = models.EmailField(max_length=255, blank=True, null=True)

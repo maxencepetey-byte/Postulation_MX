@@ -1,3 +1,5 @@
+"""Téléchargements : LM unitaire, pack ZIP par secteur, pack global, media protégés."""
+
 import logging
 import mimetypes
 import os
@@ -28,7 +30,7 @@ def telecharger_toutes_lm(request):
     if not entreprises:
         return redirect('dashboard')
 
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     zip_bytes = _generer_zip(profil, entreprises, marquer_traitees=True)
 
     response = HttpResponse(zip_bytes, content_type='application/zip')
@@ -48,7 +50,7 @@ def generer_pack_500_lm(request):
     if not entreprises:
         return redirect('dashboard')
 
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     zip_bytes = _generer_zip(profil, entreprises)
 
     packs_user_qs = DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc='PACK_LM')
@@ -104,7 +106,7 @@ def generer_pack_secteur_numero(request, pack_num: int):
     if not entreprises:
         return redirect(f"/?{urlencode({'secteur': secteur})}")
 
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     zip_bytes = _generer_zip(profil, entreprises)
 
     secteur_clean = secteur.replace(" ", "_").replace("/", "-")
@@ -131,7 +133,7 @@ def telecharger_pack_specifique(request, pack_num):
     if not entreprises:
         return redirect('dashboard')
 
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     premier_secteur = entreprises[0].secteur_activite or 'General'
     secteur_clean = premier_secteur.replace(' ', '_').replace('/', '-')
     nom_base = f"MX_SCAN_{secteur_clean}_PACK_{pack_num}"
@@ -158,7 +160,7 @@ def telecharger_lm(request, ent_id):
         Candidature.objects.select_related('entreprise'),
         id=ent_id, utilisateur=request.user,
     )
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     try:
         pdf_bytes = generer_pdf_lm(profil, ent)
     except Exception:

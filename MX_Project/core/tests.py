@@ -63,7 +63,7 @@ class BaseAuthTestCase(TestCase):
 class DashboardTests(BaseAuthTestCase):
     def _setup_complete_profil(self):
         from core.models import GmailOAuthToken, LettreSecteurTemplate
-        profil, _ = ProfilUtilisateur.objects.get_or_create(user=self.user)
+        profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
         profil.onboarding_done = True
         profil.onboarding_secteurs = "62"
         profil.prenom_lm = "Prenom"
@@ -179,7 +179,7 @@ class PackGenerationTests(BaseAuthTestCase):
                 est_dans_paquet=False, numero_pack=1, secteur_activite="Informatique",
                 secteurs="Informatique",
             )
-        ProfilUtilisateur.objects.get_or_create(user=self.user)
+        ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
 
         resp = self.client.get(reverse("telecharger_toutes_lm"))
         self.assertEqual(resp.status_code, 200)
@@ -199,7 +199,7 @@ class PackGenerationTests(BaseAuthTestCase):
                 est_dans_paquet=False, numero_pack=2, secteur_activite="Santé",
                 secteurs="Santé",
             )
-        ProfilUtilisateur.objects.get_or_create(user=self.user)
+        ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
 
         resp = self.client.get(reverse("telecharger_pack_specifique", args=[2]))
         self.assertEqual(resp.status_code, 200)
@@ -228,7 +228,7 @@ class PDFGenerationTests(BaseAuthTestCase):
 
     def test_generer_pdf_lm_returns_pdf_bytes(self):
         from core.views import generer_pdf_lm
-        profil, _ = ProfilUtilisateur.objects.get_or_create(user=self.user)
+        profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
         profil.prenom_lm = "Jean"
         profil.nom_lm = "Dupont"
         profil.email_lm = "jean@dupont.ch"
@@ -242,7 +242,7 @@ class PDFGenerationTests(BaseAuthTestCase):
     def test_generer_pdf_lm_with_custom_template(self):
         from core.models import LettreSecteurTemplate
         from core.views import generer_pdf_lm
-        profil, _ = ProfilUtilisateur.objects.get_or_create(user=self.user)
+        profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
         profil.prenom_lm = "Marie"
         profil.nom_lm = "Martin"
         profil.email_lm = "marie@martin.ch"
@@ -330,7 +330,7 @@ class CandidatureTests(BaseAuthTestCase):
             secteur_activite="Informatique", secteurs="Informatique", numero_pack=1,
         )
 
-        profil, _ = ProfilUtilisateur.objects.get_or_create(user=self.user)
+        profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
         profil.onboarding_done = True
         profil.save()
         from core.models import GmailOAuthToken, LettreSecteurTemplate

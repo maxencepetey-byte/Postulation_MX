@@ -1,3 +1,5 @@
+"""Vues principales : dashboard, onboarding, paramètres, filtrage AJAX par secteur."""
+
 import logging
 
 from django.contrib import messages
@@ -26,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_setup_status(user):
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=user)
+    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=user)
     profil_ok = bool(profil.prenom_lm and profil.nom_lm and profil.email_lm)
 
     secteurs_profil = set(
@@ -64,7 +66,7 @@ def _get_setup_status(user):
 
 @login_required
 def dashboard(request):
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
 
     if not profil.onboarding_done:
         return redirect("onboarding")
@@ -184,7 +186,7 @@ def entreprises_filtrer_secteur(request):
 
 @login_required
 def settings_page(request):
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     required_fields = ["prenom_lm", "nom_lm", "email_lm"]
 
     secteurs_profil = [
@@ -276,7 +278,7 @@ def settings_page(request):
 
 @login_required
 def onboarding(request):
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     if profil.onboarding_done:
         return redirect("settings_page")
 
@@ -297,7 +299,7 @@ def onboarding(request):
 
 @login_required
 def add_secteurs(request):
-    profil, _ = ProfilUtilisateur.objects.get_or_create(user=request.user)
+    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     existing_codes = set(c.strip() for c in profil.onboarding_secteurs.split(",") if c.strip())
 
     if request.method == "POST":
