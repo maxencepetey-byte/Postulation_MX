@@ -74,7 +74,6 @@
                                 <div class="text-truncate{% if doc.secteur_nom %} doc-name-btn{% endif %}"
                                      style="max-width: 140px;">
                                     <div class="fw-bold small">{{ doc.nom_affichage }}</div>
-                                    <span class="badge badge-secteur">{{ doc.get_type_doc_display }}</span>
                                 </div>
                                 <div class="d-flex align-items-center gap-2">
                                     <a href="{{ doc.fichier.url }}" target="_blank" class="text-primary" title="Voir">
