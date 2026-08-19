@@ -12,7 +12,6 @@ import requests
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils.timezone import now
@@ -175,7 +174,6 @@ def creer_brouillons_gmail(request):
 
             created = 0
             skipped = 0
-            to_update: list[Candidature] = []
             now_dt = now()
 
             for cand in candidatures:
@@ -240,7 +238,9 @@ def creer_brouillons_gmail(request):
                     cand.est_dans_paquet = True
                     cand.brouillon_gmail_cree = True
                     cand.date_traitement = now_dt
-                    to_update.append(cand)
+                    # Sauvegarde immédiate (et non en fin de boucle) : /gmail-progress/
+                    # lit la BDD pour la barre de progression, elle doit avancer en direct.
+                    cand.save(update_fields=["est_dans_paquet", "brouillon_gmail_cree", "date_traitement"])
                     created += 1
                 except (RuntimeError, requests.RequestException) as e:
                     err_str = str(e)
@@ -258,13 +258,6 @@ def creer_brouillons_gmail(request):
                     else:
                         logger.warning("brouillons_bg: draft failed '%s': %s", cand.entreprise.email, err_str[:200])
                         skipped += 1
-
-            if to_update:
-                with transaction.atomic():
-                    Candidature.objects.bulk_update(
-                        to_update,
-                        ["est_dans_paquet", "brouillon_gmail_cree", "date_traitement"],
-                    )
 
             logger.info("brouillons_bg: terminé — %d créés, %d ignorés (user %s)", created, skipped, user_id)
 
