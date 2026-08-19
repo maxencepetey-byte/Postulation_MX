@@ -119,26 +119,6 @@
                         {# ── Gmail ── #}
                         <div class="hr-text">Gmail</div>
 
-                        {# Barre de progression Gmail #}
-                        {% with n=nb_restants %}
-                        <div id="gmailProgressWrap"
-                             data-url="{% url 'gmail_progress' %}"
-                             data-active="{% if n > 0 and gmail_connected %}1{% else %}0{% endif %}"
-                             style="display:none; margin-bottom: 0.75rem;">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span id="gmailProgressText" class="small text-muted">Création en cours…</span>
-                            </div>
-                            <div class="progress" style="height: 6px; border-radius: 99px;">
-                                <div id="gmailProgressBar"
-                                     class="progress-bar bg-danger"
-                                     role="progressbar"
-                                     style="width: 0%; transition: width 0.5s ease;"
-                                     aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-                                </div>
-                            </div>
-                        </div>
-                        {% endwith %}
-
                         {# Boutons Gmail #}
                         {% if gmail_connected %}
                             <form action="{% url 'creer_brouillons_gmail' %}" method="POST" id="gmailForm">

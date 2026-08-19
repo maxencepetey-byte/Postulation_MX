@@ -26,7 +26,6 @@ from core.views import (
     cron_sync_registre,
     historique_scans,
     detail_scan,
-    gmail_progress,
     serve_protected_media,
 )
 
@@ -76,7 +75,6 @@ urlpatterns = [
     path('gmail/connect/', gmail_connect, name='gmail_connect'),
     path('gmail/callback/', gmail_callback, name='gmail_callback'),
     path('gmail/disconnect/', gmail_disconnect, name='gmail_disconnect'),
-    path('gmail-progress/', gmail_progress, name='gmail_progress'),
     path('entreprises/filtrer-secteur', entreprises_filtrer_secteur, name='entreprises_filtrer_secteur'),
 
     # ─── Cron ───

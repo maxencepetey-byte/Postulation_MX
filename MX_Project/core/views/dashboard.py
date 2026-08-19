@@ -81,7 +81,6 @@ def dashboard(request):
         .select_related('entreprise')
         .order_by('-id')
     )
-    nb_restants = request.user.candidatures.filter(est_dans_paquet=False).count()
 
     paginator = Paginator(entreprises_list, 50)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -106,7 +105,6 @@ def dashboard(request):
         'secteurs_uniques': secteurs_uniques,
         'gmail_connected': status["gmail_connected"],
         'static_version': _STATIC_VERSION,
-        'nb_restants': nb_restants,
         'packs_actifs_secteurs': packs_actifs_secteurs,
     })
 

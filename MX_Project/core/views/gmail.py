@@ -1,4 +1,4 @@
-"""Création de brouillons Gmail via OAuth + suivi de progression côté client."""
+"""Création de brouillons Gmail via OAuth."""
 
 import base64
 import io
@@ -12,10 +12,10 @@ import requests
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.db import transaction
 from django.shortcuts import redirect
 from django.utils.timezone import now
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_POST
 
 from ..models import Candidature, DocumentUtilisateur, GmailOAuthToken, LettreSecteurTemplate, ProfilUtilisateur
 from ._utils import _lm_pdf_name, _read_filefield_bytes, _run_in_background, _safe_format, get_accroche
@@ -174,6 +174,7 @@ def creer_brouillons_gmail(request):
 
             created = 0
             skipped = 0
+            to_update: list[Candidature] = []
             now_dt = now()
 
             for cand in candidatures:
@@ -235,6 +236,10 @@ def creer_brouillons_gmail(request):
 
                 try:
                     _gmail_create_draft(access_token, raw)
+                    cand.est_dans_paquet = True
+                    cand.brouillon_gmail_cree = True
+                    cand.date_traitement = now_dt
+                    to_update.append(cand)
                     created += 1
                 except (RuntimeError, requests.RequestException) as e:
                     err_str = str(e)
@@ -252,22 +257,12 @@ def creer_brouillons_gmail(request):
                     else:
                         logger.warning("brouillons_bg: draft failed '%s': %s", cand.entreprise.email, err_str[:200])
                         skipped += 1
-                    continue
 
-                # Brouillon créé avec succès côté Gmail : la persistance du statut est isolée
-                # dans son propre try/except pour qu'une erreur DB ponctuelle (ex: coupure
-                # Neon) n'interrompe pas le traitement des candidatures suivantes.
-                try:
-                    cand.est_dans_paquet = True
-                    cand.brouillon_gmail_cree = True
-                    cand.date_traitement = now_dt
-                    # Sauvegarde immédiate (et non en fin de boucle) : /gmail-progress/
-                    # lit la BDD pour la barre de progression, elle doit avancer en direct.
-                    cand.save(update_fields=["est_dans_paquet", "brouillon_gmail_cree", "date_traitement"])
-                except Exception:
-                    logger.exception(
-                        "brouillons_bg: brouillon créé mais échec sauvegarde statut (candidature %s, user %s)",
-                        cand.id, user_id,
+            if to_update:
+                with transaction.atomic():
+                    Candidature.objects.bulk_update(
+                        to_update,
+                        ["est_dans_paquet", "brouillon_gmail_cree", "date_traitement"],
                     )
 
             logger.info("brouillons_bg: terminé — %d créés, %d ignorés (user %s)", created, skipped, user_id)
@@ -307,26 +302,3 @@ def creer_brouillons_gmail(request):
         f"Rafraîchis le dashboard dans quelques minutes pour voir la progression."
     )
     return redirect_dashboard
-
-
-@login_required
-@require_GET
-def gmail_progress(request):
-    secteur = (request.GET.get("secteur") or "").strip()
-
-    qs_all = Candidature.objects.filter(utilisateur=request.user)
-    qs_done = qs_all.filter(est_dans_paquet=True)
-
-    if secteur:
-        qs_all = qs_all.filter(secteur_activite=secteur)
-        qs_done = qs_done.filter(secteur_activite=secteur)
-
-    total = qs_all.count()
-    done = qs_done.count()
-
-    return JsonResponse({
-        "total": total,
-        "done": done,
-        "remaining": total - done,
-        "percent": round((done / total * 100) if total > 0 else 0),
-    })

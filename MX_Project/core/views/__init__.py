@@ -29,7 +29,6 @@ from .downloads import (
 )
 from .gmail import (
     creer_brouillons_gmail,
-    gmail_progress,
 )
 from .scan import (
     cron_sync_registre,
