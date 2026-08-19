@@ -235,12 +235,6 @@ def creer_brouillons_gmail(request):
 
                 try:
                     _gmail_create_draft(access_token, raw)
-                    cand.est_dans_paquet = True
-                    cand.brouillon_gmail_cree = True
-                    cand.date_traitement = now_dt
-                    # Sauvegarde immédiate (et non en fin de boucle) : /gmail-progress/
-                    # lit la BDD pour la barre de progression, elle doit avancer en direct.
-                    cand.save(update_fields=["est_dans_paquet", "brouillon_gmail_cree", "date_traitement"])
                     created += 1
                 except (RuntimeError, requests.RequestException) as e:
                     err_str = str(e)
@@ -258,6 +252,23 @@ def creer_brouillons_gmail(request):
                     else:
                         logger.warning("brouillons_bg: draft failed '%s': %s", cand.entreprise.email, err_str[:200])
                         skipped += 1
+                    continue
+
+                # Brouillon créé avec succès côté Gmail : la persistance du statut est isolée
+                # dans son propre try/except pour qu'une erreur DB ponctuelle (ex: coupure
+                # Neon) n'interrompe pas le traitement des candidatures suivantes.
+                try:
+                    cand.est_dans_paquet = True
+                    cand.brouillon_gmail_cree = True
+                    cand.date_traitement = now_dt
+                    # Sauvegarde immédiate (et non en fin de boucle) : /gmail-progress/
+                    # lit la BDD pour la barre de progression, elle doit avancer en direct.
+                    cand.save(update_fields=["est_dans_paquet", "brouillon_gmail_cree", "date_traitement"])
+                except Exception:
+                    logger.exception(
+                        "brouillons_bg: brouillon créé mais échec sauvegarde statut (candidature %s, user %s)",
+                        cand.id, user_id,
+                    )
 
             logger.info("brouillons_bg: terminé — %d créés, %d ignorés (user %s)", created, skipped, user_id)
 
