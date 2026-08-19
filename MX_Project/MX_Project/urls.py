@@ -1,3 +1,5 @@
+"""Table de routage globale : auth, dashboard, scans, documents, downloads, Gmail OAuth, admin."""
+
 from django.contrib import admin
 from django.urls import path
 from django.conf import settings
@@ -9,10 +11,8 @@ from django.http import HttpResponse
 from core.views import (
     dashboard, lancer_scan, telecharger_lm, upload_cv,
     supprimer_tout, settings_page, supprimer_documents,
-    creer_brouillons_gmail, register, telecharger_toutes_lm,
-    telecharger_pack_specifique,
+    creer_brouillons_gmail, register,
     entreprises_filtrer_secteur,
-    generer_pack_500_lm,
     generer_pack_secteur_numero,
     logout_view,
     onboarding,
@@ -66,9 +66,6 @@ urlpatterns = [
     path('historique/<int:session_id>/', detail_scan, name='detail_scan'),
 
     # ─── Packs & Téléchargements ───
-    path('download-all-zip/', telecharger_toutes_lm, name='telecharger_toutes_lm'),
-    path('download-pack/<int:pack_num>/', telecharger_pack_specifique, name='telecharger_pack_specifique'),
-    path('packs/generer-500/', generer_pack_500_lm, name='generer_pack_500_lm'),
     path('packs/generer/<int:pack_num>/', generer_pack_secteur_numero, name='generer_pack_secteur_numero'),
 
     # ─── Nettoyage & Gmail ───

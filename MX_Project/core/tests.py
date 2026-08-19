@@ -164,52 +164,6 @@ class FiltrerSecteurAjaxTests(BaseAuthTestCase):
 
 
 # ---------------------------------------------------------------------------
-# Génération pack ZIP
-# ---------------------------------------------------------------------------
-
-class PackGenerationTests(BaseAuthTestCase):
-    @patch("core.views._pdf.generer_pdf_lm", return_value=b"%PDF-1.4 fake")
-    def test_telecharger_toutes_lm_marks_entreprises_and_returns_zip(self, _mock_pdf):
-        for i in range(3):
-            ref = EntrepriseReferentiel.objects.create(
-                raison_sociale=f"A{i}", email=f"a{i}@example.com", code_noga="62"
-            )
-            Candidature.objects.create(
-                utilisateur=self.user, entreprise=ref,
-                est_dans_paquet=False, numero_pack=1, secteur_activite="Informatique",
-                secteurs="Informatique",
-            )
-        ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
-
-        resp = self.client.get(reverse("telecharger_toutes_lm"))
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp["Content-Type"], "application/zip")
-        self.assertEqual(
-            Candidature.objects.filter(utilisateur=self.user, est_dans_paquet=False).count(), 0,
-        )
-
-    @patch("core.views._pdf.generer_pdf_lm", return_value=b"%PDF-1.4 fake")
-    def test_telecharger_pack_specifique_saves_document_and_returns_zip(self, _mock_pdf):
-        for i in range(2):
-            ref = EntrepriseReferentiel.objects.create(
-                raison_sociale=f"P2_{i}", email=f"p2_{i}@example.com", code_noga="86"
-            )
-            Candidature.objects.create(
-                utilisateur=self.user, entreprise=ref,
-                est_dans_paquet=False, numero_pack=2, secteur_activite="Santé",
-                secteurs="Santé",
-            )
-        ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
-
-        resp = self.client.get(reverse("telecharger_pack_specifique", args=[2]))
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp["Content-Type"], "application/zip")
-        self.assertEqual(
-            Candidature.objects.filter(utilisateur=self.user, numero_pack=2, est_dans_paquet=False).count(), 0,
-        )
-
-
-# ---------------------------------------------------------------------------
 # Génération PDF
 # ---------------------------------------------------------------------------
 
@@ -475,7 +429,6 @@ class SecurityTests(TestCase):
         "dashboard",
         "settings_page",
         "historique_scans",
-        "telecharger_toutes_lm",
         "gmail_connect",
     ]
 

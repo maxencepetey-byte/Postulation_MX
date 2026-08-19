@@ -21,60 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 @login_required
-def telecharger_toutes_lm(request):
-    entreprises = list(
-        Candidature.objects
-        .filter(utilisateur=request.user, est_dans_paquet=False)
-        .select_related('entreprise')[:500]
-    )
-    if not entreprises:
-        return redirect('dashboard')
-
-    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
-    zip_bytes = _generer_zip(profil, entreprises, marquer_traitees=True)
-
-    response = HttpResponse(zip_bytes, content_type='application/zip')
-    response['Content-Disposition'] = 'attachment; filename="Pack_Candidatures_MX.zip"'
-    return response
-
-
-@login_required
-@require_POST
-def generer_pack_500_lm(request):
-    secteur = (request.POST.get("secteur") or "").strip()
-    qs = Candidature.objects.filter(utilisateur=request.user, est_dans_paquet=False).order_by("id")
-    if secteur:
-        qs = qs.filter(secteur_activite=secteur)
-
-    entreprises = list(qs.select_related('entreprise')[:500])
-    if not entreprises:
-        return redirect('dashboard')
-
-    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
-    zip_bytes = _generer_zip(profil, entreprises)
-
-    packs_user_qs = DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc='PACK_LM')
-    if secteur:
-        packs_user_qs = packs_user_qs.filter(secteur_nom=secteur)
-    pack_num = packs_user_qs.count() + 1
-
-    if secteur:
-        secteur_clean = secteur.replace(" ", "_").replace("/", "-")
-        nom_base = f"MX_SCAN_{secteur_clean}_PACK_{pack_num}"
-    else:
-        nom_base = f"MX_PACK_{pack_num}"
-
-    doc = DocumentUtilisateur(
-        utilisateur=request.user,
-        nom_affichage=nom_base,
-        type_doc='PACK_LM',
-        secteur_nom=secteur or "MULTI",
-    )
-    doc.fichier.save(f"{nom_base}.zip", ContentFile(zip_bytes), save=True)
-    return redirect('dashboard')
-
-
-@login_required
 @require_POST
 def generer_pack_secteur_numero(request, pack_num: int):
     secteur = (request.POST.get("secteur") or "").strip()
@@ -121,37 +67,6 @@ def generer_pack_secteur_numero(request, pack_num: int):
     doc.fichier.save(f"{nom_base}.zip", ContentFile(zip_bytes), save=True)
     messages.success(request, "Pack généré et ajouté à tes documents.")
     return redirect(f"/?{urlencode({'secteur': secteur})}")
-
-
-@login_required
-def telecharger_pack_specifique(request, pack_num):
-    entreprises = list(
-        Candidature.objects
-        .filter(utilisateur=request.user, numero_pack=pack_num, est_dans_paquet=False)
-        .select_related('entreprise')
-    )
-    if not entreprises:
-        return redirect('dashboard')
-
-    profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
-    premier_secteur = entreprises[0].secteur_activite or 'General'
-    secteur_clean = premier_secteur.replace(' ', '_').replace('/', '-')
-    nom_base = f"MX_SCAN_{secteur_clean}_PACK_{pack_num}"
-    nom_zip = f"{nom_base}.zip"
-
-    zip_bytes = _generer_zip(profil, entreprises, marquer_traitees=True)
-
-    doc = DocumentUtilisateur(
-        utilisateur=request.user,
-        nom_affichage=nom_base,
-        type_doc='PACK_LM',
-        secteur_nom=premier_secteur,
-    )
-    doc.fichier.save(nom_zip, ContentFile(zip_bytes), save=True)
-
-    response = HttpResponse(zip_bytes, content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="{nom_zip}"'
-    return response
 
 
 @login_required

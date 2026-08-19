@@ -1,3 +1,5 @@
+"""Façade publique des vues : réexporte tous les endpoints routés par `MX_Project.urls`."""
+
 from .auth import (
     gmail_callback,
     gmail_connect,
@@ -21,12 +23,9 @@ from .documents import (
     vider_liste_et_documents,
 )
 from .downloads import (
-    generer_pack_500_lm,
     generer_pack_secteur_numero,
     serve_protected_media,
     telecharger_lm,
-    telecharger_pack_specifique,
-    telecharger_toutes_lm,
 )
 from .gmail import (
     creer_brouillons_gmail,

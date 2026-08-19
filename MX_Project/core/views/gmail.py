@@ -1,8 +1,10 @@
 """Création de brouillons Gmail via OAuth + suivi de progression côté client."""
 
 import base64
+import io
 import logging
 import os
+import zipfile
 from email.message import EmailMessage
 from urllib.parse import urlencode
 
@@ -154,6 +156,23 @@ def creer_brouillons_gmail(request):
             }
             tpl_email_fallback = templates_map.get("Email")
 
+            # Réutilise les LM déjà générées dans le pack ZIP correspondant (évite un rendu PDF en double)
+            pack_lm_cache: dict[str, bytes] = {}
+            if pack_num:
+                secteur_clean = (secteur or "").replace(" ", "_").replace("/", "-")
+                pack_doc = DocumentUtilisateur.objects.filter(
+                    utilisateur=user,
+                    type_doc="PACK_LM",
+                    nom_affichage=f"MX_SCAN_{secteur_clean}_PACK_{pack_num}",
+                ).first()
+                if pack_doc:
+                    try:
+                        zip_bytes = _read_filefield_bytes(pack_doc.fichier)
+                        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+                            pack_lm_cache = {name: zf.read(name) for name in zf.namelist()}
+                    except (OSError, zipfile.BadZipFile) as e:
+                        logger.warning("brouillons_bg: lecture pack LM échouée, régénération complète (user %s): %s", user_id, e)
+
             created = 0
             skipped = 0
             to_update: list[Candidature] = []
@@ -199,13 +218,15 @@ def creer_brouillons_gmail(request):
                         f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
                     )
 
-                try:
-                    lm_pdf = generer_pdf_lm(profil, cand)
-                    lm_name = _email_to_pdf_name(cand.entreprise.email)
-                except Exception as e:
-                    logger.warning("brouillons_bg: PDF failed '%s': %s", cand.entreprise.email, e)
-                    skipped += 1
-                    continue
+                lm_name = _email_to_pdf_name(cand.entreprise.email)
+                lm_pdf = pack_lm_cache.get(lm_name)
+                if lm_pdf is None:
+                    try:
+                        lm_pdf = generer_pdf_lm(profil, cand)
+                    except Exception as e:
+                        logger.warning("brouillons_bg: PDF failed '%s': %s", cand.entreprise.email, e)
+                        skipped += 1
+                        continue
 
                 attachments = [
                     (lm_name, lm_pdf, "application/pdf"),
