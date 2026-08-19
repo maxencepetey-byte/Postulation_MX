@@ -13,7 +13,7 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Frame, Paragraph, Spacer
 
 from ..models import Candidature, LettreSecteurTemplate
-from ._utils import _email_to_pdf_name, _safe_format, get_accroche
+from ._utils import _lm_pdf_name, _safe_format, get_accroche
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ def _generer_zip(profil, entreprises, marquer_traitees=False):
     to_update = []
     with zipfile.ZipFile(zip_buffer, 'w') as zf:
         for ent in entreprises:
-            zf.writestr(_email_to_pdf_name(ent.entreprise.email), generer_pdf_lm(profil, ent))
+            zf.writestr(_lm_pdf_name(ent.entreprise.raison_sociale), generer_pdf_lm(profil, ent))
             if marquer_traitees:
                 ent.est_dans_paquet = True
                 ent.date_traitement = now()

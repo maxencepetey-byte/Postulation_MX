@@ -19,7 +19,7 @@ from django.utils.timezone import now
 from django.views.decorators.http import require_GET, require_POST
 
 from ..models import Candidature, DocumentUtilisateur, GmailOAuthToken, LettreSecteurTemplate, ProfilUtilisateur
-from ._utils import _email_to_pdf_name, _read_filefield_bytes, _run_in_background, _safe_format, get_accroche
+from ._utils import _lm_pdf_name, _read_filefield_bytes, _run_in_background, _safe_format, get_accroche
 from ._pdf import generer_pdf_lm
 from .auth import _gmail_get_access_token
 
@@ -218,7 +218,7 @@ def creer_brouillons_gmail(request):
                         f"{profil.prenom_lm or ''} {profil.nom_lm or ''}"
                     )
 
-                lm_name = _email_to_pdf_name(cand.entreprise.email)
+                lm_name = _lm_pdf_name(cand.entreprise.raison_sociale)
                 lm_pdf = pack_lm_cache.get(lm_name)
                 if lm_pdf is None:
                     try:

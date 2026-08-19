@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from ..models import Candidature, DocumentUtilisateur, ProfilUtilisateur
 from ._pdf import _generer_zip, generer_pdf_lm
-from ._utils import _slugify_loose
+from ._utils import _lm_pdf_name
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ def telecharger_lm(request, ent_id):
             content_type="text/plain; charset=utf-8",
         )
     resp = HttpResponse(pdf_bytes, content_type="application/pdf")
-    resp["Content-Disposition"] = f'attachment; filename="LM_{_slugify_loose(ent.entreprise.raison_sociale or "lettre")}.pdf"'
+    resp["Content-Disposition"] = f'attachment; filename="{_lm_pdf_name(ent.entreprise.raison_sociale)}"'
     return resp
 
 

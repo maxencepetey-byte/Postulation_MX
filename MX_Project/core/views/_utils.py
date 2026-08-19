@@ -3,7 +3,6 @@
 import os
 import re
 import threading
-import unicodedata
 
 
 _BG_SEMAPHORE = threading.BoundedSemaphore(3)
@@ -47,14 +46,12 @@ def get_accroche(secteur_activite):
     return mapping.get(secteur_activite, "le dynamisme et les projets de votre entreprise")
 
 
-def _email_to_pdf_name(email: str) -> str:
-    e = (email or "").strip().lower()
-    e = unicodedata.normalize("NFKD", e)
-    e = "".join(c for c in e if not unicodedata.combining(c))
-    e = re.sub(r"[^a-z0-9@._+\-]", "_", e)
-    e = e.replace("@", "_AT_")
-    e = re.sub(r"_+", "_", e).strip("_")
-    return f"LM_{e}.pdf"
+def _lm_pdf_name(raison_sociale: str) -> str:
+    """Nom de fichier lisible pour la LM, ex: 'Lettre de Motivation Google Suisse.pdf'."""
+    nom = (raison_sociale or "").strip()
+    nom = re.sub(r'[\\/:*?"<>|]', "", nom)
+    nom = re.sub(r"\s+", " ", nom).strip(" .")
+    return f"Lettre de Motivation {nom}.pdf"
 
 
 def _safe_format(text: str, ctx: dict) -> str:
@@ -64,16 +61,6 @@ def _safe_format(text: str, ctx: dict) -> str:
         return text.format_map(ctx)
     except Exception:
         return text
-
-
-def _slugify_loose(s: str) -> str:
-    s = (s or "").lower()
-    s = s.replace("œ", "oe").replace("æ", "ae")
-    s = unicodedata.normalize("NFKD", s)
-    s = "".join(ch for ch in s if not unicodedata.combining(ch))
-    s = re.sub(r"[\s_]+", " ", s).strip()
-    s = re.sub(r"[^a-z0-9 ]+", "", s)
-    return s.replace(" ", "_")
 
 
 def _read_filefield_bytes(ff) -> bytes:
