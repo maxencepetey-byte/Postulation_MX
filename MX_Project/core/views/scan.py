@@ -1,3 +1,5 @@
+"""Scan du registre des entreprises : exécution, historique groupé, détail par session."""
+
 import logging
 import re
 from urllib.parse import urlencode
@@ -97,6 +99,7 @@ def _run_scan_for_user(user, secteurs):
 
 @login_required
 def lancer_scan(request):
+    """Lance un scan manuel du registre pour les secteurs cochés (+ code NOGA libre), en tâche de fond."""
     secteurs = request.GET.getlist('secteurs')
     secteur_libre = request.GET.get('secteur_libre', '').strip()
     if secteur_libre:
@@ -120,6 +123,7 @@ def lancer_scan(request):
 
 @require_GET
 def cron_sync_registre(request):
+    """Endpoint cron (token Bearer) qui déclenche `sync_registre` en tâche de fond et répond 202 immédiatement."""
     auth_header = request.META.get("HTTP_AUTHORIZATION", "")
     token = auth_header.removeprefix("Bearer ").strip()
     expected = (getattr(settings, "CRON_SYNC_TOKEN", "") or "").strip()
@@ -144,6 +148,7 @@ def cron_sync_registre(request):
         return HttpResponseBadRequest("since_hours must be an integer")
 
     def _run_cron():
+        """Worker de fond : exécute la management command de synchro du registre."""
         try:
             kwargs = {
                 "min_new": min_new,

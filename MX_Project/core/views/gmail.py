@@ -26,10 +26,12 @@ logger = logging.getLogger(__name__)
 
 
 def _b64url(data: bytes) -> str:
+    """Encode en base64 URL-safe sans padding, format attendu par l'API Gmail pour `raw`."""
     return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
 
 
 def _build_mime_message(to_email: str, subject: str, body: str, attachments: list[tuple[str, bytes, str]]) -> bytes:
+    """Construit un message MIME (texte + pièces jointes) prêt à être encodé pour l'API Gmail."""
     msg = EmailMessage()
     msg["To"] = to_email
     msg["Subject"] = subject
@@ -43,6 +45,7 @@ def _build_mime_message(to_email: str, subject: str, body: str, attachments: lis
 
 
 def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
+    """Crée un brouillon dans le compte Gmail de l'utilisateur via l'API Gmail."""
     url = "https://gmail.googleapis.com/gmail/v1/users/me/drafts"
     r = requests.post(
         url,
@@ -57,6 +60,10 @@ def _gmail_create_draft(access_token: str, raw_mime_bytes: bytes) -> None:
 @login_required
 @require_POST
 def creer_brouillons_gmail(request):
+    """
+    Lance en tâche de fond la création d'un brouillon Gmail (LM + CV joints) par candidature
+    non encore traitée du secteur/pack ciblé. Valide le token Gmail avant de démarrer le job.
+    """
     try:
         access_token = _gmail_get_access_token(request.user)
     except Exception:
@@ -99,6 +106,7 @@ def creer_brouillons_gmail(request):
         return redirect("settings_page")
 
     def _run_brouillons(user_id, secteur, pack_num=None):
+        """Worker de fond : génère et envoie les brouillons Gmail, gère le refresh de token en cours de route."""
         from django.contrib.auth.models import User
         try:
             user = User.objects.get(id=user_id)

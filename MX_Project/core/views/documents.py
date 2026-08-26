@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def _delete_all_user_documents(user) -> int:
+    """Supprime tous les DocumentUtilisateur d'un user, en essayant aussi d'effacer les fichiers du storage."""
     docs = list(DocumentUtilisateur.objects.filter(utilisateur=user).only("id", "fichier"))
     file_names = []
     for d in docs:
@@ -44,6 +45,7 @@ def _delete_all_user_documents(user) -> int:
 
 @login_required
 def upload_cv(request):
+    """Upload d'un document utilisateur (CV ou autre pièce jointe)."""
     if request.method == 'POST' and request.FILES.get('cv_file'):
         doc = DocumentUtilisateur(
             utilisateur=request.user,
@@ -65,6 +67,7 @@ def upload_cv(request):
 @login_required
 @require_POST
 def delete_document(request, doc_id: int):
+    """Supprime un document unitaire (fichier + enregistrement)."""
     doc = get_object_or_404(DocumentUtilisateur, id=doc_id, utilisateur=request.user)
     try:
         if getattr(doc, "fichier", None):
@@ -79,6 +82,7 @@ def delete_document(request, doc_id: int):
 @login_required
 @require_POST
 def delete_pack(request, doc_id: int):
+    """Supprime un pack ZIP de LM et réinitialise les candidatures associées (redevient à traiter)."""
     doc = get_object_or_404(DocumentUtilisateur, id=doc_id, utilisateur=request.user, type_doc="PACK_LM")
     secteur = doc.secteur_nom or ""
 
@@ -106,6 +110,7 @@ def delete_pack(request, doc_id: int):
 @login_required
 @require_POST
 def supprimer_tout(request):
+    """Vide entièrement la liste de candidatures de l'utilisateur (garde les documents)."""
     Candidature.objects.filter(utilisateur=request.user).delete()
     return redirect('dashboard')
 
@@ -113,6 +118,7 @@ def supprimer_tout(request):
 @login_required
 @require_POST
 def supprimer_documents(request):
+    """Supprime tous les documents de l'utilisateur (garde la liste de candidatures)."""
     _delete_all_user_documents(request.user)
     return redirect('dashboard')
 
@@ -120,6 +126,7 @@ def supprimer_documents(request):
 @login_required
 @require_POST
 def vider_liste_et_documents(request):
+    """Reset complet : candidatures + documents (CV et packs), sans toucher à l'historique de scan."""
     try:
         with transaction.atomic():
             Candidature.objects.filter(utilisateur=request.user).delete()

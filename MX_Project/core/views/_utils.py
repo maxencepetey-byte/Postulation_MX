@@ -33,6 +33,7 @@ def _run_in_background(target, *args, **kwargs):
 
 
 def get_accroche(secteur_activite):
+    """Phrase d'accroche pour la LM, choisie selon le secteur d'activité (fallback générique sinon)."""
     mapping = {
         'Informatique': "votre expertise dans le développement et l'innovation numérique",
         'Banque':       "la rigueur et l'excellence de votre institution financière",

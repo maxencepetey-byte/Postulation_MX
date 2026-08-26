@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_setup_status(user):
+    """Calcule si le profil, les templates LM par secteur et Gmail sont assez configurés pour accéder au dashboard."""
     profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=user)
     profil_ok = bool(profil.prenom_lm and profil.nom_lm and profil.email_lm)
 
@@ -66,6 +67,7 @@ def _get_setup_status(user):
 
 @login_required
 def dashboard(request):
+    """Page principale : liste paginée des candidatures, redirige vers onboarding/réglages si la config est incomplète."""
     profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
 
     if not profil.onboarding_done:
@@ -111,6 +113,7 @@ def dashboard(request):
 
 @login_required
 def entreprises_filtrer_secteur(request):
+    """Filtre AJAX du tableau de candidatures par secteur ; renvoie du HTML (partial ou JSON selon le call)."""
     secteur = (request.GET.get("secteur") or "").strip()
     qs = (
         Candidature.objects
@@ -184,6 +187,7 @@ def entreprises_filtrer_secteur(request):
 
 @login_required
 def settings_page(request):
+    """Page Réglages : identité (profil), templates de LM par secteur, statut Gmail. Gère 2 formulaires POST (save_profil / save_template)."""
     profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     required_fields = ["prenom_lm", "nom_lm", "email_lm"]
 
@@ -276,6 +280,7 @@ def settings_page(request):
 
 @login_required
 def onboarding(request):
+    """Sélection initiale des secteurs cibles ; déclenche le premier scan du registre en tâche de fond."""
     profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     if profil.onboarding_done:
         return redirect("settings_page")
@@ -297,6 +302,7 @@ def onboarding(request):
 
 @login_required
 def add_secteurs(request):
+    """Ajoute des secteurs à un profil déjà onboardé ; ne relance le scan que sur les secteurs réellement nouveaux."""
     profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
     existing_codes = set(c.strip() for c in profil.onboarding_secteurs.split(",") if c.strip())
 

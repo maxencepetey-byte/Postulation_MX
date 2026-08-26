@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 @login_required
 @require_POST
 def generer_pack_secteur_numero(request, pack_num: int):
+    """Génère un pack ZIP de LM pour un secteur + numéro de pack donnés, et le range dans les documents."""
     secteur = (request.POST.get("secteur") or "").strip()
     if not secteur or pack_num < 1:
         return redirect("dashboard")
@@ -71,6 +72,7 @@ def generer_pack_secteur_numero(request, pack_num: int):
 
 @login_required
 def telecharger_lm(request, ent_id):
+    """Télécharge la LM PDF d'une candidature précise, générée à la volée."""
     ent = get_object_or_404(
         Candidature.objects.select_related('entreprise'),
         id=ent_id, utilisateur=request.user,
@@ -92,9 +94,11 @@ def telecharger_lm(request, ent_id):
 
 @login_required
 def serve_protected_media(request, path):
+    """Sert un fichier sous MEDIA_ROOT pour un utilisateur connecté (utilisé quand le storage n'est pas public)."""
     media_root = settings.MEDIA_ROOT
     full_path = os.path.normpath(os.path.join(media_root, path))
 
+    # Empêche la traversée de répertoire (ex: path="../../settings.py")
     if not full_path.startswith(os.path.normpath(media_root) + os.sep):
         raise Http404
 

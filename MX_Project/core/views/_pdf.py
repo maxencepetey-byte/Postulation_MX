@@ -137,6 +137,7 @@ def generer_pdf_lm(profil, ent: Candidature):
 
 
 def _generer_zip(profil, entreprises, marquer_traitees=False):
+    """Assemble les LM PDF de plusieurs candidatures dans une archive ZIP en mémoire."""
     zip_buffer = io.BytesIO()
     to_update = []
     with zipfile.ZipFile(zip_buffer, 'w') as zf:

@@ -1,3 +1,5 @@
+"""Authentification utilisateur + flux OAuth Gmail (connexion, callback, refresh token)."""
+
 import logging
 import secrets
 import threading
@@ -33,6 +35,7 @@ def _get_token_lock(user_id: int) -> threading.Lock:
 
 
 def register(request):
+    """Inscription via le formulaire Django standard, connexion auto puis redirection dashboard."""
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
         if form.is_valid():
@@ -46,11 +49,13 @@ def register(request):
 
 @require_POST
 def logout_view(request):
+    """Déconnexion (POST uniquement) puis retour à l'écran de login."""
     logout(request)
     return redirect('login')
 
 
 def _google_oauth_config():
+    """Lit les identifiants OAuth Google depuis l'environnement (`.env`)."""
     client_id = (config("GOOGLE_CLIENT_ID", default="") or "").strip()
     client_secret = (config("GOOGLE_CLIENT_SECRET", default="") or "").strip()
     redirect_uri = (config("GOOGLE_REDIRECT_URI", default="") or "").strip()
@@ -59,6 +64,7 @@ def _google_oauth_config():
 
 @login_required
 def gmail_connect(request):
+    """Démarre le flow OAuth Gmail : génère un `state` anti-CSRF puis redirige vers Google."""
     client_id, _, redirect_uri = _google_oauth_config()
     if not client_id or not redirect_uri:
         return HttpResponse(
@@ -85,6 +91,7 @@ def gmail_connect(request):
 
 @login_required
 def gmail_callback(request):
+    """Callback OAuth Google : vérifie le `state`, échange le code contre des tokens et les persiste."""
     code = (request.GET.get("code") or "").strip()
     state = (request.GET.get("state") or "").strip()
     expected_state = request.session.get("gmail_oauth_state")
@@ -143,6 +150,7 @@ def gmail_callback(request):
 @login_required
 @require_POST
 def gmail_disconnect(request):
+    """Révoque le token Gmail côté Google puis supprime l'enregistrement local."""
     tok = GmailOAuthToken.objects.filter(utilisateur=request.user).first()
     if tok and tok.refresh_token:
         # Révoquer le refresh_token invalide toute la session OAuth (access + refresh).
@@ -160,6 +168,7 @@ def gmail_disconnect(request):
 
 
 def _gmail_get_access_token(user) -> str:
+    """Retourne un access_token Gmail valide, en le rafraîchissant via refresh_token si expiré."""
     # Lock par user : empêche deux threads de faire un refresh simultané (race condition
     # qui produirait un double appel à /token avec le même refresh_token — fatal si
     # Google active la rotation des refresh_tokens → invalid_grant sur le 2e appel).
