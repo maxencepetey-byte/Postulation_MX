@@ -225,7 +225,7 @@ class ScanFlowTests(BaseAuthTestCase):
         EntrepriseReferentiel.objects.create(
             raison_sociale="RS2", email="x2@example.com", code_noga="62", adresse="Rue 2",
         )
-        resp = self.client.get(reverse("lancer_scan"), {"secteurs": ["62"]})
+        resp = self.client.post(reverse("lancer_scan"), {"secteurs": ["62"]})
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(Candidature.objects.filter(utilisateur=self.user).count(), 2)
 
@@ -524,3 +524,162 @@ class TokenEncryptionTests(TestCase):
         loaded = GmailOAuthToken.objects.get(utilisateur=user)
         self.assertEqual(loaded.refresh_token, "secret_refresh")
         self.assertEqual(loaded.access_token, "secret_access")
+
+
+# ---------------------------------------------------------------------------
+# Lettre de motivation (format suisse) et corps de l'e-mail
+# ---------------------------------------------------------------------------
+
+def _texte_pdf(pdf: bytes) -> str:
+    """Contenu brut des flux de page (reportlab : ASCII85 puis Flate)."""
+    import base64, re as _re, zlib
+    morceaux = []
+    for flux in _re.findall(rb"stream\r?\n(.*?)endstream", pdf, _re.S):
+        data = flux.strip()
+        try:
+            if data.endswith(b"~>"):
+                data = base64.a85decode(data[:-2])
+            data = zlib.decompress(data)
+        except Exception:
+            pass
+        morceaux.append(data.decode("latin-1"))
+    return "\n".join(morceaux)
+
+
+class LettreEtEmailTests(BaseAuthTestCase):
+    def setUp(self):
+        super().setUp()
+        from core.models import LettreSecteurTemplate
+        self.profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
+        self.profil.prenom_lm, self.profil.nom_lm = "Camille", "Rochat"
+        self.profil.email_lm, self.profil.ville = "camille@example.ch", "Lausanne"
+        self.profil.save()
+        ref = self._make_ref(email="rh@dupont.ch", nom="Dupont & Fils <SA>")
+        self.cand = self._make_candidature(ref=ref)
+        LettreSecteurTemplate.objects.create(
+            utilisateur=self.user, secteur_nom="Informatique et programmation",
+            objet="Candidature – {entreprise}", paragraph_1="TEXTE_LETTRE pour {entreprise} {inconnu}",
+        )
+        LettreSecteurTemplate.objects.create(
+            utilisateur=self.user, secteur_nom="Email", paragraph_1="TEXTE_EMAIL pour {entreprise}",
+        )
+
+    def test_safe_format_tolere_variable_inconnue(self):
+        from core.views._utils import _safe_format
+        self.assertEqual(_safe_format("{entreprise} {x} {", {"entreprise": "A"}), "A {x} {")
+
+    def test_pdf_supporte_caracteres_speciaux_et_format_suisse(self):
+        from core.views import generer_pdf_lm
+        texte = _texte_pdf(generer_pdf_lm(self.profil, self.cand))
+        # reportlab découpe la chaîne en plusieurs Tj autour des caractères spéciaux.
+        self.assertIn("(Dupont & Fils <) Tj (SA) Tj (>)", texte)
+        self.assertIn("Lausanne, le ", texte)
+        self.assertNotIn("Fait à", texte)
+        self.assertNotIn("Objet :", texte)
+
+    def test_lettre_longue_tient_sur_plusieurs_pages(self):
+        from core.models import LettreSecteurTemplate
+        from core.views import generer_pdf_lm
+        LettreSecteurTemplate.objects.filter(secteur_nom="Informatique et programmation").update(
+            paragraph_1="Très long paragraphe. " * 300, conclusion="FIN_POLITESSE",
+        )
+        texte = _texte_pdf(generer_pdf_lm(self.profil, self.cand))
+        self.assertIn("FIN_POLITESSE", texte)
+
+    def test_corps_email_utilise_le_template_email_et_non_la_lettre(self):
+        import email
+        from email import policy
+        from core.models import LettreSecteurTemplate
+        from core.views._lettre import bloc_signature
+        from core.views.gmail import construire_brouillon
+        templates = {t.secteur_nom: t for t in LettreSecteurTemplate.objects.filter(utilisateur=self.user)}
+        cand = Candidature.objects.select_related("entreprise", "utilisateur").get(pk=self.cand.pk)
+        raw = construire_brouillon(
+            self.profil, cand, templates["Email"], templates,
+            [("CV.pdf", b"%PDF-1.4", "application/pdf")], ["Curriculum vitae"], bloc_signature(self.profil),
+        )
+        msg = email.message_from_bytes(raw, policy=policy.default)
+        corps = msg.get_body(("plain",)).get_content()
+        self.assertIn("TEXTE_EMAIL pour Dupont & Fils <SA>", corps)
+        self.assertNotIn("TEXTE_LETTRE", corps)
+        self.assertIn("Camille Rochat", msg["Subject"])
+        self.assertIn("&lt;SA&gt;", msg.get_body(("html",)).get_content())
+        self.assertEqual(
+            [p.get_filename() for p in msg.iter_attachments()],
+            ["Lettre de Motivation Dupont & Fils SA.pdf", "CV.pdf"],
+        )
+
+
+class MediaProtegeeTests(BaseAuthTestCase):
+    def test_fichier_d_un_autre_utilisateur_inaccessible(self):
+        autre = User.objects.create_user(username="autre", password="p")
+        doc = DocumentUtilisateur(utilisateur=autre, nom_affichage="CV", type_doc="CV")
+        doc.fichier.save("cv.pdf", ContentFile(b"%PDF-1.4"), save=True)
+        try:
+            resp = self.client.get(f"/media/{doc.fichier.name}")
+            self.assertEqual(resp.status_code, 404)
+            self.client.login(username="autre", password="p")
+            resp = self.client.get(f"/media/{doc.fichier.name}")
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp["Content-Type"], "application/pdf")
+            resp.close()
+        finally:
+            doc.fichier.delete(save=False)
+
+    def test_upload_refuse_extension_non_pdf(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        f = SimpleUploadedFile("piege.html", b"%PDF-1.4\n<script>alert(1)</script>", content_type="text/html")
+        self.client.post(reverse("upload_cv"), {"cv_file": f, "nom_doc": "x", "type_doc": "CV"})
+        self.assertFalse(DocumentUtilisateur.objects.filter(utilisateur=self.user).exists())
+
+
+class LettreRecopieeDuMailTests(BaseAuthTestCase):
+    """Le texte du mail ne doit jamais devenir la lettre de motivation PDF."""
+
+    SECTEUR = "Informatique et programmation"
+
+    def setUp(self):
+        super().setUp()
+        from core.models import LettreSecteurTemplate
+        self.tpl_email = LettreSecteurTemplate.objects.create(
+            utilisateur=self.user, secteur_nom="Email", paragraph_1="TEXTE_DU_MAIL court.",
+        )
+
+    def _save(self, secteur, p1, **extra):
+        return self.client.post(reverse("settings_page"), {
+            "action": "save_template", "template_secteur": secteur, "paragraph_1": p1, **extra,
+        })
+
+    def test_enregistrement_refuse_si_identique_au_mail(self):
+        from core.models import LettreSecteurTemplate
+        self._save(self.SECTEUR, "  texte_du_mail   court. ")
+        self.assertFalse(LettreSecteurTemplate.objects.filter(secteur_nom=self.SECTEUR).exists())
+
+    def test_enregistrement_refuse_si_consigne_de_trame_restante(self):
+        from core.models import LettreSecteurTemplate
+        self._save(self.SECTEUR, "[Présentez-vous : formation, diplôme et expérience.]")
+        self.assertFalse(LettreSecteurTemplate.objects.filter(secteur_nom=self.SECTEUR).exists())
+
+    def test_vraie_lettre_enregistree(self):
+        from core.models import LettreSecteurTemplate
+        self._save(self.SECTEUR, "Titulaire d'un CFC, je souhaite rejoindre {entreprise}.")
+        self.assertTrue(LettreSecteurTemplate.objects.filter(secteur_nom=self.SECTEUR).exists())
+
+    def test_pdf_n_utilise_jamais_un_template_recopie_du_mail(self):
+        from core.models import LettreSecteurTemplate
+        from core.views import generer_pdf_lm
+        LettreSecteurTemplate.objects.create(
+            utilisateur=self.user, secteur_nom=self.SECTEUR, paragraph_1="TEXTE_DU_MAIL court.",
+        )
+        profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
+        texte = _texte_pdf(generer_pdf_lm(profil, self._make_candidature()))
+        self.assertNotIn("TEXTE_DU_MAIL", texte)
+
+    def test_template_recopie_compte_comme_a_refaire(self):
+        from core.models import LettreSecteurTemplate
+        from core.views.dashboard import _get_setup_status
+        LettreSecteurTemplate.objects.create(
+            utilisateur=self.user, secteur_nom=self.SECTEUR, paragraph_1="TEXTE_DU_MAIL court.",
+        )
+        self._make_candidature()
+        self.assertIn(self.SECTEUR, _get_setup_status(self.user)["secteurs_manquants"])

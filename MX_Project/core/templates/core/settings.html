@@ -216,8 +216,8 @@ textarea.auto-resize { min-height:80px; overflow:hidden; resize:none; }
         {% if gmail_connected %}<i class="bi bi-check-lg"></i>{% else %}3{% endif %}
       </div>
       <div>
-        <div class="step-title">Gmail</div>
-        <div class="step-sub">{% if gmail_connected %}Connecté ✓{% else %}Connexion requise{% endif %}</div>
+        <div class="step-title">Gmail (optionnel)</div>
+        <div class="step-sub">{% if gmail_connected %}Connecté ✓{% else %}Recommandé{% endif %}</div>
       </div>
     </div>
 
@@ -405,7 +405,7 @@ textarea.auto-resize { min-height:80px; overflow:hidden; resize:none; }
 
     <div class="alert alert-primary d-flex align-items-center gap-2 mb-4 border-0 shadow-sm">
       <i class="bi bi-info-circle-fill flex-shrink-0"></i>
-      <span>Un template par secteur. <strong>Email</strong> = corps du mail · autres = PDF joint. <strong>Paragraphe 1 obligatoire.</strong></span>
+      <span><strong>Email</strong> = texte court du message Gmail (objet + corps). <strong>Chaque secteur</strong> = lettre de motivation jointe en PDF, mise en page au format suisse (adresse, lieu et date, signature et annexes sont ajoutés automatiquement). <strong>Paragraphe 1 obligatoire.</strong></span>
     </div>
 
     <div class="secteurs-grid">
@@ -451,8 +451,8 @@ textarea.auto-resize { min-height:80px; overflow:hidden; resize:none; }
           <span class="fw-bold" style="font-size:.9rem">Template</span>
           <span class="badge-editing" id="editorLabel">{{ active_secteur }}</span>
           <span id="editorStatus"></span>
-          <button type="button" class="btn-dup" id="btnDuplicate" onclick="duplicateFromEmail()" title="Copier le contenu du template Email">
-            <i class="bi bi-copy"></i> Dupliquer depuis Email
+          <button type="button" class="btn-dup" id="btnDuplicate" onclick="preremplirTrameLettre()" title="Préremplir avec une trame de lettre de motivation à personnaliser">
+            <i class="bi bi-file-earmark-text"></i> Trame de lettre
           </button>
         </div>
 
@@ -472,7 +472,7 @@ textarea.auto-resize { min-height:80px; overflow:hidden; resize:none; }
         {# Formulaire édition #}
         <div id="editZone" class="editor-body" style="display:none">
           <div class="mb-3">
-            <label class="form-label fw-semibold small text-muted">Objet de la lettre</label>
+            <label class="form-label fw-semibold small text-muted" id="lblObjet">Objet de la lettre</label>
             <input type="text" id="f_objet" name="objet" class="form-control" placeholder="Candidature spontanée — {entreprise}">
           </div>
           <div class="mb-3">
@@ -567,7 +567,7 @@ textarea.auto-resize { min-height:80px; overflow:hidden; resize:none; }
       {% if not gmail_connected %}
       <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
         <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
-        <span class="small">Gmail non connecté — obligatoire pour le dashboard.</span>
+        <span class="small">Gmail non connecté — nécessaire pour créer des brouillons automatiquement.</span>
       </div>
       {% endif %}
 
@@ -775,7 +775,9 @@ function updatePreview() {
     const addrWrap = document.getElementById('preview-address-wrap');
     if (addrWrap) {
         if (rue || npa || ville) {
-            document.getElementById('preview-rue').innerHTML  = rue ? rue + '<br>' : '';
+            const rueEl = document.getElementById('preview-rue');
+            rueEl.textContent = rue;
+            if (rue) rueEl.appendChild(document.createElement('br'));
             document.getElementById('preview-npa').textContent   = npa;
             document.getElementById('preview-ville').textContent = ville ? (npa ? ' ' : '') + ville : '';
         } else {
@@ -923,8 +925,10 @@ function updateEditorMeta(name) {
     document.getElementById('editorLabel').textContent = label;
     document.getElementById('saveLbl').textContent = name;
     document.getElementById('currentSecteur').value = name;
+    const lblObjet = document.getElementById('lblObjet');
+    if (lblObjet) lblObjet.textContent = name === 'Email' ? "Objet de l'e-mail (ton nom est ajouté automatiquement)" : 'Objet de la lettre (en gras, sans « Objet : »)';
     const dupBtn = document.getElementById('btnDuplicate');
-    if (dupBtn) dupBtn.disabled = (name === 'Email' || !hasTpl('Email'));
+    if (dupBtn) dupBtn.disabled = (name === 'Email');
     const statusEl = document.getElementById('editorStatus');
     if (hasTpl(name)) {
         statusEl.innerHTML = '<span class="badge rounded-pill" style="background:rgba(25,135,84,.12);color:#198754;border:1px solid rgba(25,135,84,.25)"><i class="bi bi-check2"></i> Configuré</span>';
@@ -942,25 +946,35 @@ function selectSecteur(name) {
     if (hasTpl(name)) showPreview(name); else showEditZone();
 }
 
-/* Duplicate from Email */
-function duplicateFromEmail() {
-    const emailTpl = TPL['Email'];
-    if (!emailTpl) return;
+/* Trame de lettre : le texte du mail n'est jamais recopié dans une lettre. */
+const TRAME_LETTRE = {
+    objet: 'Candidature spontanée',
+    salutation: 'Madame, Monsieur,',
+    paragraph_1: "[Présentez-vous : formation, diplôme (CFC, maturité, bachelor…), expérience et compétences principales.]",
+    paragraph_2: "C'est avec un vif intérêt que je vous adresse ma candidature spontanée. {entreprise} retient particulièrement mon attention pour {accroche}.",
+    paragraph_3: "[Expliquez ce que vous pouvez apporter à l'entreprise, avec un ou deux exemples concrets.]",
+    paragraph_4: "Je me tiens volontiers à votre disposition pour un entretien afin de vous présenter plus en détail mes motivations.",
+    conclusion: "Je vous prie d'agréer, Madame, Monsieur, mes salutations distinguées.",
+};
+function preremplirTrameLettre() {
     const currentName = document.getElementById('currentSecteur').value;
     if (currentName === 'Email') return;
-    if (!confirm('Copier le contenu du template Email dans "' + currentName + '" ? Le contenu actuel sera remplacé.')) return;
-    document.getElementById('f_objet').value = emailTpl.objet        || '';
-    document.getElementById('f_intro').value = emailTpl.salutation   || '';
-    document.getElementById('f_p1').value    = emailTpl.paragraph_1  || '';
-    document.getElementById('f_p2').value    = emailTpl.paragraph_2  || '';
-    document.getElementById('f_p3').value    = emailTpl.paragraph_3  || '';
-    document.getElementById('f_p4').value    = emailTpl.paragraph_4  || '';
-    document.getElementById('f_conc').value  = emailTpl.conclusion   || '';
+    const champs = ['f_objet','f_intro','f_p1','f_p2','f_p3','f_p4','f_conc'];
+    const dejaRempli = champs.some(id => (document.getElementById(id)?.value || '').trim());
+    if (dejaRempli && !confirm('Remplacer le texte actuel de "' + currentName + '" par une trame de lettre à personnaliser ?')) return;
+    document.getElementById('f_objet').value = TRAME_LETTRE.objet;
+    document.getElementById('f_intro').value = TRAME_LETTRE.salutation;
+    document.getElementById('f_p1').value    = TRAME_LETTRE.paragraph_1;
+    document.getElementById('f_p2').value    = TRAME_LETTRE.paragraph_2;
+    document.getElementById('f_p3').value    = TRAME_LETTRE.paragraph_3;
+    document.getElementById('f_p4').value    = TRAME_LETTRE.paragraph_4;
+    document.getElementById('f_conc').value  = TRAME_LETTRE.conclusion;
     ['f_p1','f_p2','f_p3','f_p4'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { updateCharCounter(el); autoResize(el); }
     });
     markDirty();
+    document.getElementById('f_p1').focus();
 }
 
 /* Insert var */

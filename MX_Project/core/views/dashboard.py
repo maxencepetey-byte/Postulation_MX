@@ -1,6 +1,7 @@
 """Vues principales : dashboard, onboarding, paramètres, filtrage AJAX par secteur."""
 
 import logging
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -20,6 +21,7 @@ from ..models import (
     LettreSecteurTemplate,
     ProfilUtilisateur,
 )
+from ._lettre import contient_consigne, recopie_du_mail
 from ._utils import _STATIC_VERSION
 from .scan import _run_scan_for_user
 from ._utils import _run_in_background
@@ -47,12 +49,14 @@ def _get_setup_status(user):
     )
     secteurs_requis = {"Email"} | secteurs_profil | secteurs_cibles
 
-    templates_ok = set(
-        LettreSecteurTemplate.objects
-        .filter(utilisateur=user)
-        .exclude(paragraph_1="")
-        .values_list("secteur_nom", flat=True)
-    )
+    templates = list(LettreSecteurTemplate.objects.filter(utilisateur=user).exclude(paragraph_1=""))
+    tpl_email = next((t for t in templates if t.secteur_nom == "Email"), None)
+    # Un secteur qui recopie le mail est à refaire : sinon le mail part à la place de la lettre.
+    templates_ok = {
+        t.secteur_nom for t in templates
+        if t.secteur_nom == "Email"
+        or not recopie_du_mail([getattr(t, f"paragraph_{i}") for i in range(1, 5)], tpl_email)
+    }
     secteurs_manquants = secteurs_requis - templates_ok
     gmail_connected = GmailOAuthToken.objects.filter(utilisateur=user).exists()
 
@@ -61,7 +65,7 @@ def _get_setup_status(user):
         "secteurs_manquants": secteurs_manquants,
         "secteurs_requis": secteurs_requis,
         "gmail_connected": gmail_connected,
-        "setup_complete": profil_ok and not secteurs_manquants and gmail_connected,
+        "setup_complete": profil_ok and not secteurs_manquants,
     }
 
 
@@ -75,7 +79,12 @@ def dashboard(request):
 
     status = _get_setup_status(request.user)
     if not status["setup_complete"]:
-        return redirect("settings_page")
+        if not status["profil_ok"]:
+            messages.info(request, "Complète ton prénom, ton nom et ton e-mail pour accéder au tableau de bord.")
+            return redirect("settings_page")
+        manquants = ", ".join(sorted(status["secteurs_manquants"]))
+        messages.info(request, f"Il reste des textes à rédiger avant d'accéder au tableau de bord : {manquants}.")
+        return redirect(f"/settings/?{urlencode({'tab': 'templates', 'secteur': sorted(status['secteurs_manquants'])[0]})}")
 
     entreprises_list = (
         Candidature.objects
@@ -138,7 +147,7 @@ def entreprises_filtrer_secteur(request):
         qs_pack_all = Candidature.objects.filter(
             utilisateur=request.user, secteur_activite=secteur,
         )
-        qs_pack_remaining = qs_pack_all.filter(est_dans_paquet=False)
+        qs_pack_remaining = qs_pack_all.filter(est_dans_paquet=False, entreprise__email_valide=True)
         max_pack = qs_pack_all.aggregate(m=Max("numero_pack")).get("m") or 0
         secteur_clean = secteur.replace(" ", "_").replace("/", "-")
         docs = {
@@ -180,7 +189,10 @@ def entreprises_filtrer_secteur(request):
         or "application/json" in request.headers.get("Accept", "")
     )
     if is_ajax:
-        return JsonResponse({"tbody": tbody_html, "packs": packs_html})
+        pagination_html = render_to_string(
+            "partials/pagination.html", {"entreprises": page_obj}, request=request,
+        )
+        return JsonResponse({"tbody": tbody_html, "packs": packs_html, "pagination": pagination_html})
 
     return render(request, "partials/entreprises_table.html", {"entreprises": page_obj})
 
@@ -243,6 +255,21 @@ def settings_page(request):
                 messages.error(request, f"⚠ Le Paragraphe 1 est obligatoire pour le template « {secteur_tpl} ».")
                 return redirect('/settings/?tab=templates')
 
+            paras = [p1] + [(request.POST.get(f"paragraph_{i}") or "").strip() for i in range(2, 5)]
+            retour_editeur = redirect(f"/settings/?{urlencode({'tab': 'templates', 'secteur': secteur_tpl})}")
+            if contient_consigne(paras + [request.POST.get("objet") or "", request.POST.get("conclusion") or ""]):
+                messages.error(request, "⚠ Remplace les consignes entre crochets [ … ] par ton propre texte avant d'enregistrer.")
+                return retour_editeur
+            if secteur_tpl != "Email":
+                tpl_email = LettreSecteurTemplate.objects.filter(utilisateur=request.user, secteur_nom="Email").first()
+                if recopie_du_mail(paras, tpl_email):
+                    messages.error(
+                        request,
+                        f"⚠ Le texte de « {secteur_tpl} » est identique à celui de l'e-mail. Il deviendrait ta lettre de "
+                        "motivation PDF : rédige une vraie lettre (bouton « Trame de lettre » pour partir d'un modèle).",
+                    )
+                    return retour_editeur
+
             tpl, _ = LettreSecteurTemplate.objects.get_or_create(
                 utilisateur=request.user, secteur_nom=secteur_tpl,
             )
@@ -256,7 +283,7 @@ def settings_page(request):
             tpl.save()
 
             messages.success(request, f"✅ Template « {secteur_tpl} » sauvegardé.")
-            return redirect(f"/settings/?tab=templates&secteur={secteur_tpl}")
+            return redirect(f"/settings/?{urlencode({'tab': 'templates', 'secteur': secteur_tpl})}")
 
         return redirect('settings_page')
 
@@ -286,7 +313,7 @@ def onboarding(request):
         return redirect("settings_page")
 
     if request.method == "POST":
-        choix = request.POST.getlist("secteurs")
+        choix = [c for c in dict.fromkeys(request.POST.getlist("secteurs")) if c in NOGA_MAP]
         if not choix:
             return render(request, "core/onboarding.html", {
                 "erreur": "Coche au moins un secteur pour continuer.",
@@ -307,7 +334,7 @@ def add_secteurs(request):
     existing_codes = set(c.strip() for c in profil.onboarding_secteurs.split(",") if c.strip())
 
     if request.method == "POST":
-        submitted_codes = set(request.POST.getlist("secteurs"))
+        submitted_codes = {c for c in request.POST.getlist("secteurs") if c in NOGA_MAP}
 
         if not submitted_codes:
             return render(request, "core/add_secteurs.html", {

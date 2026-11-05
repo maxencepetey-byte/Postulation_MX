@@ -92,28 +92,40 @@ def gmail_connect(request):
 @login_required
 def gmail_callback(request):
     """Callback OAuth Google : vérifie le `state`, échange le code contre des tokens et les persiste."""
+    retour = redirect("/settings/?tab=connexions")
     code = (request.GET.get("code") or "").strip()
     state = (request.GET.get("state") or "").strip()
     expected_state = request.session.get("gmail_oauth_state")
     request.session.pop("gmail_oauth_state", None)
 
+    if request.GET.get("error"):
+        messages.warning(request, "Connexion Gmail annulée.")
+        return retour
     if not code or not expected_state or state != expected_state:
-        return redirect("settings_page")
+        messages.error(request, "La connexion Gmail a expiré ou n'est pas valide. Merci de réessayer.")
+        return retour
 
     client_id, client_secret, redirect_uri = _google_oauth_config()
     if not client_id or not client_secret or not redirect_uri:
-        return redirect("settings_page")
+        logger.error("gmail_callback: configuration OAuth Google incomplète")
+        messages.error(request, "La connexion Gmail est momentanément indisponible.")
+        return retour
 
-    r = requests.post("https://oauth2.googleapis.com/token", data={
-        "code": code,
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "redirect_uri": redirect_uri,
-        "grant_type": "authorization_code",
-    }, timeout=30)
-    if r.status_code >= 400:
-        return redirect("settings_page")
-    payload = r.json()
+    try:
+        r = requests.post("https://oauth2.googleapis.com/token", data={
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+        }, timeout=30)
+        if r.status_code >= 400:
+            raise requests.RequestException(f"HTTP {r.status_code}: {r.text[:200]}")
+        payload = r.json()
+    except (requests.RequestException, ValueError) as e:
+        logger.warning("gmail_callback: échange du code refusé (user %s): %s", request.user.id, e)
+        messages.error(request, "Google a refusé la connexion. Merci de réessayer.")
+        return retour
 
     refresh_token = (payload.get("refresh_token") or "").strip()
     access_token = (payload.get("access_token") or "").strip()
@@ -126,7 +138,11 @@ def gmail_callback(request):
         if existing:
             refresh_token = existing.refresh_token
         else:
-            return redirect("settings_page")
+            messages.error(
+                request,
+                "Google n'a pas fourni d'accès durable. Retire l'accès de l'application dans ton compte Google, puis reconnecte Gmail.",
+            )
+            return retour
 
     expires_at = None
     try:
@@ -144,7 +160,8 @@ def gmail_callback(request):
     tok.scope = scope
     tok.token_type = token_type
     tok.save()
-    return redirect("settings_page")
+    messages.success(request, "✅ Gmail connecté.")
+    return retour
 
 
 @login_required

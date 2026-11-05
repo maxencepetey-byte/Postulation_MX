@@ -1,0 +1,21 @@
+{% if entreprises.has_other_pages %}
+<div class="card-footer bg-white py-3 border-0">
+    <nav class="d-flex justify-content-center" aria-label="Pagination des entreprises">
+        <ul class="pagination pagination-sm mb-0">
+            {% if entreprises.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ entreprises.previous_page_number }}" data-page="{{ entreprises.previous_page_number }}">Précédent</a>
+                </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link">{{ entreprises.number }} / {{ entreprises.paginator.num_pages }}</span>
+            </li>
+            {% if entreprises.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ entreprises.next_page_number }}" data-page="{{ entreprises.next_page_number }}">Suivant</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}

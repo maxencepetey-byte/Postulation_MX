@@ -1,11 +1,9 @@
 """Téléchargements : LM unitaire, pack ZIP par secteur, pack global, media protégés."""
 
 import logging
-import mimetypes
 import os
 from urllib.parse import urlencode
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
@@ -46,11 +44,13 @@ def generer_pack_secteur_numero(request, pack_num: int):
             est_dans_paquet=False,
             secteur_activite=secteur,
             numero_pack=pack_num,
+            entreprise__email_valide=True,
         )
-        .select_related('entreprise')
+        .select_related('entreprise', 'utilisateur')
         .order_by("id")[:500]
     )
     if not entreprises:
+        messages.info(request, "Aucune entreprise à traiter dans ce pack.")
         return redirect(f"/?{urlencode({'secteur': secteur})}")
 
     profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=request.user)
@@ -83,7 +83,7 @@ def telecharger_lm(request, ent_id):
     except Exception:
         logger.exception("telecharger_lm failed user=%s ent_id=%s", request.user.id, ent_id)
         return HttpResponse(
-            "Erreur lors de la génération du PDF. Regarde les logs Render pour le détail.",
+            "Erreur lors de la génération du PDF. Merci de réessayer ; si le problème persiste, contacte le support.",
             status=500,
             content_type="text/plain; charset=utf-8",
         )
@@ -94,16 +94,20 @@ def telecharger_lm(request, ent_id):
 
 @login_required
 def serve_protected_media(request, path):
-    """Sert un fichier sous MEDIA_ROOT pour un utilisateur connecté (utilisé quand le storage n'est pas public)."""
-    media_root = settings.MEDIA_ROOT
-    full_path = os.path.normpath(os.path.join(media_root, path))
-
-    # Empêche la traversée de répertoire (ex: path="../../settings.py")
-    if not full_path.startswith(os.path.normpath(media_root) + os.sep):
+    """
+    Sert un fichier de MEDIA_ROOT uniquement à son propriétaire.
+    Le type MIME est imposé (jamais déduit du nom choisi à l'upload) pour empêcher
+    qu'un fichier piégé soit interprété comme du HTML.
+    """
+    doc = DocumentUtilisateur.objects.filter(fichier=path, utilisateur=request.user).first()
+    if doc is None:
         raise Http404
-
-    if not os.path.isfile(full_path):
+    ext = os.path.splitext(path)[1].lower()
+    try:
+        fh = doc.fichier.open("rb")
+    except (OSError, ValueError):
         raise Http404
-
-    content_type, _ = mimetypes.guess_type(full_path)
-    return FileResponse(open(full_path, "rb"), content_type=content_type or "application/octet-stream")
+    nom = f"{doc.nom_affichage or 'document'}{ext}"
+    if ext == ".pdf":
+        return FileResponse(fh, content_type="application/pdf", filename=nom)
+    return FileResponse(fh, content_type="application/octet-stream", as_attachment=True, filename=nom)

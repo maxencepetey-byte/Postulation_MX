@@ -2,6 +2,8 @@
 
 import base64
 import hashlib
+import os
+import uuid
 
 from django.conf import settings
 from django.db import models
@@ -40,7 +42,15 @@ def _decrypt_token(value: str) -> str:
 MIME_TYPES_AUTORISES = ['application/pdf']
 
 
+def chemin_document(instance, filename):
+    """Nom aléatoire : un chemin de fichier ne doit pas pouvoir être deviné par un autre utilisateur."""
+    ext = os.path.splitext(filename)[1].lower() or ".pdf"
+    return f"cv_storage/{instance.utilisateur_id}/{uuid.uuid4().hex}{ext}"
+
+
 def validate_file(value):
+    if os.path.splitext(value.name or "")[1].lower() != ".pdf":
+        raise ValidationError("Seuls les fichiers PDF sont acceptés.")
     if value.size > 2 * 1024 * 1024:
         raise ValidationError("Le fichier est trop lourd (max 2 Mo).")
     value.seek(0)
@@ -65,7 +75,7 @@ class ProfilUtilisateur(models.Model):
     onboarding_secteurs = models.CharField(max_length=255, blank=True, default="")
 
     def __str__(self):
-        return f"Profil de {self.user.username}"
+        return f"Profil de {self.utilisateur.username}"
 
 
 class DocumentUtilisateur(models.Model):
@@ -82,7 +92,7 @@ class DocumentUtilisateur(models.Model):
     nom_affichage = models.CharField(max_length=100, default="Mon CV")
     type_doc = models.CharField(max_length=10, choices=TYPES_DOC, default='CV')
     date_upload = models.DateTimeField(auto_now_add=True)
-    fichier = models.FileField(upload_to='cv_storage/', validators=[validate_file])
+    fichier = models.FileField(upload_to=chemin_document, validators=[validate_file])
     used_for_gmail = models.BooleanField(default=False)
 
     def __str__(self):
@@ -161,6 +171,8 @@ class EntrepriseReferentiel(models.Model):
     email = models.EmailField(unique=True)
     code_noga = models.CharField(max_length=20, blank=True, default="")
     adresse = models.TextField(blank=True, default="")
+    npa = models.CharField(max_length=10, blank=True, default="")
+    localite = models.CharField(max_length=100, blank=True, default="")
     date_update = models.DateTimeField(auto_now=True)
     email_valide = models.BooleanField(default=True)
 

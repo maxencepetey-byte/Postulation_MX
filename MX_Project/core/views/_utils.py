@@ -55,13 +55,23 @@ def _lm_pdf_name(raison_sociale: str) -> str:
     return f"Lettre de Motivation {nom}.pdf"
 
 
+_PLACEHOLDER_RE = re.compile(r"(?<!\{)\{\s*(\w+)\s*\}(?!\})")
+
+
 def _safe_format(text: str, ctx: dict) -> str:
+    """
+    Remplace les variables {entreprise}, {prenom}… connues.
+    Contrairement à str.format, une accolade isolée ou une variable inconnue
+    ne bloque pas le remplacement des autres variables.
+    """
     if not text:
         return ""
-    try:
-        return text.format_map(ctx)
-    except Exception:
-        return text
+
+    def _sub(m):
+        key = m.group(1).lower()
+        return str(ctx[key]) if key in ctx else m.group(0)
+
+    return _PLACEHOLDER_RE.sub(_sub, text)
 
 
 def _read_filefield_bytes(ff) -> bytes:

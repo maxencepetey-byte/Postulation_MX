@@ -108,7 +108,13 @@
                         <form action="{% url 'upload_cv' %}" method="POST" enctype="multipart/form-data">
                             {% csrf_token %}
                             <input type="text" name="nom_doc" class="form-control form-control-sm mb-2"
-                                   placeholder="Nom du document" required>
+                                   placeholder="Nom du document (ex. CV, Certificat Migros)" required maxlength="100">
+                            <select name="type_doc" class="form-select form-select-sm mb-2" aria-label="Type de document">
+                                <option value="CV" selected>CV</option>
+                                <option value="CERTIFICAT">Certificat de travail</option>
+                                <option value="DIPLOME">Diplôme</option>
+                                <option value="AUTRE">Autre pièce jointe</option>
+                            </select>
                             <input type="file" name="cv_file" class="form-control form-control-sm mb-3"
                                    accept=".pdf" required>
                             <button type="submit" class="btn btn-dark btn-sm w-100 btn-mx">
@@ -135,7 +141,6 @@
                                 </button>
                             </form>
                         {% else %}
-                            {# Ne devrait jamais apparaître car setup_complete exige Gmail #}
                             <a href="{% url 'gmail_connect' %}" class="btn btn-gmail w-100 py-2 btn-mx">
                                 <i class="bi bi-google me-2"></i> Connecter Gmail
                             </a>
@@ -233,32 +238,9 @@
                         </table>
                     </div>
 
-                    {# Pagination #}
-                    {% if entreprises.has_other_pages %}
-                    <div class="card-footer bg-white py-3 border-0">
-                        <nav class="d-flex justify-content-center">
-                            <ul class="pagination pagination-sm mb-0">
-                                {% if entreprises.has_previous %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ entreprises.previous_page_number }}">
-                                            Précédent
-                                        </a>
-                                    </li>
-                                {% endif %}
-                                <li class="page-item active">
-                                    <span class="page-link">{{ entreprises.number }} / {{ entreprises.paginator.num_pages }}</span>
-                                </li>
-                                {% if entreprises.has_next %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ entreprises.next_page_number }}">
-                                            Suivant
-                                        </a>
-                                    </li>
-                                {% endif %}
-                            </ul>
-                        </nav>
+                    <div id="paginationBar">
+                        {% include "partials/pagination.html" with entreprises=entreprises %}
                     </div>
-                    {% endif %}
 
                     <div class="card-footer bg-white py-2 border-0 text-center">
                         <span class="text-muted" style="font-size:0.65rem;">Données SITG — Système d'Information du Territoire à Genève, mise à jour quotidienne</span>
@@ -381,12 +363,25 @@
             });
         });
 
-        function fetchSecteur(secteur) {
-            const url = secteur ? `${filterUrl}?secteur=${encodeURIComponent(secteur)}` : filterUrl;
+        document.getElementById('paginationBar')?.addEventListener('click', e => {
+            const link = e.target.closest('a[data-page]');
+            if (!link) return;
+            e.preventDefault();
+            fetchSecteur(currentSecteur, link.dataset.page);
+            document.getElementById('entreprisesTbody')?.closest('.card')?.scrollIntoView({ behavior: 'smooth' });
+        });
+
+        function fetchSecteur(secteur, page) {
+            const params = new URLSearchParams();
+            if (secteur) params.set('secteur', secteur);
+            if (page) params.set('page', page);
+            const url = params.toString() ? `${filterUrl}?${params}` : filterUrl;
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(r => r.json())
                 .then(data => {
                     document.getElementById('entreprisesTbody').innerHTML = data.tbody || '';
+                    const pager = document.getElementById('paginationBar');
+                    if (pager) pager.innerHTML = data.pagination || '';
 
                     const packsSection = document.getElementById('packsSection');
                     const packsGrid   = document.getElementById('packsGrid');
@@ -436,7 +431,7 @@
         const packBtn = document.querySelector('.secteur-filter-btn:not([disabled])[data-secteur]:not([data-secteur=""])');
         (targetBtn || packBtn)?.click();
         {% else %}
-        const fallbackBtn = document.querySelector('.secteur-filter-btn[data-secteur="{{ secteurs_uniques.0 }}"]');
+        const fallbackBtn = document.querySelector('.secteur-filter-btn[data-secteur="{{ secteurs_uniques.0|escapejs }}"]');
         (targetBtn || fallbackBtn)?.click();
         {% endif %}
         {% endif %}

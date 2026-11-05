@@ -1,148 +1,204 @@
-"""Génération PDF des lettres de motivation + assemblage en archives ZIP."""
+"""
+Génération PDF des lettres de motivation + assemblage en archives ZIP.
+
+Mise en page selon l'usage suisse (norme SN 010130) :
+expéditeur en haut à gauche, adresse du destinataire à droite (fenêtre d'enveloppe C5/C6),
+« Lieu, le jour mois année », objet en gras sans la mention « Objet : »,
+texte aligné à gauche, signature sous la formule de politesse, mention des annexes.
+"""
 
 import io
 import logging
 import zipfile
-from datetime import date
+from xml.sax.saxutils import escape
 
 from django.utils.timezone import now
+from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.units import cm
-from reportlab.pdfgen import canvas
-from reportlab.platypus import Frame, Paragraph, Spacer
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer
 
-from ..models import Candidature, LettreSecteurTemplate
-from ._utils import _lm_pdf_name, _safe_format, get_accroche
+from ..models import Candidature, DocumentUtilisateur, LettreSecteurTemplate
+from ._lettre import (
+    contenu_lettre,
+    contexte,
+    documents_a_joindre,
+    libelles_annexes,
+    ligne_lieu_date,
+    nom_complet,
+    recopie_du_mail,
+)
+from ._utils import _lm_pdf_name
 
 logger = logging.getLogger(__name__)
 
+PAGE_W, PAGE_H = A4
+MARGE_G = 25 * mm
+MARGE_D = 20 * mm
+MARGE_HAUT = 20 * mm
+MARGE_BAS = 20 * mm
+# Champ d'adresse « fenêtre à droite » : 118 mm du bord gauche, 50 mm du haut, ~80 mm de large.
+ADRESSE_X = 118 * mm
+ADRESSE_Y = 50 * mm
+ADRESSE_W = PAGE_W - ADRESSE_X - MARGE_D
+ADRESSE_H = 27 * mm
+# Le texte commence sous le bloc adresse + date.
+DEBUT_TEXTE = 92 * mm
+# Padding interne par défaut des Frame reportlab, compensé pour aligner texte et en-tête.
+_PAD = 6
 
-def generer_pdf_lm(profil, ent: Candidature):
+_BASE = ParagraphStyle("base", fontName="Helvetica", fontSize=11, leading=15, alignment=TA_LEFT)
+ST_EXPEDITEUR = ParagraphStyle("exp", parent=_BASE, fontSize=10, leading=13)
+ST_DESTINATAIRE = ParagraphStyle("dest", parent=_BASE, fontSize=11, leading=14)
+ST_DESTINATAIRE_SERRE = ParagraphStyle("dest_serre", parent=ST_DESTINATAIRE, fontSize=9, leading=11)
+ST_DATE = ParagraphStyle("date", parent=_BASE, leftIndent=ADRESSE_X - MARGE_G)
+ST_OBJET = ParagraphStyle("objet", parent=_BASE, fontName="Helvetica-Bold", spaceAfter=18)
+ST_CORPS = ParagraphStyle("corps", parent=_BASE, spaceAfter=10)
+ST_SIGNATURE = ParagraphStyle("sig", parent=_BASE, leftIndent=ADRESSE_X - MARGE_G)
+ST_ANNEXES = ParagraphStyle("annexes", parent=_BASE, fontSize=10, leading=13)
+
+
+def _p(texte: str, style) -> Paragraph:
+    """Paragraphe reportlab à partir de texte brut : échappe & < > et garde les retours à la ligne."""
+    return Paragraph(escape(texte or "").replace("\n", "<br/>"), style)
+
+
+def _lignes(*lignes: str) -> str:
+    return "\n".join(l.strip() for l in lignes if l and l.strip())
+
+
+def _annexes_utilisateur(user) -> list[str]:
+    docs = DocumentUtilisateur.objects.filter(utilisateur=user).order_by("-date_upload")
+    return libelles_annexes(documents_a_joindre(docs))
+
+
+def generer_pdf_lm(profil, ent: Candidature, annexes: list[str] | None = None, templates: dict | None = None) -> bytes:
     """
     Génère le PDF de lettre de motivation pour une Candidature.
-    Les données entreprise sont lues via ent.entreprise (FK → EntrepriseReferentiel).
+    `annexes` et `templates` peuvent être pré-calculés par l'appelant pour éviter
+    des requêtes répétées lors d'une génération en lot.
     """
-    buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    styles = getSampleStyleSheet()
-
-    style_corps = styles["Normal"]
-    style_corps.fontName = "Helvetica"
-    style_corps.fontSize = 11
-    style_corps.leading = 15
-
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(2 * cm, height - 2 * cm, f"{profil.prenom_lm or ''} {profil.nom_lm or ''}")
-    p.setFont("Helvetica", 10)
-    p.drawString(2 * cm, height - 2.6 * cm, profil.rue or "")
-    p.drawString(2 * cm, height - 3.1 * cm, f"{profil.npa or ''} {profil.ville or ''}")
-    p.drawString(2 * cm, height - 3.6 * cm, profil.email_lm or "")
-
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(12 * cm, height - 5 * cm, ent.entreprise.raison_sociale)
-    p.setFont("Helvetica", 10)
-    p.drawString(12 * cm, height - 5.5 * cm, (ent.entreprise.adresse or '')[:40])
-    p.drawRightString(
-        width - 2 * cm, height - 8.5 * cm,
-        f"Fait à {profil.ville or 'Genève'}, le {date.today().strftime('%d.%m.%Y')}"
-    )
-
-    accroche = get_accroche(ent.secteur_activite)
+    entreprise = ent.entreprise
     secteur_nom = (ent.secteur_activite or "").strip()
 
-    tpl = None
-    if secteur_nom:
+    if templates is not None:
+        tpl = templates.get(secteur_nom)
+    else:
         tpl = LettreSecteurTemplate.objects.filter(
             utilisateur=ent.utilisateur, secteur_nom=secteur_nom
-        ).first()
+        ).first() if secteur_nom else None
 
-    ctx = {
-        "accroche": accroche,
-        "entreprise": ent.entreprise.raison_sociale,
-        "secteur": secteur_nom,
-        "ville": profil.ville or "Genève",
-        "prenom": profil.prenom_lm or "",
-        "nom": profil.nom_lm or "",
-    }
+    if annexes is None:
+        annexes = _annexes_utilisateur(ent.utilisateur)
 
-    objet = _safe_format(tpl.objet, ctx).strip() if tpl else ""
-    if not objet:
-        objet = "Candidature spontanée"
+    if tpl is not None:
+        tpl_email = templates.get("Email") if templates is not None else LettreSecteurTemplate.objects.filter(
+            utilisateur=ent.utilisateur, secteur_nom="Email").first()
+        if recopie_du_mail([getattr(tpl, f"paragraph_{i}") for i in range(1, 5)], tpl_email):
+            # Jamais le texte du mail comme lettre : le texte générique est un moindre mal.
+            logger.warning("generer_pdf_lm: template '%s' identique au mail, lettre générique utilisée (user %s)",
+                           secteur_nom, ent.utilisateur_id)
+            tpl = None
 
-    elements = [
-        Paragraph(f"<b>Objet : {objet}</b>", styles["Normal"]),
-        Spacer(1, 25),
+    ctx = contexte(profil, ent)
+    contenu = contenu_lettre(tpl, ctx)
+
+    expediteur = _lignes(
+        profil.rue or "",
+        f"{profil.npa or ''} {profil.ville or ''}",
+        profil.telephone or "",
+        profil.email_lm or "",
+    )
+    destinataire = _lignes(
+        entreprise.raison_sociale,
+        entreprise.adresse or "",
+        f"{getattr(entreprise, 'npa', '') or ''} {getattr(entreprise, 'localite', '') or ''}",
+    )
+    signature = nom_complet(profil)
+
+    def _entete(canvas, doc):
+        canvas.saveState()
+        y_haut = PAGE_H - MARGE_HAUT
+        if signature:
+            nom = Paragraph(f"<b>{escape(signature)}</b>", ST_EXPEDITEUR)
+            _, h = nom.wrap(ADRESSE_X - MARGE_G - 5 * mm, 30 * mm)
+            nom.drawOn(canvas, MARGE_G, y_haut - h)
+            y_haut -= h
+        if expediteur:
+            exp = _p(expediteur, ST_EXPEDITEUR)
+            _, h = exp.wrap(ADRESSE_X - MARGE_G - 5 * mm, 30 * mm)
+            exp.drawOn(canvas, MARGE_G, y_haut - h)
+
+        dest = _p(destinataire, ST_DESTINATAIRE)
+        _, h = dest.wrap(ADRESSE_W, ADRESSE_H)
+        if h > ADRESSE_H:
+            # Raison sociale très longue : on réduit le corps plutôt que de chevaucher la date.
+            dest = _p(destinataire, ST_DESTINATAIRE_SERRE)
+            _, h = dest.wrap(ADRESSE_W, ADRESSE_H)
+        dest.drawOn(canvas, ADRESSE_X, PAGE_H - ADRESSE_Y - h)
+        canvas.restoreState()
+
+    def _pied(canvas, doc):
+        canvas.saveState()
+        canvas.setFont("Helvetica", 8)
+        canvas.drawRightString(PAGE_W - MARGE_D, 10 * mm, f"{signature} – page {doc.page}")
+        canvas.restoreState()
+
+    story = [
+        Spacer(1, DEBUT_TEXTE - MARGE_HAUT - 12 * mm),
+        _p(ligne_lieu_date(profil), ST_DATE),
+        Spacer(1, 12 * mm),
+        _p(contenu.objet, ST_OBJET),
+        _p(contenu.salutation, ST_CORPS),
     ]
+    story += [_p(par, ST_CORPS) for par in contenu.paragraphes]
 
-    if tpl and (tpl.salutation or tpl.paragraph_1 or tpl.paragraph_2 or tpl.paragraph_3 or tpl.paragraph_4 or tpl.conclusion):
-        elements.append(Paragraph(_safe_format(tpl.salutation or "Madame, Monsieur,", ctx), style_corps))
-        elements.append(Spacer(1, 15))
-        for txt in [tpl.paragraph_1, tpl.paragraph_2, tpl.paragraph_3, tpl.paragraph_4]:
-            txt = _safe_format(txt, ctx).strip()
-            if not txt:
-                continue
-            elements.append(Paragraph(txt, style_corps))
-            elements.append(Spacer(1, 12))
-        elements.append(Spacer(1, 10))
-        salutation = _safe_format(
-            tpl.conclusion or "Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.",
-            ctx,
-        ).strip()
-        if salutation:
-            elements.append(Paragraph(salutation, style_corps))
-    else:
-        elements.extend([
-            Paragraph("Madame, Monsieur,", style_corps),
-            Spacer(1, 15),
-            Paragraph(
-                f"C'est avec un vif intérêt que je me permets de vous adresser ma candidature. "
-                f"En effet, je suis particulièrement attiré par {accroche}.",
-                style_corps,
-            ),
-            Spacer(1, 12),
-            Paragraph(
-                "Souhaitant intégrer une structure dynamique telle que la vôtre, je suis convaincu "
-                "que mon expérience et ma motivation sauront répondre à vos exigences.",
-                style_corps,
-            ),
-            Spacer(1, 12),
-            Paragraph(
-                "Vous trouverez ci-joint mon dossier complet. Je reste à votre entière disposition "
-                "pour un entretien afin de vous exposer plus en détail mes motivations.",
-                style_corps,
-            ),
-            Spacer(1, 25),
-            Paragraph(
-                "Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.",
-                style_corps,
-            ),
-        ])
-
-    Frame(2 * cm, 4 * cm, 17 * cm, height - 11.5 * cm, showBoundary=0).addFromList(elements, p)
-
-    signature = f"{profil.prenom_lm or ''} {profil.nom_lm or ''}".strip()
+    fin = [Spacer(1, 4), _p(contenu.politesse, ST_CORPS)]
     if signature:
-        p.setFont("Helvetica-Bold", 11)
-        p.drawRightString(width - 2 * cm, 6 * cm, signature)
-    p.save()
-    buffer.seek(0)
+        # Espace réservé à la signature manuscrite.
+        fin += [Spacer(1, 14 * mm), _p(signature, ST_SIGNATURE)]
+    if annexes:
+        fin += [Spacer(1, 10 * mm), _p("Annexes\n" + "\n".join(annexes), ST_ANNEXES)]
+    story.append(KeepTogether(fin))
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=MARGE_G - _PAD, rightMargin=MARGE_D - _PAD,
+        topMargin=MARGE_HAUT - _PAD, bottomMargin=MARGE_BAS - _PAD,
+        title=f"Lettre de motivation – {entreprise.raison_sociale}",
+        author=signature,
+    )
+    doc.build(story, onFirstPage=_entete, onLaterPages=_pied)
 
     logger.info(
         "generer_pdf_lm: ent_id=%s secteur=%s tpl=%s",
         ent.pk, secteur_nom, tpl.secteur_nom if tpl else "FALLBACK_GÉNÉRIQUE",
     )
-    return buffer.read()
+    return buffer.getvalue()
 
 
 def _generer_zip(profil, entreprises, marquer_traitees=False):
     """Assemble les LM PDF de plusieurs candidatures dans une archive ZIP en mémoire."""
+    entreprises = list(entreprises)
+    if not entreprises:
+        return b""
+    user = entreprises[0].utilisateur
+    annexes = _annexes_utilisateur(user)
+    templates = {t.secteur_nom: t for t in LettreSecteurTemplate.objects.filter(utilisateur=user)}
+
     zip_buffer = io.BytesIO()
     to_update = []
-    with zipfile.ZipFile(zip_buffer, 'w') as zf:
+    noms_utilises: set[str] = set()
+    with zipfile.ZipFile(zip_buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
         for ent in entreprises:
-            zf.writestr(_lm_pdf_name(ent.entreprise.raison_sociale), generer_pdf_lm(profil, ent))
+            nom = _lm_pdf_name(ent.entreprise.raison_sociale)
+            # Deux entreprises homonymes écraseraient leur lettre dans l'archive.
+            if nom in noms_utilises:
+                nom = nom[:-4] + f" ({ent.pk}).pdf"
+            noms_utilises.add(nom)
+            zf.writestr(nom, generer_pdf_lm(profil, ent, annexes=annexes, templates=templates))
             if marquer_traitees:
                 ent.est_dans_paquet = True
                 ent.date_traitement = now()

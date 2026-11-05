@@ -1,3 +1,5 @@
+"""Commande : python manage.py sync_registre — synchronise EntrepriseReferentiel depuis le registre GE."""
+
 import logging
 import random
 import re
@@ -161,7 +163,9 @@ def _fetch_sector(
                 "email": mail,
                 "noga_code": noga_code,
                 "id_sitg": attr.get("objectid"),
-                "adresse": f"{attr.get('phys_rue', '')} {attr.get('phys_numrue', '')}".strip(),
+                "adresse": f"{attr.get('phys_rue') or ''} {attr.get('phys_numrue') or ''}".strip(),
+                "npa": str(attr.get("phys_npa") or "").strip()[:10],
+                "localite": str(attr.get("phys_localite") or "").strip()[:100],
             })
 
         # Détection fin de pagination
@@ -374,15 +378,19 @@ class Command(BaseCommand):
                     email=e["email"],
                     code_noga=e["noga_code"],
                     adresse=e["adresse"],
+                    npa=e.get("npa", ""),
+                    localite=e.get("localite", ""),
                 )
                 for e in buffer_new
             ]
             EntrepriseReferentiel.objects.bulk_create(to_create, ignore_conflicts=True, batch_size=500)
 
-            for e in buffer_update[:1000]:
+            for e in buffer_update:
                 EntrepriseReferentiel.objects.filter(email=e["email"]).update(
                     raison_sociale=e["nom"],
                     adresse=e["adresse"],
+                    npa=e.get("npa", ""),
+                    localite=e.get("localite", ""),
                 )
 
         msg = f"Terminé: +{len(buffer_new)} nouveaux, {len(buffer_update)} maj."

@@ -1,5 +1,6 @@
 """Scan du registre des entreprises : exécution, historique groupé, détail par session."""
 
+import hmac
 import logging
 import re
 from urllib.parse import urlencode
@@ -14,7 +15,7 @@ from django.db.models import Count, Min
 from django.db.models.functions import TruncDate
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from ..constants import NOGA_MAP
 from ..models import Candidature, EntrepriseReferentiel, ProfilUtilisateur
@@ -98,14 +99,15 @@ def _run_scan_for_user(user, secteurs):
 
 
 @login_required
+@require_POST
 def lancer_scan(request):
     """Lance un scan manuel du registre pour les secteurs cochés (+ code NOGA libre), en tâche de fond."""
-    secteurs = request.GET.getlist('secteurs')
-    secteur_libre = request.GET.get('secteur_libre', '').strip()
+    secteurs = request.POST.getlist('secteurs')
+    secteur_libre = request.POST.get('secteur_libre', '').strip()
     if secteur_libre:
         secteurs.append(secteur_libre)
 
-    secteurs = [s for s in secteurs if re.match(r'^\d{2}$', s)]
+    secteurs = [s for s in secteurs if s in NOGA_MAP]
     if not secteurs:
         return redirect('dashboard')
 
@@ -127,7 +129,7 @@ def cron_sync_registre(request):
     auth_header = request.META.get("HTTP_AUTHORIZATION", "")
     token = auth_header.removeprefix("Bearer ").strip()
     expected = (getattr(settings, "CRON_SYNC_TOKEN", "") or "").strip()
-    if not expected or token != expected:
+    if not expected or not hmac.compare_digest(token.encode(), expected.encode()):
         return HttpResponseForbidden("Forbidden")
 
     secteurs = request.GET.getlist("secteurs")

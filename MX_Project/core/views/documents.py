@@ -7,7 +7,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from urllib.parse import urlencode
 from django.views.decorators.http import require_POST
@@ -47,10 +46,14 @@ def _delete_all_user_documents(user) -> int:
 def upload_cv(request):
     """Upload d'un document utilisateur (CV ou autre pièce jointe)."""
     if request.method == 'POST' and request.FILES.get('cv_file'):
+        type_doc = request.POST.get('type_doc', 'CV')
+        # PACK_LM et GUIDE sont générés par l'application, pas uploadés.
+        if type_doc not in ("CV", "CERTIFICAT", "DIPLOME", "AUTRE"):
+            type_doc = "AUTRE"
         doc = DocumentUtilisateur(
             utilisateur=request.user,
-            nom_affichage=request.POST.get('nom_doc', 'Document'),
-            type_doc=request.POST.get('type_doc', 'CV'),
+            nom_affichage=re.sub(r'[\x00-\x1f\x7f]', ' ', request.POST.get('nom_doc') or '').strip()[:100] or 'Document',
+            type_doc=type_doc,
             fichier=request.FILES['cv_file'],
         )
         try:
@@ -90,11 +93,16 @@ def delete_pack(request, doc_id: int):
     pack_num = int(m.group(1)) if m else None
 
     with transaction.atomic():
-        qs = Candidature.objects.filter(utilisateur=request.user, secteur_activite=secteur)
+        nb = 0
         if pack_num:
-            qs = qs.filter(numero_pack=pack_num)
-        nb = qs.count()
-        qs.update(est_dans_paquet=False, date_traitement=None)
+            # Les candidatures déjà parties en brouillon Gmail restent traitées : sinon elles
+            # repartiraient en double au prochain lot.
+            nb = (
+                Candidature.objects
+                .filter(utilisateur=request.user, secteur_activite=secteur, numero_pack=pack_num,
+                        brouillon_gmail_cree=False)
+                .update(est_dans_paquet=False, date_traitement=None)
+            )
 
         try:
             if getattr(doc, "fichier", None):
@@ -110,8 +118,16 @@ def delete_pack(request, doc_id: int):
 @login_required
 @require_POST
 def supprimer_tout(request):
-    """Vide entièrement la liste de candidatures de l'utilisateur (garde les documents)."""
-    Candidature.objects.filter(utilisateur=request.user).delete()
+    """Vide la liste de candidatures ; les packs ZIP, devenus orphelins, partent avec."""
+    with transaction.atomic():
+        Candidature.objects.filter(utilisateur=request.user).delete()
+        for doc in DocumentUtilisateur.objects.filter(utilisateur=request.user, type_doc="PACK_LM"):
+            try:
+                doc.fichier.delete(save=False)
+            except Exception:
+                pass
+            doc.delete()
+    messages.success(request, "Liste des candidatures vidée.")
     return redirect('dashboard')
 
 
@@ -131,12 +147,8 @@ def vider_liste_et_documents(request):
         with transaction.atomic():
             Candidature.objects.filter(utilisateur=request.user).delete()
             _delete_all_user_documents(request.user)
-        messages.success(request, "Liste et documents (CV + packs ZIP) vidés. L'historique a été conservé.")
-        return redirect("dashboard")
-    except Exception as e:
+        messages.success(request, "Liste et documents (CV + packs ZIP) vidés.")
+    except Exception:
         logger.exception("vider_liste_et_documents failed user=%s", request.user.id)
-        return HttpResponse(
-            f"Erreur suppression: {type(e).__name__}: {str(e)[:500]}",
-            status=500,
-            content_type="text/plain; charset=utf-8",
-        )
+        messages.error(request, "La suppression a échoué. Merci de réessayer.")
+    return redirect("dashboard")

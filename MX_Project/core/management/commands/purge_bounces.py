@@ -15,6 +15,7 @@ Options :
 import csv
 import os
 
+from django.db import transaction
 from django.core.management.base import BaseCommand
 
 from core.models import Candidature, EntrepriseReferentiel
@@ -92,7 +93,10 @@ class Command(BaseCommand):
             count = qs.count()
             self.stdout.write(f"  EntrepriseReferentiel : {count} ligne(s) à supprimer")
             if not dry_run and count:
-                deleted, _ = qs.delete()
+                # Candidature.entreprise est en PROTECT : les candidatures liées partent d'abord.
+                with transaction.atomic():
+                    Candidature.objects.filter(entreprise__in=qs).delete()
+                    deleted, _ = qs.delete()
                 self.stdout.write(self.style.SUCCESS(f"  → {deleted} supprimée(s)"))
                 total_supprime += deleted
 
