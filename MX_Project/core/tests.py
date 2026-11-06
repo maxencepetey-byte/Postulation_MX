@@ -622,7 +622,15 @@ class MediaProtegeeTests(BaseAuthTestCase):
             resp = self.client.get(f"/media/{doc.fichier.name}")
             self.assertEqual(resp.status_code, 200)
             self.assertEqual(resp["Content-Type"], "application/pdf")
-            resp.close()
+            # Fermer le FileResponse (sinon Windows refuse de supprimer le fichier) sans
+            # déclencher close_old_connections, qui fermerait la connexion du TestCase.
+            from django.core.signals import request_finished
+            from django.db import close_old_connections
+            request_finished.disconnect(close_old_connections)
+            try:
+                resp.close()
+            finally:
+                request_finished.connect(close_old_connections)
         finally:
             doc.fichier.delete(save=False)
 
