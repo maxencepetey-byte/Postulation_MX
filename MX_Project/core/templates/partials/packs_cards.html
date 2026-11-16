@@ -31,7 +31,8 @@
       <a href="{{ p.doc_url }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Télécharger le ZIP des {{ p.count }} LM">
         <i class="bi bi-download"></i>
       </a>
-      <form action="{% url 'creer_brouillons_gmail' %}" method="POST" class="m-0 flex-fill">
+      <form action="{% url 'creer_brouillons_gmail' %}" method="POST" class="m-0 flex-fill" data-once
+            data-confirm="Créer {{ p.remaining }} brouillon{{ p.remaining|pluralize }} Gmail pour le pack {{ p.pack_num }} ({{ p.secteur }}) ?">
         {% csrf_token %}
         <input type="hidden" name="secteur" value="{{ p.secteur }}">
         <input type="hidden" name="pack_num" value="{{ p.pack_num }}">
@@ -41,7 +42,7 @@
       </form>
     </div>
   {% else %}
-    <form action="{% url 'generer_pack_secteur_numero' p.pack_num %}" method="POST" class="m-0">
+    <form action="{% url 'generer_pack_secteur_numero' p.pack_num %}" method="POST" class="m-0" data-once>
       {% csrf_token %}
       <input type="hidden" name="secteur" value="{{ p.secteur }}">
       <button type="submit" class="btn btn-sm btn-outline-primary w-100 fw-semibold">

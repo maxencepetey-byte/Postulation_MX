@@ -199,7 +199,8 @@ class Candidature(models.Model):
         EntrepriseReferentiel, on_delete=models.PROTECT, related_name='candidatures'
     )
     date_scan = models.DateTimeField(auto_now_add=True)
-    secteurs = models.CharField(max_length=255, default="")   # secteurs du scan source
+    # TextField : 7 libellés NOGA joints dépassent déjà 255 caractères, ce que Postgres refuse.
+    secteurs = models.TextField(default="")   # secteurs du scan source
     statut = models.CharField(max_length=50, default="À traiter")
     est_dans_paquet = models.BooleanField(default=False)
     numero_pack = models.IntegerField(default=0)

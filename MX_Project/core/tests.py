@@ -30,6 +30,33 @@ class UtilsTests(SimpleTestCase):
             "le dynamisme et les projets de votre entreprise",
         )
 
+    def test_get_accroche_reconnait_les_libelles_noga(self):
+        self.assertIn("numérique", get_accroche("Informatique et programmation"))
+        self.assertIn("soins", get_accroche("Santé humaine"))
+        self.assertIn("institution financière", get_accroche("Services financiers (Banques)"))
+        self.assertIn("engagement", get_accroche("Action sociale sans hébergement"))
+
+    def test_get_accroche_commerce_de_detail_reste_generique(self):
+        self.assertEqual(
+            get_accroche("Commerce de détail (incl. Luxe)"),
+            get_accroche("Secteur inconnu"),
+        )
+
+    def test_get_accroche_sieges_sociaux_n_est_pas_du_social(self):
+        self.assertEqual(
+            get_accroche("Conseil de gestion (Sièges sociaux)"),
+            "le dynamisme et les projets de votre entreprise",
+        )
+
+    def test_decouper_secteurs_garde_les_libelles_a_virgule(self):
+        from core.views.scan import _decouper_secteurs
+        self.assertEqual(
+            _decouper_secteurs("Sport, loisirs et récréation, Restauration, Activités spécialisées (Design, Photo)"),
+            ["Sport, loisirs et récréation", "Restauration", "Activités spécialisées (Design, Photo)"],
+        )
+        self.assertEqual(_decouper_secteurs("Services financiers (Banques)"), ["Services financiers (Banques)"])
+        self.assertEqual(_decouper_secteurs(""), [])
+
 
 # ---------------------------------------------------------------------------
 # Base commune
@@ -691,3 +718,73 @@ class LettreRecopieeDuMailTests(BaseAuthTestCase):
         )
         self._make_candidature()
         self.assertIn(self.SECTEUR, _get_setup_status(self.user)["secteurs_manquants"])
+
+
+# ---------------------------------------------------------------------------
+# Correctifs de l'audit (lot 1)
+# ---------------------------------------------------------------------------
+
+class AuditLot1Tests(BaseAuthTestCase):
+    def test_detail_scan_apres_minuit_heure_suisse(self):
+        """Un scan de 01:30 à Genève tombe la veille en UTC : son détail doit quand même le lister."""
+        from datetime import datetime, timezone as dt_timezone
+        cand = self._make_candidature()
+        Candidature.objects.filter(pk=cand.pk).update(
+            date_scan=datetime(2026, 7, 1, 23, 30, tzinfo=dt_timezone.utc),
+        )
+        resp = self.client.get(reverse("detail_scan", args=[cand.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "TestCorp SA")
+
+    def test_historique_affiche_chaque_secteur_une_seule_fois(self):
+        cand = self._make_candidature()
+        Candidature.objects.filter(pk=cand.pk).update(secteurs="Services financiers (Banques), Restauration")
+        resp = self.client.get(reverse("historique_scans"))
+        self.assertContains(resp, "Services financiers (Banques)", count=1)
+        self.assertContains(resp, "Restauration", count=1)
+
+    def test_scan_avec_beaucoup_de_secteurs_ne_tronque_pas(self):
+        from core.constants import NOGA_MAP
+        from core.views.scan import _run_scan_for_user
+        codes = sorted(NOGA_MAP)[:30]
+        EntrepriseReferentiel.objects.create(raison_sociale="Agri SA", email="agri@example.com", code_noga="01")
+        _run_scan_for_user(self.user, codes)
+        cand = Candidature.objects.get(utilisateur=self.user, entreprise__email="agri@example.com")
+        self.assertGreater(len(cand.secteurs), 255)
+
+    def test_scan_ignore_les_codes_repetes(self):
+        from core.constants import NOGA_MAP
+        from core.views.scan import _run_scan_for_user
+        EntrepriseReferentiel.objects.create(raison_sociale="Agri SA", email="agri@example.com", code_noga="01")
+        _run_scan_for_user(self.user, ["01"] * 50)
+        cand = Candidature.objects.get(utilisateur=self.user, entreprise__email="agri@example.com")
+        self.assertEqual(cand.secteurs, NOGA_MAP["01"])
+
+    def test_decouper_secteurs_reste_rapide_sur_une_longue_chaine(self):
+        import time
+        from core.views.scan import _decouper_secteurs
+        debut = time.perf_counter()
+        libelles = _decouper_secteurs(", ".join(["Restauration"] * 3000))
+        self.assertEqual(len(libelles), 3000)
+        self.assertLess(time.perf_counter() - debut, 1)
+
+    def test_erreur_affichee_en_alert_danger(self):
+        from django.contrib import messages
+        from django.contrib.messages.storage.base import Message
+        self.assertEqual(Message(messages.ERROR, "x").level_tag, "danger error")
+
+    def test_signin_conserve_la_page_demandee(self):
+        self.client.logout()
+        resp = self.client.get(reverse("login"), {"next": "/historique/"})
+        self.assertContains(resp, "/signin/?next=/historique/")
+        resp = self.client.get(reverse("signin"), {"next": "/historique/"})
+        self.assertContains(resp, 'name="next" value="/historique/"')
+        resp = self.client.post(
+            reverse("signin"), {"username": "u", "password": "p", "next": "/historique/"},
+        )
+        self.assertRedirects(resp, "/historique/", fetch_redirect_response=False)
+
+    def test_page_accueil_commence_par_le_doctype(self):
+        self.client.logout()
+        resp = self.client.get(reverse("login"))
+        self.assertTrue(resp.content.lstrip().startswith(b"<!DOCTYPE html>"))

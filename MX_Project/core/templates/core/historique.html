@@ -43,10 +43,9 @@
                             <div class="text-muted" style="font-size:0.7rem;">{{ session.date_scan|date:"H:i" }}</div>
                         </td>
                         <td>
-                            {% for secteur in session.secteurs.split %}
+                            {% for secteur in session.secteurs_liste %}
                                 <span class="badge badge-secteur me-1">{{ secteur }}</span>
                             {% endfor %}
-                            <span class="text-muted small">{{ session.secteurs }}</span>
                         </td>
                         <td>
                             <span class="fw-bold text-success">{{ session.nb_entreprises }}</span>

@@ -1,5 +1,9 @@
+"""Settings Django : SECRET_KEY/DEBUG via env, DB via dj-database-url, sécurité prod."""
+
+import sys
 from pathlib import Path
 from decouple import config
+from django.contrib.messages import constants as message_constants
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -73,7 +77,10 @@ DATABASES = {
 # Render/Neon: préfère DATABASE_URL si défini
 database_url = (config("DATABASE_URL", default="") or "").strip()
 if database_url:
-    DATABASES["default"] = dj_database_url.parse(database_url, conn_max_age=600, ssl_require=True)
+    # conn_health_checks : Neon ferme les connexions inactives, sans ce test la requête suivante échoue.
+    DATABASES["default"] = dj_database_url.parse(
+        database_url, conn_max_age=600, conn_health_checks=True, ssl_require=True,
+    )
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -94,7 +101,24 @@ STATICFILES_DIRS = [
     BASE_DIR.parent / 'resources',
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# STATICFILES_STORAGE a été retiré de Django 5.1 : seul STORAGES est lu.
+# Pendant les tests, pas de manifest (collectstatic n'a pas tourné) : stockage simple.
+_TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage" if _TESTING
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
+    },
+}
+# Un fichier présent sur disque mais absent du manifest est servi sans hachage, au lieu d'une erreur 500.
+WHITENOISE_MANIFEST_STRICT = False
+
+# Bootstrap n'a pas de classe « alert-error » : les erreurs sortent en « alert-danger ».
+# « error » reste dans le tag : l'admin Django ne colore que « li.error ».
+MESSAGE_TAGS = {message_constants.ERROR: "danger error"}
 
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in (config("DJANGO_CSRF_TRUSTED_ORIGINS", default="") or "").split(",") if o.strip()]
 if _render_host:

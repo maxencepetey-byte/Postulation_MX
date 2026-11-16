@@ -32,19 +32,26 @@ def _run_in_background(target, *args, **kwargs):
     threading.Thread(target=_wrapper, daemon=True).start()
 
 
+# Recherche par mot-clé : secteur_activite contient le libellé NOGA complet
+# (« Informatique et programmation », « Santé humaine »), jamais le mot seul.
+_ACCROCHES = (
+    ("social",       "votre engagement quotidien dans l'accompagnement et l'impact social de vos projets"),
+    ("informatique", "votre expertise dans le développement et l'innovation numérique"),
+    ("banque",       "la rigueur et l'excellence de votre institution financière"),
+    ("architecture", "votre vision architecturale et la qualité de vos réalisations"),
+    ("santé",        "votre engagement dans les soins et le bien-être des patients"),
+    ("construction", "votre expertise technique et vos projets d'envergure"),
+)
+_ACCROCHE_PAR_DEFAUT = "le dynamisme et les projets de votre entreprise"
+
+
 def get_accroche(secteur_activite):
     """Phrase d'accroche pour la LM, choisie selon le secteur d'activité (fallback générique sinon)."""
-    mapping = {
-        'Informatique': "votre expertise dans le développement et l'innovation numérique",
-        'Banque':       "la rigueur et l'excellence de votre institution financière",
-        'Luxe':         "votre savoir-faire d'exception et votre rayonnement international",
-        'Architecture': "votre vision architecturale et la qualité de vos réalisations",
-        'Santé':        "votre engagement dans les soins et le bien-être des patients",
-        'Construction': "votre expertise technique et vos projets d'envergure",
-    }
-    if secteur_activite and 'Social' in secteur_activite:
-        return "votre engagement quotidien dans l'accompagnement et l'impact social de vos projets"
-    return mapping.get(secteur_activite, "le dynamisme et les projets de votre entreprise")
+    secteur = (secteur_activite or "").lower()
+    for mot_cle, accroche in _ACCROCHES:
+        if mot_cle in secteur:
+            return accroche
+    return _ACCROCHE_PAR_DEFAUT
 
 
 def _lm_pdf_name(raison_sociale: str) -> str:

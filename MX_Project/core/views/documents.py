@@ -85,25 +85,13 @@ def delete_document(request, doc_id: int):
 @login_required
 @require_POST
 def delete_pack(request, doc_id: int):
-    """Supprime un pack ZIP de LM et réinitialise les candidatures associées (redevient à traiter)."""
+    """Supprime un pack ZIP de LM. Les candidatures du pack ne changent pas d'état."""
     doc = get_object_or_404(DocumentUtilisateur, id=doc_id, utilisateur=request.user, type_doc="PACK_LM")
     secteur = doc.secteur_nom or ""
 
-    m = re.search(r'_PACK_(\d+)$', doc.nom_affichage)
-    pack_num = int(m.group(1)) if m else None
-
+    # Rien à réinitialiser côté candidatures : seule la création d'un brouillon Gmail les marque
+    # traitées, et celles-là doivent le rester (sinon elles repartiraient en double au prochain lot).
     with transaction.atomic():
-        nb = 0
-        if pack_num:
-            # Les candidatures déjà parties en brouillon Gmail restent traitées : sinon elles
-            # repartiraient en double au prochain lot.
-            nb = (
-                Candidature.objects
-                .filter(utilisateur=request.user, secteur_activite=secteur, numero_pack=pack_num,
-                        brouillon_gmail_cree=False)
-                .update(est_dans_paquet=False, date_traitement=None)
-            )
-
         try:
             if getattr(doc, "fichier", None):
                 doc.fichier.delete(save=False)
@@ -111,7 +99,7 @@ def delete_pack(request, doc_id: int):
             pass
         doc.delete()
 
-    messages.success(request, f"Pack supprimé — {nb} entreprise(s) réinitialisées.")
+    messages.success(request, "Pack supprimé.")
     return redirect(f"/?{urlencode({'secteur': secteur})}" if secteur else "dashboard")
 
 

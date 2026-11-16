@@ -22,5 +22,11 @@ services:
     envVars:
       - key: DJANGO_DEBUG
         value: "False"
-      # Assure-toi que DATABASE_URL, DJANGO_SECRET_KEY etc. sont définis
-      # dans les "Environment Variables" de ton service Render (partagées automatiquement)
+      # Render ne partage PAS les variables du service web avec le cron.
+      # La synchro ne signe rien : une clé propre au cron suffit, inutile de recopier celle du site.
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      # Sans elle, la commande écrit dans un SQLite vide et jetable.
+      # Valeur à saisir à la main dans l'onglet Environment du cron (même que le service web).
+      - key: DATABASE_URL
+        sync: false

@@ -15,6 +15,7 @@ from django.db.models import Count, Min
 from django.db.models.functions import TruncDate
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from ..constants import NOGA_MAP
@@ -38,12 +39,37 @@ class _VirtualSession:
         self.nb_entreprises = nb_entreprises
         self.nb_doublons_evites = 0  # non stocké après migration — affiché comme 0
 
+    @property
+    def secteurs_liste(self):
+        return _decouper_secteurs(self.secteurs)
+
+
+_LIBELLES_NOGA = frozenset(NOGA_MAP.values())
+# Borne la recherche : sans elle, une longue chaîne coûte un temps cubique à chaque affichage.
+_MORCEAUX_MAX = max(libelle.count(", ") for libelle in _LIBELLES_NOGA) + 1
+
+
+def _decouper_secteurs(chaine: str) -> list[str]:
+    """Redécoupe « A, B, C » en libellés ; certains libellés contiennent eux-mêmes une virgule."""
+    morceaux = [m for m in (chaine or "").split(", ") if m.strip()]
+    libelles, i = [], 0
+    while i < len(morceaux):
+        for j in range(min(len(morceaux), i + _MORCEAUX_MAX), i, -1):
+            candidat = ", ".join(morceaux[i:j])
+            if j == i + 1 or candidat in _LIBELLES_NOGA:
+                libelles.append(candidat.strip())
+                i = j
+                break
+    return libelles
+
 
 def _run_scan_for_user(user, secteurs):
     """
     Crée une Candidature par entreprise du référentiel pour chaque code NOGA demandé.
     Les doublons (même user + même entreprise) sont silencieusement ignorés via IntegrityError.
     """
+    # Un même code répété relancerait le scan du secteur et gonflerait la chaîne enregistrée.
+    secteurs = list(dict.fromkeys(secteurs))
     if not secteurs:
         return
 
@@ -218,7 +244,8 @@ def detail_scan(request, session_id):
     première Candidature créée lors de ce scan (même secteurs + même jour).
     """
     anchor = get_object_or_404(Candidature, id=session_id, utilisateur=request.user)
-    anchor_date = anchor.date_scan.date()
+    # TruncDate tronque en Europe/Zurich : .date() seul donnerait le jour UTC (faux entre 0 h et 2 h).
+    anchor_date = timezone.localtime(anchor.date_scan).date()
 
     qs = (
         Candidature.objects
