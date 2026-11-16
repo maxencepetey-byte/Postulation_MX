@@ -788,3 +788,317 @@ class AuditLot1Tests(BaseAuthTestCase):
         self.client.logout()
         resp = self.client.get(reverse("login"))
         self.assertTrue(resp.content.lstrip().startswith(b"<!DOCTYPE html>"))
+
+
+# ---------------------------------------------------------------------------
+# Lots de brouillons Gmail (audit, lot 2)
+# ---------------------------------------------------------------------------
+
+class LotBrouillonsTests(BaseAuthTestCase):
+    def setUp(self):
+        super().setUp()
+        from core.models import GmailOAuthToken, LettreSecteurTemplate
+        GmailOAuthToken.objects.create(utilisateur=self.user, refresh_token="rt", access_token="at")
+        profil, _ = ProfilUtilisateur.objects.get_or_create(utilisateur=self.user)
+        profil.prenom_lm, profil.nom_lm, profil.email_lm = "Camille", "Rochat", "camille@example.ch"
+        profil.onboarding_done, profil.onboarding_secteurs = True, "62"
+        profil.save()
+        for secteur in ("Email", "Informatique et programmation"):
+            LettreSecteurTemplate.objects.create(utilisateur=self.user, secteur_nom=secteur, paragraph_1=f"Texte {secteur}")
+        self.cv = DocumentUtilisateur(utilisateur=self.user, type_doc="CV", nom_affichage="CV")
+        self.cv.fichier.save("cv.pdf", ContentFile(b"%PDF-1.4"), save=True)
+        self.addCleanup(self.cv.fichier.delete, save=False)
+        self.cands = [
+            self._make_candidature(ref=self._make_ref(email=f"rh{i}@example.ch", nom=f"Societe {i}"))
+            for i in range(3)
+        ]
+        jeton = patch("core.views.gmail._gmail_get_access_token", return_value="jeton")
+        jeton.start()
+        self.addCleanup(jeton.stop)
+
+    def _lot(self, **champs):
+        from core.models import LotBrouillons
+        return LotBrouillons.objects.create(utilisateur=self.user, total=len(self.cands), **champs)
+
+    def _traitees(self):
+        return Candidature.objects.filter(utilisateur=self.user, brouillon_gmail_cree=True).count()
+
+    def test_lot_complet(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import _run_brouillons
+        lot = self._lot()
+        with patch("core.views.gmail._gmail_create_draft") as depot:
+            _run_brouillons(lot.pk)
+        lot.refresh_from_db()
+        self.assertEqual(depot.call_count, 3)
+        self.assertEqual((lot.statut, lot.crees, lot.ignores), (LotBrouillons.TERMINE, 3, 0))
+        self.assertIsNotNone(lot.date_fin)
+        self.assertEqual(self._traitees(), 3)
+
+    def test_arret_brutal_garde_les_brouillons_deja_deposes(self):
+        """Le serveur coupé en plein lot : ce qui est déposé reste marqué, le lot suivant ne le refait pas."""
+        from core.models import LotBrouillons
+        from core.views.gmail import _ouvrir_lot, _run_brouillons
+        lot = self._lot()
+        with patch("core.views.gmail._gmail_create_draft", side_effect=[None, None, KeyboardInterrupt]):
+            with self.assertRaises(KeyboardInterrupt):
+                _run_brouillons(lot.pk)
+        self.assertEqual(self._traitees(), 2)
+        lot.refresh_from_db()
+        self.assertEqual((lot.statut, lot.crees), (LotBrouillons.EN_COURS, 2))
+
+        # Le battement s'est arrêté : passé le délai, un nouveau lot reprend la main.
+        LotBrouillons.objects.filter(pk=lot.pk).update(date_maj=lot.date_maj - LotBrouillons.DELAI_ABANDON * 2)
+        suivant = _ouvrir_lot(self.user, "", None, 1)
+        self.assertIsNotNone(suivant)
+        lot.refresh_from_db()
+        self.assertEqual(lot.statut, LotBrouillons.INTERROMPU)
+        with patch("core.views.gmail._gmail_create_draft") as depot:
+            _run_brouillons(suivant.pk)
+        self.assertEqual(depot.call_count, 1)
+        self.assertEqual(self._traitees(), 3)
+
+    def test_un_seul_lot_en_cours_par_utilisateur(self):
+        from core.views.gmail import _ouvrir_lot
+        self._lot()
+        self.assertIsNone(_ouvrir_lot(self.user, "", None, 3))
+        autre = User.objects.create_user(username="autre", password="p")
+        self.assertIsNotNone(_ouvrir_lot(autre, "", None, 3))
+
+    def test_lancement_refuse_pendant_un_lot(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import MSG_LOT_DEJA_EN_COURS
+        self._lot()
+        with patch("core.views.gmail._run_in_background") as fond:
+            resp = self.client.post(reverse("creer_brouillons_gmail"), follow=True)
+        fond.assert_not_called()
+        self.assertIn(MSG_LOT_DEJA_EN_COURS, [str(m) for m in resp.context["messages"]])
+        self.assertEqual(LotBrouillons.objects.filter(utilisateur=self.user).count(), 1)
+
+    def test_lancement_cree_le_lot_et_demarre_le_travail(self):
+        from core.models import LotBrouillons
+        with patch("core.views.gmail._run_in_background") as fond, \
+                patch("core.views.gmail.requests.get") as sonde:
+            sonde.return_value.status_code = 200
+            self.client.post(reverse("creer_brouillons_gmail"), {"secteur": "Informatique et programmation"})
+        lot = LotBrouillons.objects.get(utilisateur=self.user)
+        self.assertEqual((lot.statut, lot.total, lot.secteur), (LotBrouillons.EN_COURS, 3, "Informatique et programmation"))
+        self.assertEqual(fond.call_args.args[1], lot.pk)
+
+    def test_lot_repris_ailleurs_ne_depose_rien(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import _run_brouillons
+        lot = self._lot(statut=LotBrouillons.INTERROMPU)
+        with patch("core.views.gmail._gmail_create_draft") as depot:
+            _run_brouillons(lot.pk)
+        depot.assert_not_called()
+        self.assertEqual(self._traitees(), 0)
+        lot.refresh_from_db()
+        self.assertEqual(lot.statut, LotBrouillons.INTERROMPU)
+
+    def test_lot_repris_en_cours_de_route_s_arrete(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import _run_brouillons
+        lot = self._lot()
+
+        def reprendre_le_lot(*args):
+            LotBrouillons.objects.filter(pk=lot.pk).update(statut=LotBrouillons.INTERROMPU, message="repris")
+
+        with patch("core.views.gmail._gmail_create_draft", side_effect=reprendre_le_lot) as depot:
+            _run_brouillons(lot.pk)
+        self.assertEqual(depot.call_count, 1)
+        lot.refresh_from_db()
+        self.assertEqual((lot.statut, lot.message), (LotBrouillons.INTERROMPU, "repris"))
+
+    def test_refus_propres_a_une_entreprise_ne_bloquent_pas_le_lot(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import MAX_ECHECS_DE_SUITE, GmailApiError, _run_brouillons
+        for i in range(10, 10 + MAX_ECHECS_DE_SUITE):
+            self._make_candidature(ref=self._make_ref(email=f"rh{i}@example.ch", nom=f"Societe {i}"))
+        lot = self._lot()
+        effets = [GmailApiError(400, "adresse invalide")] * MAX_ECHECS_DE_SUITE + [None, None, None]
+        with patch("core.views.gmail._gmail_create_draft", side_effect=effets):
+            _run_brouillons(lot.pk)
+        lot.refresh_from_db()
+        self.assertEqual((lot.statut, lot.crees, lot.ignores), (LotBrouillons.TERMINE, 3, MAX_ECHECS_DE_SUITE))
+
+    def test_gmail_en_panne_arrete_le_lot(self):
+        import requests
+        from core.models import LotBrouillons
+        from core.views.gmail import MAX_ECHECS_DE_SUITE, MSG_GMAIL_INDISPONIBLE, _run_brouillons
+        for i in range(10, 10 + MAX_ECHECS_DE_SUITE):
+            self._make_candidature(ref=self._make_ref(email=f"rh{i}@example.ch", nom=f"Societe {i}"))
+        lot = self._lot()
+        # Erreur réseau : jamais retentée (le brouillon a pu être créé), mais comptée comme panne.
+        with patch("core.views.gmail._gmail_create_draft", side_effect=requests.ConnectionError("coupé")) as depot, \
+                patch("core.views.gmail.time.sleep") as attente:
+            _run_brouillons(lot.pk)
+        attente.assert_not_called()
+        self.assertEqual(depot.call_count, MAX_ECHECS_DE_SUITE)
+        lot.refresh_from_db()
+        self.assertEqual((lot.statut, lot.message), (LotBrouillons.INTERROMPU, MSG_GMAIL_INDISPONIBLE))
+
+    def test_jeton_expire_en_cours_de_lot_est_rafraichi(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import GmailApiError, _run_brouillons
+        lot = self._lot()
+        with patch("core.views.gmail._gmail_create_draft", side_effect=[GmailApiError(401, "expiré"), None, None, None]) as depot:
+            _run_brouillons(lot.pk)
+        lot.refresh_from_db()
+        self.assertEqual(depot.call_count, 4)
+        self.assertEqual((lot.statut, lot.crees, lot.ignores), (LotBrouillons.TERMINE, 3, 0))
+
+    def test_jeton_refuse_malgre_le_rafraichissement_arrete_le_lot(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import MSG_GMAIL_EXPIRE, GmailApiError, _run_brouillons
+        lot = self._lot()
+        with patch("core.views.gmail._gmail_create_draft", side_effect=GmailApiError(401, "révoqué")) as depot:
+            _run_brouillons(lot.pk)
+        lot.refresh_from_db()
+        self.assertEqual(depot.call_count, 2)
+        self.assertEqual((lot.statut, lot.crees, lot.ignores, lot.message), (LotBrouillons.INTERROMPU, 0, 0, MSG_GMAIL_EXPIRE))
+
+    def test_deconnexion_gmail_arrete_le_lot_en_cours(self):
+        from core.models import LotBrouillons
+        lot = self._lot()
+        with patch("core.views.auth.requests.post"):
+            self.client.post(reverse("gmail_disconnect"))
+        lot.refresh_from_db()
+        self.assertEqual(lot.statut, LotBrouillons.INTERROMPU)
+
+    def test_anciens_lots_purges_a_l_ouverture(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import _ouvrir_lot
+        ancien = self._lot(statut=LotBrouillons.TERMINE)
+        recent = self._lot(statut=LotBrouillons.TERMINE)
+        LotBrouillons.objects.filter(pk=ancien.pk).update(date_maj=ancien.date_maj - LotBrouillons.DUREE_AFFICHAGE * 2)
+        nouveau = _ouvrir_lot(self.user, "", None, 1)
+        self.assertEqual(
+            set(LotBrouillons.objects.values_list("pk", flat=True)), {recent.pk, nouveau.pk},
+        )
+
+    def test_numero_de_pack_exotique_ne_plante_pas(self):
+        from core.views.gmail import _entier
+        self.assertEqual((_entier("12"), _entier("²"), _entier(""), _entier(None), _entier("9" * 12)), (12, None, None, None, None))
+
+    def test_course_au_lancement_refusee_par_la_contrainte(self):
+        """Deux requêtes passent le pré-contrôle en même temps : la contrainte d'unicité départage."""
+        from core.models import LotBrouillons
+        from core.views.gmail import MSG_LOT_DEJA_EN_COURS
+        self._lot()
+        with patch("core.views.gmail._run_in_background") as fond, \
+                patch("core.views.gmail.requests.get") as sonde, \
+                patch("core.views.gmail.etat_du_lot", return_value=None):
+            sonde.return_value.status_code = 200
+            resp = self.client.post(reverse("creer_brouillons_gmail"), follow=True)
+        fond.assert_not_called()
+        self.assertEqual(LotBrouillons.objects.count(), 1)
+        self.assertIn(MSG_LOT_DEJA_EN_COURS, [str(m) for m in resp.context["messages"]])
+
+    def test_refus_temporaire_est_retente(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import GmailApiError, _run_brouillons
+        lot = self._lot()
+        effets = [GmailApiError(429, "trop de requêtes"), GmailApiError(503, "indisponible", retry_after=7), None, None, None]
+        with patch("core.views.gmail._gmail_create_draft", side_effect=effets), \
+                patch("core.views.gmail.time.sleep") as attente:
+            _run_brouillons(lot.pk)
+        lot.refresh_from_db()
+        self.assertEqual((lot.statut, lot.crees, lot.ignores), (LotBrouillons.TERMINE, 3, 0))
+        self.assertEqual([a.args[0] for a in attente.call_args_list], [2, 7])
+
+    def test_debit_depasse_arrete_le_lot(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import DELAIS_REPRISE, MSG_DEBIT, GmailApiError, _run_brouillons
+        lot = self._lot()
+        with patch("core.views.gmail._gmail_create_draft", side_effect=GmailApiError(429, "quota")) as depot, \
+                patch("core.views.gmail.time.sleep"):
+            _run_brouillons(lot.pk)
+        lot.refresh_from_db()
+        # Une seule candidature tentée : le reste du lot n'est pas usé en échecs.
+        self.assertEqual(depot.call_count, len(DELAIS_REPRISE) + 1)
+        self.assertEqual((lot.statut, lot.crees, lot.message), (LotBrouillons.INTERROMPU, 0, MSG_DEBIT))
+        self.assertEqual(self._traitees(), 0)
+
+    def test_refus_definitif_ignore_l_entreprise_sans_attendre(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import GmailApiError, _run_brouillons
+        lot = self._lot()
+        with patch("core.views.gmail._gmail_create_draft", side_effect=[GmailApiError(400, "adresse invalide"), None, None]), \
+                patch("core.views.gmail.time.sleep") as attente:
+            _run_brouillons(lot.pk)
+        lot.refresh_from_db()
+        attente.assert_not_called()
+        self.assertEqual((lot.statut, lot.crees, lot.ignores), (LotBrouillons.TERMINE, 2, 1))
+
+    def test_erreur_gmail_lue_depuis_la_reponse(self):
+        from core.views.gmail import GmailApiError, _gmail_create_draft
+        with patch("core.views.gmail.requests.post") as post:
+            post.return_value.status_code = 429
+            post.return_value.text = "{}"
+            post.return_value.headers = {"Retry-After": "7"}
+            with self.assertRaises(GmailApiError) as ctx:
+                _gmail_create_draft("jeton", b"x")
+        self.assertEqual((ctx.exception.status, ctx.exception.retry_after), (429, 7))
+        self.assertTrue(ctx.exception.temporaire)
+        self.assertTrue(GmailApiError(403, '{"reason": "userRateLimitExceeded"}').limite_de_debit)
+        self.assertFalse(GmailApiError(403, '{"reason": "insufficientPermissions"}').temporaire)
+        self.assertFalse(GmailApiError(400, "").temporaire)
+
+    def test_cv_absent_du_serveur_bloque_le_lancement(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import MSG_CV_ILLISIBLE
+        self.cv.fichier.storage.delete(self.cv.fichier.name)
+        with patch("core.views.gmail._run_in_background") as fond:
+            resp = self.client.post(reverse("creer_brouillons_gmail"), follow=True)
+        fond.assert_not_called()
+        self.assertFalse(LotBrouillons.objects.exists())
+        self.assertIn(MSG_CV_ILLISIBLE, [str(m) for m in resp.context["messages"]])
+
+    def test_cv_disparu_pendant_l_attente_interrompt_le_lot(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import MSG_CV_ILLISIBLE, _run_brouillons
+        lot = self._lot()
+        self.cv.fichier.storage.delete(self.cv.fichier.name)
+        with patch("core.views.gmail._gmail_create_draft") as depot:
+            _run_brouillons(lot.pk)
+        depot.assert_not_called()
+        lot.refresh_from_db()
+        self.assertEqual((lot.statut, lot.message), (LotBrouillons.INTERROMPU, MSG_CV_ILLISIBLE))
+
+    def test_etat_du_lot_en_json(self):
+        from core.models import LotBrouillons
+        url = reverse("etat_lot_brouillons")
+        self.assertEqual(self.client.get(url).json(), {"en_cours": False, "texte": "", "classe": ""})
+        lot = self._lot(crees=1)
+        etat = self.client.get(url).json()
+        self.assertTrue(etat["en_cours"])
+        self.assertIn("1 sur 3", etat["texte"])
+        LotBrouillons.objects.filter(pk=lot.pk).update(statut=LotBrouillons.TERMINE, crees=3)
+        etat = self.client.get(url).json()
+        self.assertEqual((etat["en_cours"], etat["classe"]), (False, "success"))
+        self.assertIn("3 brouillon(s) créé(s)", etat["texte"])
+
+    def test_etat_du_lot_reserve_a_son_proprietaire(self):
+        self._lot(crees=1)
+        User.objects.create_user(username="autre", password="p")
+        self.client.login(username="autre", password="p")
+        self.assertEqual(self.client.get(reverse("etat_lot_brouillons")).json()["texte"], "")
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("etat_lot_brouillons")).status_code, 302)
+
+    def test_lot_sans_battement_affiche_comme_interrompu(self):
+        from core.models import LotBrouillons
+        from core.views.gmail import MSG_SERVEUR_ARRETE, etat_du_lot
+        lot = self._lot(crees=1)
+        LotBrouillons.objects.filter(pk=lot.pk).update(date_maj=lot.date_maj - LotBrouillons.DELAI_ABANDON * 2)
+        etat = etat_du_lot(self.user)
+        self.assertFalse(etat["en_cours"])
+        self.assertIn(MSG_SERVEUR_ARRETE, etat["texte"])
+
+    def test_bandeau_affiche_sur_le_tableau_de_bord(self):
+        self._lot(crees=2)
+        resp = self.client.get(reverse("dashboard"))
+        self.assertContains(resp, 'id="lotBrouillons"')
+        self.assertContains(resp, "data-en-cours")
+        self.assertContains(resp, "2 sur 3")

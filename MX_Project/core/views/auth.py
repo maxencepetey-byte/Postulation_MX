@@ -18,7 +18,7 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from ..models import GmailOAuthToken
+from ..models import GmailOAuthToken, LotBrouillons
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +181,11 @@ def gmail_disconnect(request):
         except requests.RequestException:
             pass
     GmailOAuthToken.objects.filter(utilisateur=request.user).delete()
+    # Le thread d'un lot garde son jeton en mémoire : sans cet arrêt, il continuerait à déposer des brouillons.
+    LotBrouillons.objects.filter(utilisateur=request.user, statut=LotBrouillons.EN_COURS).update(
+        statut=LotBrouillons.INTERROMPU, date_fin=timezone.now(),
+        message="Gmail a été déconnecté pendant le lot.",
+    )
     return redirect("settings_page")
 
 

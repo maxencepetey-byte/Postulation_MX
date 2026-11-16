@@ -59,6 +59,20 @@
             </div>
         {% endif %}
 
+        {# ── Avancement du dernier lot de brouillons Gmail ── #}
+        {% if lot_brouillons %}
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div id="lotBrouillons" class="alert alert-{{ lot_brouillons.classe }} d-flex align-items-center gap-2 mb-0"
+                         role="status" data-url="{% url 'etat_lot_brouillons' %}"{% if lot_brouillons.en_cours %} data-en-cours{% endif %}>
+                        <span class="spinner-border spinner-border-sm flex-shrink-0{% if not lot_brouillons.en_cours %} d-none{% endif %}" aria-hidden="true"></span>
+                        <span data-lot-texte>{{ lot_brouillons.texte }}</span>
+                        <a href="" class="alert-link ms-auto text-nowrap d-none" data-lot-actualiser>Actualiser la page</a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
         <div class="row g-4">
             <div class="col-lg-3 mb-4">
                 <div class="card shadow-sm border-0 h-100">
@@ -255,6 +269,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{% static 'js/scan-history.min.js' %}{% if static_version %}?v={{ static_version }}{% endif %}"></script>
     <script src="{% static 'js/mx-forms.js' %}{% if static_version %}?v={{ static_version }}{% endif %}"></script>
+    <script src="{% static 'js/mx-lot.js' %}{% if static_version %}?v={{ static_version }}{% endif %}"></script>
 
     <!-- Bouton aide flottant -->
     <button class="btn-help-video" data-bs-toggle="modal" data-bs-target="#videoAideModal" title="Aide — voir la vidéo">

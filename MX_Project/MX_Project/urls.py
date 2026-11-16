@@ -11,7 +11,7 @@ from django.http import HttpResponse
 from core.views import (
     dashboard, lancer_scan, telecharger_lm, upload_cv,
     supprimer_tout, settings_page, supprimer_documents,
-    creer_brouillons_gmail, register,
+    creer_brouillons_gmail, etat_lot_brouillons, register,
     entreprises_filtrer_secteur,
     generer_pack_secteur_numero,
     logout_view,
@@ -72,6 +72,7 @@ urlpatterns = [
     path('delete-docs/', supprimer_documents, name='supprimer_documents'),
     path('vider/', vider_liste_et_documents, name='vider_liste_et_documents'),
     path('gmail-drafts/', creer_brouillons_gmail, name='creer_brouillons_gmail'),
+    path('gmail-drafts/etat/', etat_lot_brouillons, name='etat_lot_brouillons'),
     path('gmail/connect/', gmail_connect, name='gmail_connect'),
     path('gmail/callback/', gmail_callback, name='gmail_callback'),
     path('gmail/disconnect/', gmail_disconnect, name='gmail_disconnect'),

@@ -20,15 +20,26 @@ def _compute_static_version():
 _STATIC_VERSION = _compute_static_version()
 
 
-def _run_in_background(target, *args, **kwargs):
-    """Lance target(*args, **kwargs) dans un thread daemon protégé par sémaphore."""
+def _run_in_background(target, *args, en_attente=None, **kwargs):
+    """
+    Lance target(*args, **kwargs) dans un thread daemon protégé par sémaphore.
+    `en_attente` est rappelé chaque minute tant que le thread attend une place libre.
+    """
     def _wrapper():
-        with _BG_SEMAPHORE:
+        from django.db import connection
+        try:
+            while not _BG_SEMAPHORE.acquire(timeout=60):
+                if en_attente:
+                    try:
+                        en_attente()
+                    except Exception:
+                        pass
             try:
                 target(*args, **kwargs)
             finally:
-                from django.db import connection
-                connection.close()
+                _BG_SEMAPHORE.release()
+        finally:
+            connection.close()
     threading.Thread(target=_wrapper, daemon=True).start()
 
 

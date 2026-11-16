@@ -4,11 +4,13 @@ import base64
 import hashlib
 import os
 import uuid
+from datetime import timedelta
 
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from cryptography.fernet import Fernet, InvalidToken
 
 
@@ -220,3 +222,43 @@ class Candidature(models.Model):
 
     def __str__(self):
         return f"{self.entreprise} — {self.utilisateur}"
+
+
+class LotBrouillons(models.Model):
+    """
+    Un lot de brouillons Gmail lancé en tâche de fond.
+    Sert de verrou (un seul lot en cours par utilisateur) et de compte rendu affiché au tableau de bord.
+    """
+    EN_COURS, TERMINE, INTERROMPU = "EN_COURS", "TERMINE", "INTERROMPU"
+    STATUTS = [(EN_COURS, "En cours"), (TERMINE, "Terminé"), (INTERROMPU, "Interrompu")]
+    # Sans battement pendant ce délai, le thread est tenu pour mort (Render endort ou redémarre le service).
+    DELAI_ABANDON = timedelta(minutes=5)
+    DUREE_AFFICHAGE = timedelta(hours=24)
+
+    utilisateur = models.ForeignKey(User, on_delete=models.CASCADE, related_name="lots_brouillons")
+    secteur = models.CharField(max_length=100, blank=True, default="")
+    numero_pack = models.IntegerField(null=True, blank=True)
+    statut = models.CharField(max_length=12, choices=STATUTS, default=EN_COURS)
+    total = models.PositiveIntegerField(default=0)
+    crees = models.PositiveIntegerField(default=0)
+    ignores = models.PositiveIntegerField(default=0)
+    message = models.CharField(max_length=255, blank=True, default="")
+    date_debut = models.DateTimeField(auto_now_add=True)
+    date_maj = models.DateTimeField(default=timezone.now)   # battement du thread
+    date_fin = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["utilisateur"],
+                condition=models.Q(statut="EN_COURS"),
+                name="un_seul_lot_brouillons_en_cours",
+            ),
+        ]
+
+    @property
+    def abandonne(self) -> bool:
+        return self.statut == self.EN_COURS and self.date_maj < timezone.now() - self.DELAI_ABANDON
+
+    def __str__(self):
+        return f"Lot {self.pk} — {self.utilisateur} — {self.statut}"
