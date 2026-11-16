@@ -44,7 +44,7 @@ def generer_pack_secteur_numero(request, pack_num: int):
             est_dans_paquet=False,
             secteur_activite=secteur,
             numero_pack=pack_num,
-            entreprise__email_valide=True,
+            **Candidature.CONTACTABLE,
         )
         .select_related('entreprise', 'utilisateur')
         .order_by("id")[:500]

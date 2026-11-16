@@ -177,6 +177,10 @@ class EntrepriseReferentiel(models.Model):
     localite = models.CharField(max_length=100, blank=True, default="")
     date_update = models.DateTimeField(auto_now=True)
     email_valide = models.BooleanField(default=True)
+    # Le registre ne liste que les entreprises en activité. Absente à une synchro complète :
+    # absente_depuis est daté ; encore absente à la suivante : radiee. Réapparue : tout est remis à zéro.
+    absente_depuis = models.DateTimeField(null=True, blank=True)
+    radiee = models.BooleanField(default=False)
 
     class Meta:
         indexes = [
@@ -210,6 +214,9 @@ class Candidature(models.Model):
     email_valide = models.BooleanField(default=True)
     brouillon_gmail_cree = models.BooleanField(default=False)
     secteur_activite = models.CharField(max_length=100, null=True, blank=True)
+
+    # Filtre des candidatures auxquelles on peut encore écrire.
+    CONTACTABLE = {"entreprise__email_valide": True, "entreprise__radiee": False}
 
     class Meta:
         unique_together = [('utilisateur', 'entreprise')]

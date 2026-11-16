@@ -149,7 +149,7 @@ def entreprises_filtrer_secteur(request):
         qs_pack_all = Candidature.objects.filter(
             utilisateur=request.user, secteur_activite=secteur,
         )
-        qs_pack_remaining = qs_pack_all.filter(est_dans_paquet=False, entreprise__email_valide=True)
+        qs_pack_remaining = qs_pack_all.filter(est_dans_paquet=False, **Candidature.CONTACTABLE)
         max_pack = qs_pack_all.aggregate(m=Max("numero_pack")).get("m") or 0
         secteur_clean = secteur.replace(" ", "_").replace("/", "-")
         docs = {

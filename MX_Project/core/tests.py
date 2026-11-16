@@ -1102,3 +1102,354 @@ class LotBrouillonsTests(BaseAuthTestCase):
         self.assertContains(resp, 'id="lotBrouillons"')
         self.assertContains(resp, "data-en-cours")
         self.assertContains(resp, "2 sur 3")
+
+
+# ---------------------------------------------------------------------------
+# Synchro du registre SITG, purge et scan (audit, lot 3)
+# ---------------------------------------------------------------------------
+
+def _faux_registre(lignes, annonce=None, panne_a=None, plafond=1000):
+    """Simule l'API du registre : d'abord le nombre de lignes, puis des pages."""
+    appels = []
+
+    def repondre(session, url, params, **kwargs):
+        appels.append(params)
+        if params.get("returnCountOnly"):
+            return {"count": len(lignes) if annonce is None else annonce}
+        debut = params["resultOffset"]
+        if panne_a is not None and debut >= panne_a:
+            return None
+        page = lignes[debut:debut + min(params["resultRecordCount"], plafond)]
+        return {"features": [{"attributes": ligne} for ligne in page]}
+
+    repondre.appels = appels
+    return repondre
+
+
+def _ligne_sitg(i, **champs):
+    return {"OBJECTID": i, "RAISON_SOCIALE": f"Societe {i}", "EMAIL": f"rh{i}@example.ch",
+            "PHYS_RUE": "Rue du Lac", "PHYS_NUMRUE": str(i), "PHYS_NPA": "1200", "PHYS_LOCALITE": "Genève", **champs}
+
+
+class FetchSectorTests(SimpleTestCase):
+    def _fetch(self, registre, **kwargs):
+        from core.management.commands import sync_registre as sr
+        with patch.object(sr, "_request_with_retry", side_effect=registre), patch.object(sr.time, "sleep"):
+            return sr._fetch_sector("62", session=object(), **kwargs)
+
+    def test_page_plafonnee_par_le_serveur_ne_tronque_pas(self):
+        registre = _faux_registre([_ligne_sitg(i) for i in range(5)], plafond=2)
+        entreprises, complet = self._fetch(registre, page_size=5)
+        self.assertTrue(complet)
+        self.assertEqual([e["email"] for e in entreprises], [f"rh{i}@example.ch" for i in range(5)])
+        pages = [p for p in registre.appels if "resultOffset" in p]
+        self.assertEqual([p["resultOffset"] for p in pages], [0, 2, 4])
+        self.assertEqual({p["orderByFields"] for p in pages}, {"objectid"})
+        self.assertEqual({p["returnGeometry"] for p in pages}, {"false"})
+
+    def test_page_en_echec_signale_un_secteur_incomplet(self):
+        registre = _faux_registre([_ligne_sitg(i) for i in range(5)], plafond=2, panne_a=2)
+        entreprises, complet = self._fetch(registre)
+        self.assertFalse(complet)
+        self.assertEqual(len(entreprises), 2)
+
+    def test_moins_de_lignes_qu_annonce_signale_un_secteur_incomplet(self):
+        _, complet = self._fetch(_faux_registre([_ligne_sitg(i) for i in range(3)], annonce=5))
+        self.assertFalse(complet)
+
+    def test_nombre_de_lignes_indisponible(self):
+        from core.management.commands import sync_registre as sr
+        with patch.object(sr, "_request_with_retry", return_value=None):
+            self.assertEqual(sr._fetch_sector("62", session=object()), ([], False))
+
+    def test_champs_trop_longs(self):
+        lignes = [
+            _ligne_sitg(1, RAISON_SOCIALE="N" * 400),
+            _ligne_sitg(2, EMAIL="a" * 300 + "@example.ch"),
+            _ligne_sitg(3, EMAIL="  RH3@Example.CH "),
+        ]
+        entreprises, complet = self._fetch(_faux_registre(lignes))
+        self.assertTrue(complet)
+        self.assertEqual([(len(e["nom"]), e["email"]) for e in entreprises],
+                         [(255, "rh1@example.ch"), (9, "rh3@example.ch")])
+
+    def test_valeurs_piegees_du_registre(self):
+        lignes = [
+            _ligne_sitg(1, EMAIL="info@example.ch; rh@example.ch", RAISON_SOCIALE="Al\x00pha", PHYS_RUE="Rue\x00 X"),
+            _ligne_sitg(2, EMAIL="pas-une-adresse"),
+            _ligne_sitg(3, EMAIL=None),
+            _ligne_sitg(4, EMAIL=12, RAISON_SOCIALE=34),
+            _ligne_sitg(5, PHYS_RUE="R" * 400, PHYS_NPA=1200),
+        ]
+        entreprises, complet = self._fetch(_faux_registre(lignes))
+        self.assertTrue(complet)
+        self.assertEqual([(e["email"], e["nom"]) for e in entreprises],
+                         [("info@example.ch", "Alpha"), ("rh5@example.ch", "Societe 5")])
+        self.assertEqual(entreprises[0]["adresse"], "Rue X 1")
+        self.assertEqual((len(entreprises[1]["adresse"]), entreprises[1]["npa"]), (255, "1200"))
+
+    def test_nombre_annonce_aberrant(self):
+        entreprises, complet = self._fetch(_faux_registre([_ligne_sitg(1)], annonce=10 ** 9))
+        self.assertEqual((entreprises, complet), ([], False))
+
+
+class ValidationEmailsTests(SimpleTestCase):
+    def test_un_worker_coince_ne_fait_pas_perdre_les_autres_adresses(self):
+        import threading
+        from core.management.commands import sync_registre as sr
+        from core.management.commands.check_emails import ST_INVALIDE
+        liberer = threading.Event()
+
+        def verifier(email, timeout, mx_only=False):
+            if email.startswith("coince"):
+                liberer.wait(10)
+            return (ST_INVALIDE, "") if email.startswith("ko") else ("ok", "")
+
+        candidats = [{"email": e} for e in ("coince1@x.ch", "coince2@x.ch", "a@x.ch", "b@x.ch", "ko@x.ch", "c@x.ch")]
+        try:
+            with patch.object(sr, "_verifier_email", side_effect=verifier), \
+                    patch.object(sr, "_EMAIL_TIMEOUT", 0.3), patch.object(sr, "_WATCHDOG_SLACK", 0), \
+                    patch("builtins.print"):
+                valides, rejets, non_verifies = sr._validate_emails(candidats, max_workers=2)
+        finally:
+            liberer.set()
+        self.assertEqual(sorted(e["email"] for e in valides), ["a@x.ch", "b@x.ch", "c@x.ch"])
+        self.assertEqual(rejets, [("ko@x.ch", ST_INVALIDE)])
+        self.assertEqual(sorted(e["email"] for e in non_verifies), ["coince1@x.ch", "coince2@x.ch"])
+
+
+class SyncRegistreTests(TestCase):
+    def _ent(self, i, **champs):
+        return {"nom": f"Societe {i}", "email": f"rh{i}@example.ch", "noga_code": "62",
+                "adresse": f"Rue du Lac {i}", "npa": "1200", "localite": "Genève", **champs}
+
+    def _ref(self, i, **champs):
+        valeurs = {"raison_sociale": f"Societe {i}", "email": f"rh{i}@example.ch", "code_noga": "62",
+                   "id_sitg": i, "adresse": f"Rue du Lac {i}", "npa": "1200", "localite": "Genève", **champs}
+        return EntrepriseReferentiel.objects.create(**valeurs)
+
+    def _sync(self, registre, *args, verifier=False):
+        """Lance la commande ; `registre` associe un code NOGA à (entreprises, complet)."""
+        from io import StringIO
+        from django.core.management import call_command
+        from core.management.commands import sync_registre as sr
+        sortie = StringIO()
+        if not verifier:
+            args = ("--skip_email_check", *args)
+        with patch.object(sr, "_fetch_sector", side_effect=lambda code, **kw: registre.get(code, ([], True))):
+            call_command("sync_registre", "--inter_sector_delay", "0", *args, stdout=sortie)
+        return sortie.getvalue()
+
+    def _vieillir(self, ref):
+        """Fait comme si l'absence avait été constatée la veille."""
+        from datetime import timedelta
+        ref.refresh_from_db()
+        EntrepriseReferentiel.objects.filter(pk=ref.pk).update(absente_depuis=ref.absente_depuis - timedelta(days=1))
+
+    def test_cree_les_nouvelles_et_met_a_jour_les_existantes(self):
+        ancienne = self._ref(1, raison_sociale="Ancien nom", email_valide=False)
+        self._ref(2)
+        registre = {"62": ([self._ent(1), self._ent(2), self._ent(3)], True)}
+        self.assertIn("1 candidats nouveaux, 1 à mettre à jour", self._sync(registre))
+        ancienne.refresh_from_db()
+        self.assertEqual(ancienne.raison_sociale, "Societe 1")
+        # Une adresse signalée en erreur le reste : la synchro ne la revalide pas.
+        self.assertFalse(ancienne.email_valide)
+        # L'OBJECTID du registre n'est plus recopié : il change à chaque publication.
+        self.assertTrue(EntrepriseReferentiel.objects.filter(email="rh3@example.ch", id_sitg__isnull=True).exists())
+        self.assertEqual(EntrepriseReferentiel.objects.count(), 3)
+        # Une deuxième synchro identique ne réécrit rien.
+        self.assertIn("0 candidats nouveaux, 0 à mettre à jour", self._sync(registre))
+
+    def test_radiee_seulement_apres_deux_synchros_puis_retablie(self):
+        absente = self._ref(1)
+        passee_dans_un_autre_secteur = self._ref(9)
+        hors_carte = self._ref(8)
+        registre = {
+            "62": ([self._ent(2)], True),
+            "70": ([self._ent(9, noga_code="70")], True),
+            "99": ([self._ent(8, noga_code="99")], True),
+        }
+        self._sync(registre)
+        absente.refresh_from_db()
+        passee_dans_un_autre_secteur.refresh_from_db()
+        hors_carte.refresh_from_db()
+        self.assertEqual((absente.radiee, absente.absente_depuis is None), (False, False))
+        self.assertEqual(
+            (passee_dans_un_autre_secteur.absente_depuis, passee_dans_un_autre_secteur.code_noga), (None, "70"),
+        )
+        # La division 99 n'est pas dans NOGA_MAP, mais l'entreprise y figure : elle n'est pas absente.
+        self.assertIsNone(hors_carte.absente_depuis)
+
+        # Relancée aussitôt, la synchro ne vaut pas confirmation.
+        self._sync(registre)
+        absente.refresh_from_db()
+        self.assertFalse(absente.radiee)
+
+        self._vieillir(absente)
+        self._sync(registre)
+        absente.refresh_from_db()
+        self.assertTrue(absente.radiee)
+
+        self._sync({**registre, "62": ([self._ent(1), self._ent(2)], True)})
+        absente.refresh_from_db()
+        self.assertEqual((absente.radiee, absente.absente_depuis), (False, None))
+
+    def test_reapparue_avant_confirmation_n_est_plus_absente(self):
+        ref = self._ref(1)
+        self._sync({"62": ([self._ent(2)], True)})
+        self._sync({"62": ([self._ent(1), self._ent(2)], True)})
+        ref.refresh_from_db()
+        self.assertEqual((ref.radiee, ref.absente_depuis), (False, None))
+
+    def test_synchro_d_une_partie_des_secteurs_ne_marque_rien(self):
+        absente = self._ref(1)
+        self._sync({"62": ([self._ent(2)], True)}, "--secteurs", "62")
+        absente.refresh_from_db()
+        self.assertEqual((absente.radiee, absente.absente_depuis), (False, None))
+
+    def test_secteur_incomplet_fait_echouer_la_commande_sans_rien_marquer(self):
+        from django.core.management.base import CommandError
+        absente = self._ref(1)
+        with self.assertRaisesMessage(CommandError, "secteurs incomplets : 62"):
+            self._sync({"62": ([self._ent(2)], False)})
+        absente.refresh_from_db()
+        self.assertEqual((absente.radiee, absente.absente_depuis), (False, None))
+        # Ce qui a été reçu est tout de même enregistré.
+        self.assertTrue(EntrepriseReferentiel.objects.filter(email="rh2@example.ch").exists())
+
+    def test_trop_d_absentes_ne_marque_rien(self):
+        from django.core.management.base import CommandError
+        EntrepriseReferentiel.objects.bulk_create([
+            EntrepriseReferentiel(raison_sociale=f"S{i}", email=f"rh{i}@example.ch", code_noga="62", id_sitg=i)
+            for i in range(60)
+        ])
+        with self.assertRaisesMessage(CommandError, "trop d'entreprises absentes"):
+            self._sync({"62": ([self._ent(i) for i in range(10)], True)})
+        self.assertFalse(EntrepriseReferentiel.objects.filter(radiee=True).exists())
+        self.assertFalse(EntrepriseReferentiel.objects.filter(absente_depuis__isnull=False).exists())
+
+    def test_aucun_resultat_fait_echouer_la_commande(self):
+        from django.core.management.base import CommandError
+        with self.assertRaisesMessage(CommandError, "aucun secteur"):
+            self._sync({})
+
+    def test_since_hours_est_ignore(self):
+        sortie = self._sync({"62": ([self._ent(1)], True)}, "--since_hours", "24")
+        self.assertIn("--since_hours ignoré", sortie)
+        self.assertTrue(EntrepriseReferentiel.objects.filter(email="rh1@example.ch").exists())
+
+    def test_dry_run_n_ecrit_rien(self):
+        absente = self._ref(1)
+        self._sync({"62": ([self._ent(2)], True)}, "--dry_run")
+        absente.refresh_from_db()
+        self.assertEqual((absente.radiee, absente.absente_depuis), (False, None))
+        self.assertEqual(EntrepriseReferentiel.objects.count(), 1)
+
+    def test_adresse_partagee_garde_l_entreprise_deja_enregistree(self):
+        partagee = {"email": "fiduciaire@example.ch"}
+        ref = self._ref(1, raison_sociale="Beta SA", **partagee)
+        registre = {"62": ([
+            self._ent(1, nom="Alpha SA", **partagee),
+            self._ent(1, nom="Beta SA", adresse="Quai Neuf 3", **partagee),
+        ], True)}
+        self._sync(registre)
+        ref.refresh_from_db()
+        # Même entreprise, nouvelle adresse postale : la ligne suit Beta SA, pas Alpha SA.
+        self.assertEqual((ref.raison_sociale, ref.adresse), ("Beta SA", "Quai Neuf 3"))
+        self.assertIn("0 à mettre à jour", self._sync(registre))
+        # Beta SA quitte le registre : la ligne prend une entreprise qui y figure encore.
+        self._sync({"62": ([self._ent(1, nom="Gamma SA", **partagee), self._ent(1, nom="Alpha SA", **partagee)], True)})
+        ref.refresh_from_db()
+        self.assertEqual((ref.raison_sociale, ref.radiee), ("Alpha SA", False))
+
+    def test_lecture_partielle_ne_remplace_pas_l_entreprise_d_une_adresse_partagee(self):
+        partagee = {"email": "fiduciaire@example.ch"}
+        ref = self._ref(1, raison_sociale="Beta SA", code_noga="70", **partagee)
+        self._sync({"62": ([self._ent(1, nom="Alpha SA", **partagee)], True)}, "--secteurs", "62")
+        ref.refresh_from_db()
+        self.assertEqual((ref.raison_sociale, ref.code_noga), ("Beta SA", "70"))
+
+    def test_adresse_partagee_nouvelle_donne_une_seule_ligne_stable(self):
+        partagee = {"email": "fiduciaire@example.ch"}
+        self._sync({
+            "62": ([self._ent(1, nom="Zeta SA", **partagee)], True),
+            "64": ([self._ent(2, nom="Alpha SA", noga_code="64", **partagee)], True),
+        })
+        ref = EntrepriseReferentiel.objects.get()
+        self.assertEqual((ref.raison_sociale, ref.code_noga), ("Alpha SA", "64"))
+
+    def test_email_en_majuscules_en_base_est_reconnu(self):
+        ref = self._ref(1, email="RH1@Example.ch")
+        self._sync({"62": ([self._ent(1), self._ent(2)], True)})
+        ref.refresh_from_db()
+        self.assertEqual((ref.radiee, ref.absente_depuis), (False, None))
+        self.assertEqual(EntrepriseReferentiel.objects.count(), 2)
+
+    def test_trop_d_adresses_non_verifiees_fait_echouer_la_commande(self):
+        from django.core.management.base import CommandError
+        from core.management.commands import sync_registre as sr
+        registre = {"62": ([self._ent(i) for i in range(20)], True)}
+        with patch.object(sr, "_validate_emails", side_effect=lambda candidats, **kw: ([], [], candidats)):
+            with self.assertRaisesMessage(CommandError, "20 adresses sur 20 non vérifiées"):
+                self._sync(registre, verifier=True)
+        self.assertFalse(EntrepriseReferentiel.objects.exists())
+
+
+class PurgeBouncesTests(BaseAuthTestCase):
+    def test_marque_l_adresse_sans_rien_supprimer(self):
+        import os
+        import tempfile
+        from io import StringIO
+        from django.core.management import call_command
+        ref = self._make_ref(email="mort@example.ch")
+        vivant = self._make_ref(email="vivant@example.ch", nom="Vivant SA")
+        boite_pleine = self._make_ref(email="pleine@example.ch", nom="Pleine SA")
+        cand = self._make_candidature(ref=ref)
+        with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, encoding="utf-8", newline="") as f:
+            f.write("email,statut,source\nmort@example.ch,invalide,ref\n"
+                    "vivant@example.ch,incertain,ref\npleine@example.ch,boite_pleine,ref\n")
+        self.addCleanup(os.remove, f.name)
+        call_command("purge_bounces", "--csv", f.name, stdout=StringIO())
+        ref.refresh_from_db()
+        vivant.refresh_from_db()
+        self.assertFalse(ref.email_valide)
+        self.assertTrue(vivant.email_valide)
+        self.assertTrue(Candidature.objects.filter(pk=cand.pk).exists())
+        # Le marquage est définitif : une erreur temporaire n'écarte l'adresse que sur demande.
+        boite_pleine.refresh_from_db()
+        self.assertTrue(boite_pleine.email_valide)
+        call_command("purge_bounces", "--csv", f.name, "--statuts", "boite_pleine", stdout=StringIO())
+        boite_pleine.refresh_from_db()
+        self.assertFalse(boite_pleine.email_valide)
+
+
+class ScanGroupeTests(BaseAuthTestCase):
+    def test_scan_en_lots_numerote_les_packs_et_ignore_les_doublons(self):
+        from core.views.scan import _run_scan_for_user
+        EntrepriseReferentiel.objects.bulk_create([
+            EntrepriseReferentiel(raison_sociale=f"S{i:04d}", email=f"s{i}@example.ch", code_noga="62")
+            for i in range(501)
+        ])
+        _run_scan_for_user(self.user, ["62"])
+        _run_scan_for_user(self.user, ["62"])
+        cands = Candidature.objects.filter(utilisateur=self.user)
+        self.assertEqual(cands.count(), 501)
+        self.assertEqual(cands.filter(numero_pack=1).count(), 500)
+        # Le pack suit l'ordre alphabétique : la dernière raison sociale ouvre le pack 2.
+        self.assertEqual(cands.get(numero_pack=2).entreprise.raison_sociale, "S0500")
+
+    def test_entreprise_radiee_ni_scannee_ni_contactee(self):
+        from core.views.gmail import _filtrer_candidatures
+        from core.views.scan import _run_scan_for_user
+        active = self._make_ref(email="active@example.ch", nom="Active SA")
+        radiee = self._make_ref(email="radiee@example.ch", nom="Radiee SA")
+        deja_listee = self._make_ref(email="listee@example.ch", nom="Listee SA")
+        self._make_candidature(ref=deja_listee)
+        EntrepriseReferentiel.objects.filter(pk__in=[radiee.pk, deja_listee.pk]).update(radiee=True)
+        _run_scan_for_user(self.user, ["62"])
+        cands = Candidature.objects.filter(utilisateur=self.user)
+        self.assertEqual(set(cands.values_list("entreprise_id", flat=True)), {active.pk, deja_listee.pk})
+        self.assertEqual(
+            list(_filtrer_candidatures(cands, "", None).values_list("entreprise_id", flat=True)), [active.pk],
+        )

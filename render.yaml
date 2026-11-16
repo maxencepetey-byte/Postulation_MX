@@ -18,7 +18,8 @@ services:
     plan: free
     schedule: "0 1 * * *"   # 01:00 UTC = 03:00 Europe/Zurich (heure d'été)
     buildCommand: pip install -r requirements.txt
-    startCommand: python MX_Project/manage.py sync_registre
+    # --mx_only : Render bloque le port 25 sortant, la vérification SMTP n'aboutirait jamais.
+    startCommand: python MX_Project/manage.py sync_registre --mx_only
     envVars:
       - key: DJANGO_DEBUG
         value: "False"

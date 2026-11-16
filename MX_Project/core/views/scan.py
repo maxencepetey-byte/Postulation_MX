@@ -10,7 +10,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.management import call_command
 from django.core.paginator import Paginator
-from django.db import IntegrityError
 from django.db.models import Count, Min
 from django.db.models.functions import TruncDate
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
@@ -66,7 +65,7 @@ def _decouper_secteurs(chaine: str) -> list[str]:
 def _run_scan_for_user(user, secteurs):
     """
     Crée une Candidature par entreprise du référentiel pour chaque code NOGA demandé.
-    Les doublons (même user + même entreprise) sont silencieusement ignorés via IntegrityError.
+    Les entreprises déjà dans la liste de l'utilisateur sont ignorées.
     """
     # Un même code répété relancerait le scan du secteur et gonflerait la chaîne enregistrée.
     secteurs = list(dict.fromkeys(secteurs))
@@ -81,6 +80,7 @@ def _run_scan_for_user(user, secteurs):
         total_doublons = 0
         base_par_secteur: dict[str, int] = {}
         ajoutes_par_secteur: dict[str, int] = {}
+        deja = set(Candidature.objects.filter(utilisateur=user).values_list("entreprise_id", flat=True))
 
         for s in secteurs:
             if not re.match(r'^\d{2}$', s):
@@ -94,27 +94,32 @@ def _run_scan_for_user(user, secteurs):
                 ).count()
                 ajoutes_par_secteur[secteur_nom] = 0
 
-            qs = (
+            ids = (
                 EntrepriseReferentiel.objects
-                .filter(code_noga__startswith=s, email_valide=True)
-                .only("id", "raison_sociale", "email", "adresse")
+                .filter(code_noga__startswith=s, email_valide=True, radiee=False)
                 .order_by("raison_sociale")
+                .values_list("id", flat=True)
             )
-            for ref in qs.iterator(chunk_size=2000):
-                total_courant = base_par_secteur[secteur_nom] + ajoutes_par_secteur[secteur_nom]
-                pack_id = (total_courant // 500) + 1
-                try:
-                    Candidature.objects.create(
-                        utilisateur=user,
-                        entreprise=ref,
-                        secteurs=secteurs_str,
-                        numero_pack=pack_id,
-                        secteur_activite=secteur_nom,
-                    )
-                    total_ajoutes += 1
-                    ajoutes_par_secteur[secteur_nom] += 1
-                except IntegrityError:
+            nouvelles: list[Candidature] = []
+            for ref_id in ids.iterator(chunk_size=2000):
+                if ref_id in deja:
                     total_doublons += 1
+                    continue
+                deja.add(ref_id)
+                total_courant = base_par_secteur[secteur_nom] + ajoutes_par_secteur[secteur_nom]
+                nouvelles.append(Candidature(
+                    utilisateur=user,
+                    entreprise_id=ref_id,
+                    secteurs=secteurs_str,
+                    numero_pack=(total_courant // 500) + 1,
+                    secteur_activite=secteur_nom,
+                ))
+                ajoutes_par_secteur[secteur_nom] += 1
+
+            # Une requête par 500 lignes au lieu d'une par entreprise.
+            # ignore_conflicts : un second scan lancé au même moment ne fait pas échouer tout le lot.
+            Candidature.objects.bulk_create(nouvelles, batch_size=500, ignore_conflicts=True)
+            total_ajoutes += len(nouvelles)
 
         logger.info(
             "_run_scan_for_user: terminé — %d ajoutés, %d doublons (user %s)",
@@ -163,7 +168,8 @@ def cron_sync_registre(request):
     since_hours_raw = (request.GET.get("since_hours") or "24").strip()
     dry_run = (request.GET.get("dry_run") or "").strip().lower() in ("1", "true", "yes")
     skip_email_check = (request.GET.get("skip_email_check") or "").strip().lower() in ("1", "true", "yes")
-    mx_only = (request.GET.get("mx_only") or "").strip().lower() in ("1", "true", "yes")
+    # MX seul par défaut : l'hébergeur bloque le port 25, la vérification SMTP n'aboutirait pas.
+    mx_only = (request.GET.get("mx_only") or "1").strip().lower() in ("1", "true", "yes")
 
     try:
         min_new = int(min_new_raw)

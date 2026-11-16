@@ -142,7 +142,7 @@ def _entier(valeur) -> int | None:
 
 
 def _filtrer_candidatures(qs, secteur: str, pack_num: int | None):
-    qs = qs.filter(est_dans_paquet=False, entreprise__email_valide=True)
+    qs = qs.filter(est_dans_paquet=False, **Candidature.CONTACTABLE)
     if secteur:
         qs = qs.filter(secteur_activite=secteur)
     if pack_num:
@@ -176,7 +176,7 @@ def construire_brouillon(profil, cand, tpl_email, templates_map, pieces_fixes, a
 
 
 def _supprimer_pack_si_termine(user, secteur, pack_num):
-    remaining_filter = {"utilisateur": user, "est_dans_paquet": False, "entreprise__email_valide": True}
+    remaining_filter = {"utilisateur": user, "est_dans_paquet": False, **Candidature.CONTACTABLE}
     if secteur:
         remaining_filter["secteur_activite"] = secteur
     if pack_num:
