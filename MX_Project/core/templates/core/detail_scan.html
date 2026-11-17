@@ -1,15 +1,11 @@
-<!DOCTYPE html>
+{% extends "base.html" %}
 {% load static %}
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MX | Détail scan {{ session.date_scan|date:"d/m/Y" }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+{% block title %}MX | Détail scan {{ session.date_scan|date:"d/m/Y" }}{% endblock %}
+{% block css %}
+    <link rel="stylesheet" href="{% static 'css/mx-app.css' %}">
     <link rel="stylesheet" href="{% static 'css/detail_scan.css' %}">
-</head>
-<body>
+{% endblock %}
+{% block content %}
 <nav class="navbar navbar-mx sticky-top mb-4">
     <div class="container-fluid">
         <a href="{% url 'dashboard' %}" class="logo-mx">M<span>X</span></a>
@@ -81,7 +77,15 @@
                         <td><span class="badge badge-secteur">{{ ent.secteur_activite }}</span></td>
                         <td><span class="text-muted fw-bold">#{{ ent.numero_pack }}</span></td>
                         <td>
-                            {% if ent.est_dans_paquet %}
+                            {% if ent.entreprise.radiee %}
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle" title="Cette entreprise ne figure plus au registre : aucun brouillon ne sera créé.">
+                                    <i class="bi bi-slash-circle me-1"></i>Radiée
+                                </span>
+                            {% elif not ent.entreprise.email_valide %}
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="L'adresse e-mail de cette entreprise ne fonctionne pas : aucun brouillon ne sera créé.">
+                                    <i class="bi bi-envelope-x me-1"></i>E-mail invalide
+                                </span>
+                            {% elif ent.est_dans_paquet %}
                                 <span class="badge bg-success-subtle text-success border border-success-subtle">
                                     <i class="bi bi-check2-all me-1"></i>Traité
                                 </span>
@@ -128,50 +132,5 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Bouton aide flottant -->
-<button class="btn-help-video" data-bs-toggle="modal" data-bs-target="#videoAideModal" title="Aide — voir la vidéo">
-    <i class="bi bi-question-lg"></i>
-</button>
-<div class="modal fade" id="videoAideModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-            <div class="modal-header border-0 pb-0 px-4 pt-3">
-                <h6 class="modal-title fw-bold">
-                    <i class="bi bi-play-circle-fill text-primary me-2"></i>Guide d'utilisation MX
-                </h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-3">
-                <a href="https://youtu.be/Gg_y8EAsJAk" target="_blank" rel="noopener"
-                   style="display:block;position:relative;border-radius:10px;overflow:hidden;text-decoration:none;">
-                    <img src="https://img.youtube.com/vi/Gg_y8EAsJAk/maxresdefault.jpg"
-                         alt="Guide MX" style="width:100%;display:block;">
-                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25);">
-                        <div style="width:64px;height:64px;border-radius:50%;background:#ff0000;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.4);">
-                            <i class="bi bi-play-fill" style="color:#fff;font-size:1.8rem;margin-left:4px;"></i>
-                        </div>
-                    </div>
-                </a>
-                <p class="text-center text-muted small mt-2 mb-0">
-                    <i class="bi bi-box-arrow-up-right me-1"></i>Cliquez pour regarder sur YouTube
-                </p>
-            </div>
-        </div>
-    </div>
-</div>
-<style>
-.btn-help-video {
-    position: fixed; bottom: 24px; right: 24px;
-    width: 48px; height: 48px; border-radius: 50%;
-    background: #0d6efd; color: #fff; border: none;
-    box-shadow: 0 4px 16px rgba(13,110,253,.4);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.25rem; cursor: pointer; z-index: 1050;
-    transition: transform .2s, box-shadow .2s;
-}
-.btn-help-video:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(13,110,253,.5); }
-</style>
-</body>
-</html>
+{% endblock %}

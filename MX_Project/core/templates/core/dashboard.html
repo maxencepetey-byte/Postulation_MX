@@ -1,15 +1,11 @@
+{% extends "base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MX | Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}{% if static_version %}?v={{ static_version }}{% endif %}">
-</head>
-<body>
+{% block title %}MX | Dashboard{% endblock %}
+{% block css %}
+    <link rel="stylesheet" href="{% static 'css/mx-app.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+{% endblock %}
+{% block content %}
     <div class="animated-bg">
         <div class="orbe orbe-1"></div>
         <div class="orbe orbe-2"></div>
@@ -178,20 +174,20 @@
                             <span class="small fw-bold text-muted me-1">
                                 <i class="bi bi-funnel me-1"></i>Secteur :
                             </span>
-                            <button class="btn btn-sm btn-mx secteur-filter-btn active {% if packs_actifs_secteurs %}btn-secondary disabled{% else %}btn-primary{% endif %}"
+                            <button type="button" aria-pressed="{% if packs_actifs_secteurs %}false{% else %}true{% endif %}" class="btn btn-sm btn-mx secteur-filter-btn {% if packs_actifs_secteurs %}btn-secondary disabled{% else %}active btn-primary{% endif %}"
                                     data-secteur=""
                                     {% if packs_actifs_secteurs %}disabled title="Pack actif — supprime-le pour voir tous les secteurs"{% endif %}>
                                 Tous ({{ total_entreprises }})
                             </button>
                             {% for s in secteurs_uniques %}
                             {% if packs_actifs_secteurs and s not in packs_actifs_secteurs %}
-                            <button class="btn btn-sm btn-outline-secondary btn-mx secteur-filter-btn disabled"
+                            <button type="button" class="btn btn-sm btn-outline-secondary btn-mx secteur-filter-btn disabled"
                                     data-secteur="{{ s }}" disabled
                                     title="Pack actif — supprime-le pour accéder à ce secteur">
                                 <i class="bi bi-lock" style="font-size:.7rem;"></i> {{ s }}
                             </button>
                             {% else %}
-                            <button class="btn btn-sm btn-outline-primary btn-mx secteur-filter-btn"
+                            <button type="button" aria-pressed="false" class="btn btn-sm btn-outline-primary btn-mx secteur-filter-btn"
                                     data-secteur="{{ s }}">
                                 {{ s }}
                             </button>
@@ -225,15 +221,6 @@
                             Base de données
                             <span id="tableauCount" class="ms-1">({{ total_entreprises }})</span>
                         </h6>
-                        <select id="secteurSelect"
-                                class="form-select form-select-sm w-auto shadow-sm"
-                                data-url="{% url 'entreprises_filtrer_secteur' %}"
-                                style="display:none;">
-                            <option value="">Tous les secteurs</option>
-                            {% for s in secteurs_uniques %}
-                                <option value="{{ s }}">{{ s }}</option>
-                            {% endfor %}
-                        </select>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
@@ -246,7 +233,7 @@
                                     <th class="text-end pe-4">Action</th>
                                 </tr>
                             </thead>
-                            <tbody id="entreprisesTbody" class="small">
+                            <tbody id="entreprisesTbody" class="small" data-filter-url="{% url 'entreprises_filtrer_secteur' %}">
                                 {% include "partials/entreprises_table.html" with entreprises=entreprises %}
                             </tbody>
                         </table>
@@ -266,197 +253,9 @@
         </div>{# fin row #}
     </div>{# fin container #}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{% static 'js/scan-history.min.js' %}{% if static_version %}?v={{ static_version }}{% endif %}"></script>
-    <script src="{% static 'js/mx-forms.js' %}{% if static_version %}?v={{ static_version }}{% endif %}"></script>
-    <script src="{% static 'js/mx-lot.js' %}{% if static_version %}?v={{ static_version }}{% endif %}"></script>
-
-    <!-- Bouton aide flottant -->
-    <button class="btn-help-video" data-bs-toggle="modal" data-bs-target="#videoAideModal" title="Aide — voir la vidéo">
-        <i class="bi bi-question-lg"></i>
-    </button>
-    <div class="modal fade" id="videoAideModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-                <div class="modal-header border-0 pb-0 px-4 pt-3">
-                    <h6 class="modal-title fw-bold">
-                        <i class="bi bi-play-circle-fill text-primary me-2"></i>Guide d'utilisation MX
-                    </h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-3">
-                    <a href="https://youtu.be/Gg_y8EAsJAk" target="_blank" rel="noopener"
-                       style="display:block;position:relative;border-radius:10px;overflow:hidden;text-decoration:none;">
-                        <img src="https://img.youtube.com/vi/Gg_y8EAsJAk/maxresdefault.jpg"
-                             alt="Guide MX" style="width:100%;display:block;">
-                        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25);">
-                            <div style="width:64px;height:64px;border-radius:50%;background:#ff0000;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.4);">
-                                <i class="bi bi-play-fill" style="color:#fff;font-size:1.8rem;margin-left:4px;"></i>
-                            </div>
-                        </div>
-                    </a>
-                    <p class="text-center text-muted small mt-2 mb-0">
-                        <i class="bi bi-box-arrow-up-right me-1"></i>Cliquez pour regarder sur YouTube
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <style>
-    .doc-name-btn { cursor: pointer; }
-    .doc-name-btn:hover .fw-bold { color: #0d6efd; text-decoration: underline; }
-    .doc-item.doc-selected { background: rgba(13,110,253,.06) !important; border-radius: 6px; }
-    .btn-help-video {
-        position: fixed; bottom: 24px; right: 24px;
-        width: 48px; height: 48px; border-radius: 50%;
-        background: #0d6efd; color: #fff; border: none;
-        box-shadow: 0 4px 16px rgba(13,110,253,.4);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.25rem; cursor: pointer; z-index: 1050;
-        transition: transform .2s, box-shadow .2s;
-    }
-    .btn-help-video:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(13,110,253,.5); }
-    </style>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-
-        const filterUrl = "{% url 'entreprises_filtrer_secteur' %}";
-        let currentSecteur = '';
-
-        function filterDocs(secteur) {
-            document.querySelectorAll('.doc-item').forEach(item => {
-                const docSecteur = item.dataset.secteur;
-                // Toujours afficher les docs sans secteur (CV, etc.)
-                // Pour les PACK_LM : n'afficher que si secteur correspond (ou "Tous")
-                const visible = !secteur || !docSecteur || docSecteur === secteur;
-                item.style.display = visible ? '' : 'none';
-            });
-        }
-
-        function syncGmailBtn(secteur) {
-            const btn = document.querySelector('#gmailForm button[type="submit"]');
-            if (!btn) return;
-            btn.title = secteur ? '' : 'Sélectionne un secteur pour créer des brouillons';
-        }
-
-        // Bloquer l'envoi si aucun secteur n'est sélectionné
-        document.getElementById('gmailForm')?.addEventListener('submit', e => {
-            const secteur = document.getElementById('gmailSecteurField')?.value || '';
-            if (!secteur) {
-                e.preventDefault();
-                alert('Sélectionne un secteur avant de créer des brouillons.');
-                return;
-            }
-            e.currentTarget.dataset.confirm =
-                `Créer les brouillons Gmail pour le secteur « ${secteur} » ?`;
-        });
-
-        // ── Filtre secteur via pills ──
-        document.querySelectorAll('.secteur-filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.secteur-filter-btn').forEach(b => {
-                    b.classList.remove('active', 'btn-primary');
-                    b.classList.add('btn-outline-primary');
-                });
-                btn.classList.add('active', 'btn-primary');
-                btn.classList.remove('btn-outline-primary');
-
-                currentSecteur = btn.dataset.secteur;
-
-                // Sync le champ caché Gmail
-                const gmailField = document.getElementById('gmailSecteurField');
-                if (gmailField) gmailField.value = currentSecteur;
-
-                // Active/désactive le bouton Gmail selon la sélection
-                syncGmailBtn(currentSecteur);
-
-                // Filtre les docs de la colonne gauche
-                filterDocs(currentSecteur);
-
-                // Sync le select caché (compatibilité scan-history.min.js)
-                const sel = document.getElementById('secteurSelect');
-                if (sel) sel.value = currentSecteur;
-
-                fetchSecteur(currentSecteur);
-            });
-        });
-
-        document.getElementById('paginationBar')?.addEventListener('click', e => {
-            const link = e.target.closest('a[data-page]');
-            if (!link) return;
-            e.preventDefault();
-            fetchSecteur(currentSecteur, link.dataset.page);
-            document.getElementById('entreprisesTbody')?.closest('.card')?.scrollIntoView({ behavior: 'smooth' });
-        });
-
-        function fetchSecteur(secteur, page) {
-            const params = new URLSearchParams();
-            if (secteur) params.set('secteur', secteur);
-            if (page) params.set('page', page);
-            const url = params.toString() ? `${filterUrl}?${params}` : filterUrl;
-            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(r => r.json())
-                .then(data => {
-                    document.getElementById('entreprisesTbody').innerHTML = data.tbody || '';
-                    const pager = document.getElementById('paginationBar');
-                    if (pager) pager.innerHTML = data.pagination || '';
-
-                    const packsSection = document.getElementById('packsSection');
-                    const packsGrid   = document.getElementById('packsGrid');
-                    const packsLabel  = document.getElementById('packsSecteurLabel');
-
-                    if (secteur && data.packs) {
-                        packsGrid.innerHTML = data.packs;
-                        packsLabel.textContent = `— ${secteur}`;
-                        packsSection.style.display = '';
-                    } else {
-                        packsSection.style.display = 'none';
-                        packsGrid.innerHTML = '';
-                        if (packsLabel) packsLabel.textContent = '';
-                    }
-                })
-                .catch(err => console.error('Erreur filtre secteur:', err));
-        }
-
-        // ── Clic sur un document → filtrer par son secteur ──
-        document.querySelectorAll('.doc-item').forEach(item => {
-            const secteur = item.dataset.secteur;
-            if (!secteur) return;
-            item.querySelector('.doc-name-btn')?.addEventListener('click', () => {
-                document.querySelectorAll('.doc-item').forEach(d => d.classList.remove('doc-selected'));
-                item.classList.add('doc-selected');
-                const pill = document.querySelector(`.secteur-filter-btn[data-secteur="${CSS.escape(secteur)}"]`);
-                if (pill) {
-                    pill.click();
-                } else {
-                    currentSecteur = secteur;
-                    const gmailField = document.getElementById('gmailSecteurField');
-                    if (gmailField) gmailField.value = secteur;
-                    syncGmailBtn(secteur);
-                    filterDocs(secteur);
-                    fetchSecteur(secteur);
-                }
-            });
-        });
-
-        // Restaurer le secteur depuis l'URL (?secteur=…) ou le secteur du pack actif, sinon le premier
-        {% if secteurs_uniques %}
-        const urlSecteur = new URLSearchParams(window.location.search).get('secteur') || '';
-        const targetBtn = urlSecteur
-            ? document.querySelector(`.secteur-filter-btn[data-secteur="${CSS.escape(urlSecteur)}"]:not([disabled])`)
-            : null;
-        {% if packs_actifs_secteurs %}
-        const packBtn = document.querySelector('.secteur-filter-btn:not([disabled])[data-secteur]:not([data-secteur=""])');
-        (targetBtn || packBtn)?.click();
-        {% else %}
-        const fallbackBtn = document.querySelector('.secteur-filter-btn[data-secteur="{{ secteurs_uniques.0|escapejs }}"]');
-        (targetBtn || fallbackBtn)?.click();
-        {% endif %}
-        {% endif %}
-
-    });
-    </script>
-
-</body>
-</html>
+{% endblock %}
+{% block js %}
+    <script src="{% static 'js/mx-forms.js' %}"></script>
+    <script src="{% static 'js/mx-lot.js' %}"></script>
+    <script src="{% static 'js/mx-dashboard.js' %}"></script>
+{% endblock %}

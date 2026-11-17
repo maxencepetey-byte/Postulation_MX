@@ -1,0 +1,43 @@
+/* Choix des secteurs : premier démarrage et ajout de secteurs. */
+body { background: #f0f2f5; display: block; padding: 2rem 0; }
+.onboard-card {
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 2.5rem;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+  max-width: 760px;
+  margin: 0 auto;
+}
+.logo-mx { font-weight: 800; font-size: 2rem; text-align: center; margin-bottom: 0.5rem; display: block; }
+.logo-mx span { color: #0d6efd; }
+.group-title {
+  font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1px; color: #0d6efd;
+  border-bottom: 1px solid rgba(13,110,253,0.15);
+  padding-bottom: 6px; margin: 1.2rem 0 0.6rem;
+}
+.form-check-label { font-size: 0.85rem; color: #313d4f; }
+.form-check { margin-bottom: 0.3rem; }
+.check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+@media(max-width:500px){ .check-grid { grid-template-columns: 1fr; } }
+.btn-mx { background: #0d6efd; color: white; border-radius: 8px; font-weight: 600; border: none; }
+.btn-mx:hover { filter: brightness(0.93); color: white; }
+.select-all-link { font-size: 0.75rem; color: #0d6efd; cursor: pointer; text-decoration: underline; }
+
+/* Secteurs déjà actifs */
+.form-check.already-active .form-check-label {
+  color: #198754;
+  font-weight: 600;
+}
+.form-check.already-active .form-check-input {
+  border-color: #198754;
+  background-color: #198754;
+}
+.already-badge {
+  font-size: 0.6rem; font-weight: 700;
+  background: rgba(25,135,84,0.12); color: #198754;
+  border-radius: 6px; padding: 1px 6px;
+  vertical-align: middle; margin-left: 4px;
+}
+

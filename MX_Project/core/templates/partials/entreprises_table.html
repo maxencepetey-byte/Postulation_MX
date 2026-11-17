@@ -19,7 +19,11 @@
   </td>
   <td><span class="text-muted fw-bold">#{{ ent.numero_pack }}</span></td>
   <td>
-    {% if ent.est_dans_paquet %}
+    {% if ent.entreprise.radiee %}
+      <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle" title="Cette entreprise ne figure plus au registre : aucun brouillon ne sera créé."><i class="bi bi-slash-circle me-1"></i>Radiée</span>
+    {% elif not ent.entreprise.email_valide %}
+      <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="L'adresse e-mail de cette entreprise ne fonctionne pas : aucun brouillon ne sera créé."><i class="bi bi-envelope-x me-1"></i>E-mail invalide</span>
+    {% elif ent.est_dans_paquet %}
       <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check2-all me-1"></i>Traité</span>
     {% else %}
       <span class="badge bg-light text-muted border"><i class="bi bi-hourglass-split me-1"></i>En attente</span>

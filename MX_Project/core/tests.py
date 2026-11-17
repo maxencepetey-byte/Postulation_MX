@@ -1453,3 +1453,81 @@ class ScanGroupeTests(BaseAuthTestCase):
         self.assertEqual(
             list(_filtrer_candidatures(cands, "", None).values_list("entreprise_id", flat=True)), [active.pk],
         )
+
+
+# ---------------------------------------------------------------------------
+# Front (audit, lot 4)
+# ---------------------------------------------------------------------------
+
+class FrontLot4Tests(BaseAuthTestCase):
+    _setup_complete_profil = DashboardTests._setup_complete_profil
+
+    def test_pages_heritent_du_gabarit_de_base(self):
+        self._setup_complete_profil()
+        for nom in ("dashboard", "historique_scans", "settings_page", "add_secteurs"):
+            resp = self.client.get(reverse(nom))
+            self.assertEqual(resp.status_code, 200, nom)
+            contenu = resp.content.decode()
+            self.assertTrue(contenu.startswith("<!DOCTYPE html>"), nom)
+            self.assertIn("family=Inter", contenu, nom)
+            self.assertIn("css/mx-base.css", contenu, nom)
+            self.assertEqual(contenu.count("bootstrap.bundle.min.js"), 1, nom)
+            self.assertEqual(contenu.count("</html>"), 1, nom)
+
+    def test_bouton_d_aide_present_une_seule_fois_ou_absent(self):
+        self._setup_complete_profil()
+        self.assertEqual(self.client.get(reverse("dashboard")).content.decode().count('id="videoAideModal"'), 1)
+        self.assertNotContains(self.client.get(reverse("add_secteurs")), "videoAideModal")
+        self.client.logout()
+        for nom in ("signin", "register"):
+            contenu = self.client.get(reverse(nom)).content.decode()
+            self.assertNotIn("videoAideModal", contenu, nom)
+            self.assertIn("css/login.css", contenu, nom)
+            self.assertTrue(contenu.startswith("<!DOCTYPE html>"), nom)
+            self.assertEqual(contenu.count("bootstrap.bundle.min.js"), 1, nom)
+
+    def test_detail_d_un_scan_herite_du_gabarit_et_signale_les_radiees(self):
+        self._setup_complete_profil()
+        radiee = self._make_ref(email="radiee@example.ch", nom="Radiee SA")
+        cand = self._make_candidature(ref=radiee)
+        self._make_candidature()
+        EntrepriseReferentiel.objects.filter(pk=radiee.pk).update(radiee=True)
+        contenu = self.client.get(reverse("detail_scan", args=[cand.id])).content.decode()
+        self.assertTrue(contenu.startswith("<!DOCTYPE html>"))
+        self.assertEqual((contenu.count('id="videoAideModal"'), contenu.count("bootstrap.bundle.min.js")), (1, 1))
+        self.assertEqual((contenu.count("Radiée"), contenu.count("En attente")), (1, 1))
+
+    def test_tableau_de_bord_charge_son_script_et_plus_l_ancien(self):
+        self._setup_complete_profil()
+        resp = self.client.get(reverse("dashboard"))
+        self.assertContains(resp, "js/mx-dashboard.js")
+        self.assertContains(resp, 'data-filter-url="/entreprises/filtrer-secteur"')
+        self.assertNotContains(resp, "scan-history")
+        self.assertNotContains(resp, "secteurSelect")
+
+    def test_liste_signale_les_entreprises_qu_on_ne_peut_plus_contacter(self):
+        self._setup_complete_profil()
+        radiee = self._make_ref(email="radiee@example.ch", nom="Radiee SA")
+        invalide = self._make_ref(email="invalide@example.ch", nom="Invalide SA")
+        for ref in (radiee, invalide, self._make_ref()):
+            self._make_candidature(ref=ref)
+        EntrepriseReferentiel.objects.filter(pk=radiee.pk).update(radiee=True)
+        EntrepriseReferentiel.objects.filter(pk=invalide.pk).update(email_valide=False)
+        resp = self.client.get(
+            reverse("entreprises_filtrer_secteur"), {"secteur": "Informatique et programmation"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        lignes = resp.json()["tbody"]
+        self.assertEqual((lignes.count("Radiée"), lignes.count("E-mail invalide"), lignes.count("En attente")), (1, 1, 1))
+
+    def test_fichiers_statiques_references_existent(self):
+        import re
+        from django.contrib.staticfiles import finders
+        from django.template.loader import get_template
+        gabarits = ["base.html", "core/dashboard.html", "core/historique.html", "core/detail_scan.html",
+                    "core/settings.html", "core/onboarding.html", "core/add_secteurs.html",
+                    "registration/signin.html", "registration/register.html", "registration/login.html"]
+        for nom in gabarits:
+            source = open(get_template(nom).origin.name, encoding="utf-8").read()
+            for chemin in re.findall(r"{% static '([^']+)' %}", source):
+                self.assertIsNotNone(finders.find(chemin), f"{nom} : {chemin}")

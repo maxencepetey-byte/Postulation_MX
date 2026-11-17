@@ -1,23 +1,10 @@
-"""Helpers transverses : versionnement statique, threads daemon, accroches LM, slug & I/O fichiers."""
+"""Helpers transverses : threads daemon, accroches LM, slug & I/O fichiers."""
 
-import os
 import re
 import threading
 
 
 _BG_SEMAPHORE = threading.BoundedSemaphore(3)
-
-
-def _compute_static_version():
-    try:
-        from django.contrib.staticfiles import finders
-        p = finders.find("js/scan-history.min.js")
-        return int(os.path.getmtime(p)) if p else None
-    except (OSError, TypeError):
-        return None
-
-
-_STATIC_VERSION = _compute_static_version()
 
 
 def _run_in_background(target, *args, en_attente=None, **kwargs):

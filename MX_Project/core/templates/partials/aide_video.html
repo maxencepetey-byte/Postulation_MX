@@ -1,0 +1,29 @@
+{# Bouton d'aide flottant et sa fenêtre : lien vers la vidéo de prise en main. #}
+<button type="button" class="btn-help-video" data-bs-toggle="modal" data-bs-target="#videoAideModal"
+        title="Aide — voir la vidéo" aria-label="Aide : voir la vidéo de prise en main">
+    <i class="bi bi-question-lg" aria-hidden="true"></i>
+</button>
+<div class="modal fade" id="videoAideModal" tabindex="-1" aria-labelledby="videoAideTitre" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0 px-4 pt-3">
+                <h6 class="modal-title fw-bold" id="videoAideTitre">
+                    <i class="bi bi-play-circle-fill text-primary me-2" aria-hidden="true"></i>Guide d'utilisation MX
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body p-3">
+                <a href="https://youtu.be/Gg_y8EAsJAk" target="_blank" rel="noopener" class="help-video-link">
+                    {# loading="lazy" : la miniature n'est demandée à YouTube que si la fenêtre est ouverte. #}
+                    <img src="https://img.youtube.com/vi/Gg_y8EAsJAk/maxresdefault.jpg" alt="Guide MX" loading="lazy">
+                    <div class="help-video-voile">
+                        <div class="help-video-lecture"><i class="bi bi-play-fill" aria-hidden="true"></i></div>
+                    </div>
+                </a>
+                <p class="text-center text-muted small mt-2 mb-0">
+                    <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Cliquez pour regarder sur YouTube
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

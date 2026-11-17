@@ -22,7 +22,6 @@ from ..models import (
     ProfilUtilisateur,
 )
 from ._lettre import contient_consigne, recopie_du_mail
-from ._utils import _STATIC_VERSION
 from .gmail import etat_du_lot
 from .scan import _run_scan_for_user
 from ._utils import _run_in_background
@@ -116,7 +115,6 @@ def dashboard(request):
         'tous_les_docs': tous_les_docs,
         'secteurs_uniques': secteurs_uniques,
         'gmail_connected': status["gmail_connected"],
-        'static_version': _STATIC_VERSION,
         'packs_actifs_secteurs': packs_actifs_secteurs,
         'lot_brouillons': etat_du_lot(request.user),
     })
@@ -291,6 +289,10 @@ def settings_page(request):
 
     form = ProfilForm(instance=profil, required_fields=required_fields)
     status = _get_setup_status(request.user)
+    # Le secteur de l'URL n'est retenu que s'il fait partie des secteurs de l'utilisateur.
+    active_secteur = request.GET.get("secteur", "Email")
+    if active_secteur not in secteurs_requis_list:
+        active_secteur = "Email"
 
     return render(request, 'core/settings.html', {
         'form':                  form,
@@ -303,7 +305,7 @@ def settings_page(request):
         'profil_ok':             status["profil_ok"],
         'setup_complete':        status["setup_complete"],
         'active_tab':            request.GET.get("tab", "identite"),
-        'active_secteur':        request.GET.get("secteur", "Email"),
+        'active_secteur':        active_secteur,
     })
 
 
