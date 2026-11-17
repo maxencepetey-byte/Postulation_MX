@@ -1,6 +1,6 @@
 body {
   background: #f0f2f5;
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -35,9 +35,8 @@ body {
   display: block;
   border-radius: 10px;
   padding: 10px 12px;
-  border: 1px solid rgba(49, 61, 79, 0.18);
+  border: 1px solid #8c939b;
   background: rgba(255, 255, 255, 0.95);
-  outline: none;
 }
 
 .login-card form p input:focus {
@@ -49,7 +48,7 @@ body {
   list-style: none;
   padding-left: 0;
   margin: 0 0 12px 0;
-  color: #dc3545;
+  color: #b02a37;
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -86,4 +85,11 @@ body {
   .login-card {
     padding: 28px;
   }
+}
+
+/* <main> entoure la carte : il prend la largeur du corps et la recentre. */
+main {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }

@@ -1,6 +1,5 @@
 .session-row {
   transition: all 0.2s;
-  cursor: pointer;
 }
 
 .session-row:hover {

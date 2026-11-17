@@ -293,6 +293,10 @@ def settings_page(request):
     active_secteur = request.GET.get("secteur", "Email")
     if active_secteur not in secteurs_requis_list:
         active_secteur = "Email"
+    # Onglet inconnu : sans onglet actif, la liste d'onglets n'est plus atteignable au clavier.
+    active_tab = request.GET.get("tab", "identite")
+    if active_tab not in ("identite", "templates", "connexions"):
+        active_tab = "identite"
 
     return render(request, 'core/settings.html', {
         'form':                  form,
@@ -304,7 +308,7 @@ def settings_page(request):
         'secteurs_manquants':    sorted(status["secteurs_manquants"]),
         'profil_ok':             status["profil_ok"],
         'setup_complete':        status["setup_complete"],
-        'active_tab':            request.GET.get("tab", "identite"),
+        'active_tab':            active_tab,
         'active_secteur':        active_secteur,
     })
 

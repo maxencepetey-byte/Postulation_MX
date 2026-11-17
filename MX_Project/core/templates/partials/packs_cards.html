@@ -5,9 +5,9 @@
   <div class="d-flex justify-content-between align-items-center mb-1">
     <span class="fw-bold small">Pack {{ p.pack_num }}</span>
     {% if p.is_used %}
-      <span class="badge bg-success-subtle text-success" style="font-size:.65rem">✓ Envoyé</span>
+      <span class="badge bg-success-subtle text-success-emphasis" style="font-size:.65rem">✓ Envoyé</span>
     {% elif p.doc_url %}
-      <span class="badge bg-primary-subtle text-primary" style="font-size:.65rem">Prêt</span>
+      <span class="badge bg-primary-subtle text-primary-emphasis" style="font-size:.65rem">Prêt</span>
     {% else %}
       <span class="badge bg-warning-subtle text-warning-emphasis" style="font-size:.65rem">À générer</span>
     {% endif %}
@@ -15,7 +15,7 @@
 
   {# Compteur entreprises #}
   <div class="text-muted mb-2" style="font-size:.75rem">
-    <i class="bi bi-building me-1"></i>{{ p.count }} entreprise{{ p.count|pluralize }}
+    <i class="bi bi-building me-1" aria-hidden="true"></i>{{ p.count }} entreprise{{ p.count|pluralize }}
     {% if p.remaining < p.count %}
       · <span class="text-success fw-semibold">{{ p.remaining }} restante{{ p.remaining|pluralize }}</span>
     {% endif %}
@@ -24,12 +24,13 @@
   {# Action principale #}
   {% if p.remaining == 0 %}
     <span class="btn btn-sm btn-success disabled w-100" style="font-size:.75rem">
-      <i class="bi bi-check2-all me-1"></i>Terminé
+      <i class="bi bi-check2-all me-1" aria-hidden="true"></i>Terminé
     </span>
   {% elif p.doc_url %}
     <div class="d-flex gap-1">
-      <a href="{{ p.doc_url }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Télécharger le ZIP des {{ p.count }} LM">
-        <i class="bi bi-download"></i>
+      <a href="{{ p.doc_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"
+         title="Télécharger le ZIP des {{ p.count }} LM" aria-label="Télécharger le ZIP des {{ p.count }} lettres du pack {{ p.pack_num }} (nouvel onglet)">
+        <i class="bi bi-download" aria-hidden="true"></i>
       </a>
       <form action="{% url 'creer_brouillons_gmail' %}" method="POST" class="m-0 flex-fill" data-once
             data-confirm="Créer {{ p.remaining }} brouillon{{ p.remaining|pluralize }} Gmail pour le pack {{ p.pack_num }} ({{ p.secteur }}) ?">
@@ -37,7 +38,7 @@
         <input type="hidden" name="secteur" value="{{ p.secteur }}">
         <input type="hidden" name="pack_num" value="{{ p.pack_num }}">
         <button type="submit" class="btn btn-sm btn-primary w-100 fw-semibold" title="Nécessite un CV dans vos documents">
-          <i class="bi bi-google me-1"></i>{{ p.remaining }} brouillon{{ p.remaining|pluralize }}
+          <i class="bi bi-google me-1" aria-hidden="true"></i>{{ p.remaining }} brouillon{{ p.remaining|pluralize }}
         </button>
       </form>
     </div>
@@ -46,7 +47,7 @@
       {% csrf_token %}
       <input type="hidden" name="secteur" value="{{ p.secteur }}">
       <button type="submit" class="btn btn-sm btn-outline-primary w-100 fw-semibold">
-        <i class="bi bi-folder-zip me-1"></i>Générer les LM
+        <i class="bi bi-folder-zip me-1" aria-hidden="true"></i>Générer les LM
       </button>
     </form>
   {% endif %}

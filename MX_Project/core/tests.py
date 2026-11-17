@@ -1531,3 +1531,109 @@ class FrontLot4Tests(BaseAuthTestCase):
             source = open(get_template(nom).origin.name, encoding="utf-8").read()
             for chemin in re.findall(r"{% static '([^']+)' %}", source):
                 self.assertIsNotNone(finders.find(chemin), f"{nom} : {chemin}")
+
+
+# ---------------------------------------------------------------------------
+# Accessibilité (audit, lot 5)
+# ---------------------------------------------------------------------------
+
+class AccessibiliteLot5Tests(BaseAuthTestCase):
+    _setup_complete_profil = DashboardTests._setup_complete_profil
+
+    def _page(self, nom, *args, **params):
+        return self.client.get(reverse(nom, args=args), params).content.decode()
+
+    def test_structure_commune_des_pages(self):
+        import re
+        self._setup_complete_profil()
+        cand = self._make_candidature()
+        pages = {
+            "dashboard": self._page("dashboard"),
+            "historique_scans": self._page("historique_scans"),
+            "detail_scan": self._page("detail_scan", cand.id),
+            "settings_page": self._page("settings_page"),
+            "add_secteurs": self._page("add_secteurs"),
+        }
+        self.client.logout()
+        pages["signin"] = self._page("signin")
+        pages["register"] = self._page("register")
+        for nom, html in pages.items():
+            self.assertEqual(len(re.findall(r"<h1[ >]", html)), 1, nom)
+            self.assertEqual(html.count('<main id="contenu"'), 1, nom)
+            self.assertIn('href="#contenu"', html, nom)
+            # Aucune icône de police n'est lue par un lecteur d'écran.
+            self.assertEqual(re.findall(r'<i class="bi [^>]*>', re.sub(r'<i class="bi [^>]*aria-hidden="true"[^>]*>', "", html)), [], nom)
+            self.assertNotRegex(html, r'<(span|div|tr)[^>]*\sonclick=', nom)
+            self.assertNotRegex(html, r'<th(?![^>]*scope=)[ >]', nom)
+            self.assertNotRegex(html, r'class="btn-close[^"]*"(?![^>]*aria-label)[^>]*>', nom)
+
+    def test_champs_des_reglages_relies_a_leur_libelle(self):
+        import re
+        self._setup_complete_profil()
+        html = self._page("settings_page")
+        champs = set(re.findall(r'<(?:input|textarea)[^>]*\sid="((?:id_|f_)\w+)"', html))
+        relies = set(re.findall(r'<label for="(\w+)"', html))
+        self.assertEqual(len(champs), 14)
+        self.assertEqual(champs - relies, set())
+        self.assertIn('autocomplete="given-name"', html)
+        for onglet in ("identite", "templates", "connexions"):
+            self.assertIn(f'id="onglet-{onglet}" aria-controls="tab-{onglet}"', html)
+            self.assertIn(f'id="tab-{onglet}" role="tabpanel" aria-labelledby="onglet-{onglet}"', html)
+        self.assertEqual(html.count('aria-selected="true"'), 1)
+        self.assertEqual(len(re.findall(r'<button type="button" class="var-badge"', html)), 6)
+
+    def test_tableau_de_bord_nomme_ses_champs_et_ses_boutons(self):
+        self._setup_complete_profil()
+        doc = DocumentUtilisateur(utilisateur=self.user, type_doc="CV", nom_affichage="Mon CV 2026")
+        doc.fichier.save("cv.pdf", ContentFile(b"%PDF-1.4"), save=True)
+        self.addCleanup(doc.fichier.delete, save=False)
+        html = self._page("dashboard")
+        for attendu in ('<label for="id_nom_doc"', '<label for="id_cv_file"', 'aria-label="Supprimer le document Mon CV 2026"',
+                        'aria-label="Voir Mon CV 2026 (nouvel onglet)"', 'aria-label="Se déconnecter"'):
+            self.assertIn(attendu, html)
+
+    def test_inscription_affiche_les_criteres_avant_l_envoi(self):
+        self.client.logout()
+        html = self._page("register")
+        self.assertIn('id="id_password1_helptext"', html)
+        self.assertIn('aria-describedby="id_password1_helptext"', html)
+
+    def test_erreur_de_connexion_annoncee(self):
+        self.client.logout()
+        resp = self.client.post(reverse("signin"), {"username": "u", "password": "faux"})
+        self.assertContains(resp, '<div role="alert">')
+        # L'erreur n'apparaît qu'une fois (elle était répétée hors de l'alerte).
+        self.assertEqual(resp.content.decode().count('class="errorlist'), 1)
+
+    def test_un_seul_onglet_atteignable_meme_avec_un_onglet_inconnu(self):
+        self._setup_complete_profil()
+        for tab in ("identite", "templates", "connexions", "inconnu"):
+            html = self._page("settings_page", tab=tab)
+            self.assertEqual((html.count('tabindex="0"'), html.count('aria-selected="true"')), (1, 1), tab)
+
+    def test_navigation_hors_de_la_zone_principale(self):
+        self._setup_complete_profil()
+        for nom in ("dashboard", "historique_scans", "settings_page"):
+            html = self._page(nom)
+            self.assertLess(html.index("</nav>"), html.index('<main id="contenu"'), nom)
+
+    def test_erreur_de_champ_a_l_inscription_annoncee(self):
+        self.client.logout()
+        resp = self.client.post(reverse("register"), {"username": "nouveau", "password1": "a", "password2": "b"})
+        self.assertContains(resp, '<div role="alert">')
+        self.assertContains(resp, 'id="id_password2_helptext"')
+
+    def test_page_d_accueil_publique(self):
+        import re
+        self.client.logout()
+        html = self._page("login")
+        self.assertEqual(re.findall(r'<i class="bi [^>]*>', re.sub(r'<i class="bi [^>]*aria-hidden="true"[^>]*>', "", html)), [])
+        self.assertNotRegex(html, r'class="btn-close[^"]*"(?![^>]*aria-label)[^>]*>')
+        self.assertIn('aria-labelledby="videoAideTitre"', html)
+
+    def test_groupes_de_secteurs_intitules(self):
+        self._setup_complete_profil()
+        html = self._page("add_secteurs")
+        self.assertGreaterEqual(html.count("<fieldset>"), 2)
+        self.assertEqual(html.count("<fieldset>"), html.count('<legend class="group-title">'))
+        self.assertIn('<button type="button" class="select-all-link" id="selectAll">', html)

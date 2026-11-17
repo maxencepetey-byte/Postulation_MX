@@ -8,34 +8,43 @@
 {% block content %}
   <div class="login-card">
     <a href="{% url 'login' %}" class="logo-mx" style="text-decoration:none;display:block">M<span>X</span></a>
-    <h5 class="text-center mb-4 text-muted">Créer un compte</h5>
+    <h1 class="h5 text-center mb-4 text-muted">Créer un compte</h1>
 
     <form method="post">
       {% csrf_token %}
-      {{ form.non_field_errors }}
+      {% if form.non_field_errors %}<div role="alert">{{ form.non_field_errors }}</div>{% endif %}
 
       <div class="mb-3">
-        {{ form.username.errors }}
+        {% if form.username.errors %}<div role="alert">{{ form.username.errors }}</div>{% endif %}
         <p>
           <label for="{{ form.username.id_for_label }}">Nom d'utilisateur</label>
           {{ form.username }}
         </p>
+        {% if form.username.help_text %}
+        <div class="aide-champ" id="{{ form.username.id_for_label }}_helptext">{{ form.username.help_text }}</div>
+        {% endif %}
       </div>
 
       <div class="mb-3">
-        {{ form.password1.errors }}
+        {% if form.password1.errors %}<div role="alert">{{ form.password1.errors }}</div>{% endif %}
         <p>
           <label for="{{ form.password1.id_for_label }}">Mot de passe</label>
           {{ form.password1 }}
         </p>
+        {% if form.password1.help_text %}
+        <div class="aide-champ" id="{{ form.password1.id_for_label }}_helptext">{{ form.password1.help_text }}</div>
+        {% endif %}
       </div>
 
       <div class="mb-3">
-        {{ form.password2.errors }}
+        {% if form.password2.errors %}<div role="alert">{{ form.password2.errors }}</div>{% endif %}
         <p>
           <label for="{{ form.password2.id_for_label }}">Confirmation du mot de passe</label>
           {{ form.password2 }}
         </p>
+        {% if form.password2.help_text %}
+        <div class="aide-champ" id="{{ form.password2.id_for_label }}_helptext">{{ form.password2.help_text }}</div>
+        {% endif %}
       </div>
       <button type="submit" class="btn btn-mx w-100 py-2">Créer mon compte</button>
     </form>

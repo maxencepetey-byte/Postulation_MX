@@ -5,19 +5,22 @@
     <link rel="stylesheet" href="{% static 'css/mx-app.css' %}">
     <link rel="stylesheet" href="{% static 'css/detail_scan.css' %}">
 {% endblock %}
-{% block content %}
-<nav class="navbar navbar-mx sticky-top mb-4">
+{% block nav %}
+<nav class="navbar navbar-mx sticky-top mb-4" aria-label="Navigation principale">
     <div class="container-fluid">
         <a href="{% url 'dashboard' %}" class="logo-mx">M<span>X</span></a>
         <div class="d-flex gap-2">
             <a href="{% url 'historique_scans' %}" class="btn btn-sm btn-outline-dark border-0 fw-bold">
-                <i class="bi bi-arrow-left me-1"></i> Historique
+                <i class="bi bi-arrow-left me-1" aria-hidden="true"></i> Historique
             </a>
         </div>
     </div>
 </nav>
+{% endblock %}
+{% block content %}
 
 <div class="container py-2">
+    <h1 class="visually-hidden">Détail du scan du {{ session.date_scan|date:"d/m/Y" }}</h1>
 
     {# Résumé de la session #}
     <div class="row g-3 mb-4">
@@ -29,7 +32,7 @@
         </div>
         <div class="col-md-3">
             <div class="stat-box">
-                <div class="fw-bold h5 text-warning mb-0">{{ session.nb_doublons_evites }}</div>
+                <div class="fw-bold h5 texte-avertissement mb-0">{{ session.nb_doublons_evites }}</div>
                 <div class="small text-muted">Doublons évités</div>
             </div>
         </div>
@@ -50,19 +53,19 @@
     {# Tableau des entreprises #}
     <div class="card shadow-sm border-0">
         <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-            <h6 class="section-title mb-0">
-                <i class="bi bi-building me-2"></i>Entreprises trouvées ({{ session.nb_entreprises }})
-            </h6>
+            <h2 class="section-title mb-0">
+                <i class="bi bi-building me-2" aria-hidden="true"></i>Entreprises trouvées ({{ session.nb_entreprises }})
+            </h2>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="bg-light">
                     <tr class="small text-muted text-uppercase" style="font-size:0.65rem;">
-                        <th class="ps-4">Entreprise & Contact</th>
-                        <th>Secteur</th>
-                        <th>Pack</th>
-                        <th>Statut</th>
-                        <th>Action</th>
+                        <th scope="col" class="ps-4">Entreprise & Contact</th>
+                        <th scope="col">Secteur</th>
+                        <th scope="col">Pack</th>
+                        <th scope="col">Statut</th>
+                        <th scope="col">Action</th>
                     </tr>
                 </thead>
                 <tbody class="small">
@@ -71,7 +74,7 @@
                         <td class="ps-4">
                             <div class="fw-bold text-dark">{{ ent.entreprise.raison_sociale }}</div>
                             <div class="text-muted" style="font-size:0.7rem;">
-                                <i class="bi bi-envelope-at me-1"></i>{{ ent.entreprise.email }}
+                                <i class="bi bi-envelope-at me-1" aria-hidden="true"></i>{{ ent.entreprise.email }}
                             </div>
                         </td>
                         <td><span class="badge badge-secteur">{{ ent.secteur_activite }}</span></td>
@@ -79,25 +82,26 @@
                         <td>
                             {% if ent.entreprise.radiee %}
                                 <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle" title="Cette entreprise ne figure plus au registre : aucun brouillon ne sera créé.">
-                                    <i class="bi bi-slash-circle me-1"></i>Radiée
+                                    <i class="bi bi-slash-circle me-1" aria-hidden="true"></i>Radiée<span class="visually-hidden"> : ne figure plus au registre, aucun brouillon ne sera créé</span>
                                 </span>
                             {% elif not ent.entreprise.email_valide %}
                                 <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="L'adresse e-mail de cette entreprise ne fonctionne pas : aucun brouillon ne sera créé.">
-                                    <i class="bi bi-envelope-x me-1"></i>E-mail invalide
+                                    <i class="bi bi-envelope-x me-1" aria-hidden="true"></i>E-mail invalide<span class="visually-hidden"> : aucun brouillon ne sera créé</span>
                                 </span>
                             {% elif ent.est_dans_paquet %}
-                                <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                    <i class="bi bi-check2-all me-1"></i>Traité
+                                <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
+                                    <i class="bi bi-check2-all me-1" aria-hidden="true"></i>Traité
                                 </span>
                             {% else %}
                                 <span class="badge bg-light text-muted border">
-                                    <i class="bi bi-hourglass-split me-1"></i>En attente
+                                    <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>En attente
                                 </span>
                             {% endif %}
                         </td>
                         <td>
-                            <a href="{% url 'telecharger_lm' ent.id %}" class="btn btn-sm btn-outline-dark" title="Générer PDF">
-                                <i class="bi bi-file-pdf"></i>
+                            <a href="{% url 'telecharger_lm' ent.id %}" class="btn btn-sm btn-outline-dark" title="Générer PDF"
+                               aria-label="Générer la lettre PDF pour {{ ent.entreprise.raison_sociale }}">
+                                <i class="bi bi-file-pdf" aria-hidden="true"></i>
                             </a>
                         </td>
                     </tr>
@@ -112,12 +116,12 @@
 
         {% if entreprises.has_other_pages %}
         <div class="card-footer bg-white py-3 border-0">
-            <nav class="d-flex justify-content-center">
+            <nav class="d-flex justify-content-center" aria-label="Pagination des entreprises">
                 <ul class="pagination pagination-sm mb-0">
                     {% if entreprises.has_previous %}
                         <li class="page-item"><a class="page-link" href="?page={{ entreprises.previous_page_number }}">Précédent</a></li>
                     {% endif %}
-                    <li class="page-item active"><span class="page-link">{{ entreprises.number }}</span></li>
+                    <li class="page-item active" aria-current="page"><span class="page-link">{{ entreprises.number }}</span></li>
                     {% if entreprises.has_next %}
                         <li class="page-item"><a class="page-link" href="?page={{ entreprises.next_page_number }}">Suivant</a></li>
                     {% endif %}

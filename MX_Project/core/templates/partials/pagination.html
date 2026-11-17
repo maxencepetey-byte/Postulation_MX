@@ -7,7 +7,7 @@
                     <a class="page-link" href="?page={{ entreprises.previous_page_number }}" data-page="{{ entreprises.previous_page_number }}">Précédent</a>
                 </li>
             {% endif %}
-            <li class="page-item active">
+            <li class="page-item active" aria-current="page">
                 <span class="page-link">{{ entreprises.number }} / {{ entreprises.paginator.num_pages }}</span>
             </li>
             {% if entreprises.has_next %}

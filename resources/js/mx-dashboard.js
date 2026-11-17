@@ -17,8 +17,15 @@
   var currentSecteur = "";
   var requete = null;
 
+  var etat = document.getElementById("etatListe");
+
   function ligne(contenu) {
     tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">' + contenu + "</td></tr>";
+  }
+
+  // Le tableau est remplacé d'un bloc : l'annonce passe par une zone à part, qui existe dès le chargement.
+  function annoncer(texte) {
+    if (etat) etat.textContent = texte;
   }
 
   function filterDocs(secteur) {
@@ -51,6 +58,7 @@
 
     tbody.setAttribute("aria-busy", "true");
     ligne('<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Chargement…');
+    annoncer("Chargement des entreprises…");
 
     fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" }, signal: signal })
       .then(function (r) {
@@ -59,7 +67,14 @@
       })
       .then(function (data) {
         tbody.innerHTML = data.tbody || "";
+        annoncer("Liste des entreprises mise à jour.");
         if (pager) pager.innerHTML = data.pagination || "";
+        if (page) {
+          // Le lien de pagination cliqué vient d'être remplacé : sans cela, le focus retombe en haut de page.
+          var titre = tbody.closest(".card").querySelector(".section-title");
+          titre.tabIndex = -1;
+          titre.focus();
+        }
         if (secteur && data.packs) {
           packsGrid.innerHTML = data.packs;
           packsLabel.textContent = "— " + secteur;
@@ -72,9 +87,10 @@
       })
       .catch(function (err) {
         if (err && err.name === "AbortError") return;
+        annoncer("");
         ligne(
-          '<span class="text-danger d-block mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>' +
-            "Impossible de charger les entreprises.</span>" +
+          '<div role="alert"><span class="text-danger d-block mb-2"><i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>' +
+            "Impossible de charger les entreprises.</span></div>" +
             '<button type="button" class="btn btn-sm btn-outline-primary" data-reessayer>Réessayer</button>'
         );
         tbody.querySelector("[data-reessayer]").addEventListener("click", function () {

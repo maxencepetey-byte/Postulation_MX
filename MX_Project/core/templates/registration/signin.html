@@ -8,14 +8,17 @@
 {% block content %}
   <div class="login-card">
     <a href="{% url 'login' %}" class="logo-mx" style="text-decoration:none;display:block">M<span>X</span></a>
-    <h5 class="text-center mb-4 text-muted">Connexion à votre compte</h5>
+    <h1 class="h5 text-center mb-4 text-muted">Connexion à votre compte</h1>
 
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ next }}">
-      {{ form.non_field_errors }}
+      {% if form.non_field_errors %}<div role="alert">{{ form.non_field_errors }}</div>{% endif %}
       <div class="mb-3">
-        {{ form.as_p }}
+        {% for field in form %}
+        {% if field.errors %}<div role="alert">{{ field.errors }}</div>{% endif %}
+        <p>{{ field.label_tag }} {{ field }}</p>
+        {% endfor %}
       </div>
       <button type="submit" class="btn btn-mx w-100 py-2">Se connecter</button>
     </form>

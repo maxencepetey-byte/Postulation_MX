@@ -61,6 +61,60 @@
   padding-left: 4px;
 }
 
+/* Focus au clavier toujours visible : Bootstrap retire le contour de plusieurs composants et le
+   remplace par un halo trop pâle. */
+:focus-visible {
+  outline: 2px solid #0d6efd !important;
+  outline-offset: 2px;
+}
+
+/* <main> ne reçoit le focus que pour le lien d'évitement : pas de cadre autour de toute la page. */
+main:focus-visible {
+  outline: none !important;
+}
+
+.lien-evitement {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2000;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: #fff;
+  color: #0b5ed7;
+  font-weight: 600;
+}
+
+/* Bord des champs : le gris clair de Bootstrap fait 1,3:1 sur blanc ; il faut 3:1 pour le distinguer. */
+.form-control,
+.form-select,
+.form-check-input {
+  border-color: #8c939b;
+}
+
+.icone-avertissement {
+  color: #b45309;
+}
+
+.icone-avertissement:hover {
+  color: #92400e;
+}
+
+.texte-avertissement {
+  color: #856404;
+}
+
+.aide-champ {
+  margin: -6px 0 12px;
+  font-size: 0.78rem;
+  color: #5c636a;
+}
+
+.aide-champ ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
 /* Réglage système « réduire les animations » : plus de mouvement, ni de défilement animé. */
 @media (prefers-reduced-motion: reduce) {
   *,

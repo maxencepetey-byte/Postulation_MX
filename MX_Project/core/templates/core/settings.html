@@ -5,7 +5,7 @@
     <link rel="stylesheet" href="{% static 'css/mx-app.css' %}">
     <link rel="stylesheet" href="{% static 'css/settings.css' %}">
 {% endblock %}
-{% block content %}
+{% block nav %}
 
 {{ templates_data|json_script:"tpl-json-data" }}
 
@@ -15,32 +15,34 @@
 </div>
 
 {# ── Navbar ── #}
-<nav class="navbar navbar-mx sticky-top">
+<nav class="navbar navbar-mx sticky-top" aria-label="Navigation principale">
   <div class="container-fluid px-4">
     <a href="{% url 'dashboard' %}" class="logo-mx">M<span>X</span></a>
     <div class="d-flex align-items-center gap-3">
       <div id="unsaved-badge" aria-live="polite">
-        <i class="bi bi-circle-fill" style="font-size:.4rem"></i>
+        <i class="bi bi-circle-fill" style="font-size:.4rem" aria-hidden="true"></i>
         Modifications non sauvegardées
       </div>
       <span class="small text-muted fw-semibold">{{ request.user.username }}</span>
       {% if setup_complete %}
       <a href="{% url 'dashboard' %}" class="btn btn-sm btn-light border px-3">
-        <i class="bi bi-arrow-left me-1"></i>Dashboard
+        <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Dashboard
       </a>
       {% endif %}
     </div>
   </div>
 </nav>
+{% endblock %}
+{% block content %}
 
 <div class="container py-4 px-3 px-md-4" style="max-width:980px">
 
   {# Flash messages #}
   {% if messages %}{% for message in messages %}
   <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3 d-flex align-items-center gap-2" role="alert">
-    <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% elif 'danger' in message.tags %}x-circle-fill{% else %}exclamation-triangle-fill{% endif %}"></i>
+    <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% elif 'danger' in message.tags %}x-circle-fill{% else %}exclamation-triangle-fill{% endif %}" aria-hidden="true"></i>
     <span>{{ message }}</span>
-    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Fermer"></button>
   </div>
   {% endfor %}{% endif %}
 
@@ -49,7 +51,7 @@
 
     <div class="step-item {% if profil_ok %}step-done{% else %}step-pending{% endif %}">
       <div class="step-num">
-        {% if profil_ok %}<i class="bi bi-check-lg"></i>{% else %}1{% endif %}
+        {% if profil_ok %}<i class="bi bi-check-lg" aria-hidden="true"></i>{% else %}1{% endif %}
       </div>
       <div>
         <div class="step-title">Identité</div>
@@ -59,7 +61,7 @@
 
     <div class="step-item {% if not secteurs_manquants %}step-done{% else %}step-pending{% endif %}">
       <div class="step-num">
-        {% if not secteurs_manquants %}<i class="bi bi-check-lg"></i>{% else %}2{% endif %}
+        {% if not secteurs_manquants %}<i class="bi bi-check-lg" aria-hidden="true"></i>{% else %}2{% endif %}
       </div>
       <div>
         <div class="step-title">Templates LM</div>
@@ -72,7 +74,7 @@
 
     <div class="step-item {% if gmail_connected %}step-done{% else %}step-pending{% endif %}">
       <div class="step-num">
-        {% if gmail_connected %}<i class="bi bi-check-lg"></i>{% else %}3{% endif %}
+        {% if gmail_connected %}<i class="bi bi-check-lg" aria-hidden="true"></i>{% else %}3{% endif %}
       </div>
       <div>
         <div class="step-title">Gmail (optionnel)</div>
@@ -82,11 +84,11 @@
 
     {% if setup_complete %}
     <div class="step-item step-done" style="flex:0 0 auto;padding-left:20px;padding-right:20px">
-      <div class="step-num" style="background:rgba(25,135,84,.12);color:#198754;border-color:rgba(25,135,84,.3)">
-        <i class="bi bi-stars"></i>
+      <div class="step-num" style="background:rgba(25,135,84,.12);color:#146c43;border-color:rgba(25,135,84,.3)">
+        <i class="bi bi-stars" aria-hidden="true"></i>
       </div>
       <div>
-        <div class="step-title" style="color:#198754">Prêt !</div>
+        <div class="step-title" style="color:#146c43">Prêt !</div>
         <div class="step-sub">Dashboard débloqué</div>
       </div>
     </div>
@@ -99,27 +101,38 @@
   </div>
 
   {# ── Tabs ── #}
-  <div class="tabs-nav mb-4" role="tablist">
-    <button class="tab-btn {% if active_tab == 'identite' %}active{% endif %}" data-tab="identite" role="tab">
-      <i class="bi bi-person"></i> Identité
+  <div class="tabs-nav mb-4" role="tablist" aria-label="Sections des réglages">
+    <button type="button" class="tab-btn {% if active_tab == 'identite' %}active{% endif %}" data-tab="identite" role="tab"
+            id="onglet-identite" aria-controls="tab-identite"
+            aria-selected="{% if active_tab == 'identite' %}true{% else %}false{% endif %}"
+            tabindex="{% if active_tab == 'identite' %}0{% else %}-1{% endif %}">
+      <i class="bi bi-person" aria-hidden="true"></i> Identité
       <span class="tab-dot {% if profil_ok %}tab-dot-ok{% else %}tab-dot-warn{% endif %}"></span>
+      <span class="visually-hidden">{% if profil_ok %}(complet){% else %}(à compléter){% endif %}</span>
     </button>
-    <button class="tab-btn {% if active_tab == 'templates' %}active{% endif %}" data-tab="templates" role="tab">
-      <i class="bi bi-file-earmark-text"></i> Templates LM
+    <button type="button" class="tab-btn {% if active_tab == 'templates' %}active{% endif %}" data-tab="templates" role="tab"
+            id="onglet-templates" aria-controls="tab-templates"
+            aria-selected="{% if active_tab == 'templates' %}true{% else %}false{% endif %}"
+            tabindex="{% if active_tab == 'templates' %}0{% else %}-1{% endif %}">
+      <i class="bi bi-file-earmark-text" aria-hidden="true"></i> Templates LM
       {% if not secteurs_manquants %}
-        <span class="tab-dot tab-dot-ok"></span>
+        <span class="tab-dot tab-dot-ok"></span><span class="visually-hidden">(complet)</span>
       {% else %}
-        <span style="background:#ffc107;color:#000;border-radius:10px;font-size:.62rem;font-weight:800;padding:1px 7px">{{ secteurs_manquants|length }}</span>
+        <span style="background:#ffc107;color:#000;border-radius:10px;font-size:.62rem;font-weight:800;padding:1px 7px">{{ secteurs_manquants|length }}<span class="visually-hidden"> à compléter</span></span>
       {% endif %}
     </button>
-    <button class="tab-btn {% if active_tab == 'connexions' %}active{% endif %}" data-tab="connexions" role="tab">
-      <i class="bi bi-plug"></i> Connexions
+    <button type="button" class="tab-btn {% if active_tab == 'connexions' %}active{% endif %}" data-tab="connexions" role="tab"
+            id="onglet-connexions" aria-controls="tab-connexions"
+            aria-selected="{% if active_tab == 'connexions' %}true{% else %}false{% endif %}"
+            tabindex="{% if active_tab == 'connexions' %}0{% else %}-1{% endif %}">
+      <i class="bi bi-plug" aria-hidden="true"></i> Connexions
       <span class="tab-dot {% if gmail_connected %}tab-dot-ok{% else %}tab-dot-warn{% endif %}"></span>
+      <span class="visually-hidden">{% if gmail_connected %}(Gmail connecté){% else %}(Gmail non connecté){% endif %}</span>
     </button>
   </div>
 
   {# ══ TAB IDENTITÉ ══ #}
-  <div class="tab-panel {% if active_tab == 'identite' %}active{% endif %}" id="tab-identite" role="tabpanel">
+  <div class="tab-panel {% if active_tab == 'identite' %}active{% endif %}" id="tab-identite" role="tabpanel" aria-labelledby="onglet-identite">
     <form method="POST" action="{% url 'settings_page' %}" id="formProfil" novalidate>
       {% csrf_token %}
       <input type="hidden" name="action" value="save_profil">
@@ -130,7 +143,7 @@
           <div class="card p-4 fade-in-up">
             <div class="d-flex align-items-center gap-2 mb-3">
               <div class="rounded-3 p-2 d-flex align-items-center justify-content-center" style="background:rgba(13,110,253,.1);color:#0d6efd;width:36px;height:36px">
-                <i class="bi bi-person-badge"></i>
+                <i class="bi bi-person-badge" aria-hidden="true"></i>
               </div>
               <div>
                 <h2 class="fw-bold mb-0" style="font-size:.95rem">Informations personnelles</h2>
@@ -141,30 +154,30 @@
             <div class="section-div"><span>Identité</span></div>
             <div class="row g-3">
               <div class="col-6">
-                <label class="form-label fw-semibold small text-muted">Prénom <span class="text-primary">*</span></label>
-                <input type="text" id="id_prenom" name="prenom_lm"
+                <label for="id_prenom" class="form-label fw-semibold small text-muted">Prénom <span class="text-primary">*</span></label>
+                <input type="text" id="id_prenom" autocomplete="given-name" name="prenom_lm"
                        class="form-control {% if profil.prenom_lm %}border-success{% endif %}"
                        value="{{ profil.prenom_lm|default:'' }}" placeholder="Maxence" required
                        data-preview="preview-prenom">
               </div>
               <div class="col-6">
-                <label class="form-label fw-semibold small text-muted">Nom <span class="text-primary">*</span></label>
-                <input type="text" id="id_nom" name="nom_lm"
+                <label for="id_nom" class="form-label fw-semibold small text-muted">Nom <span class="text-primary">*</span></label>
+                <input type="text" id="id_nom" autocomplete="family-name" name="nom_lm"
                        class="form-control {% if profil.nom_lm %}border-success{% endif %}"
                        value="{{ profil.nom_lm|default:'' }}" placeholder="Dupont" required
                        data-preview="preview-nom">
               </div>
             </div>
             <div class="mt-3">
-              <label class="form-label fw-semibold small text-muted">Email de contact <span class="text-primary">*</span></label>
-              <input type="email" id="id_email" name="email_lm"
+              <label for="id_email" class="form-label fw-semibold small text-muted">Email de contact <span class="text-primary">*</span></label>
+              <input type="email" id="id_email" autocomplete="email" name="email_lm"
                      class="form-control {% if profil.email_lm %}border-success{% endif %}"
                      value="{{ profil.email_lm|default:'' }}" placeholder="votre@email.com" required
                      data-preview="preview-email">
             </div>
             <div class="mt-3">
-              <label class="form-label fw-semibold small text-muted">Téléphone</label>
-              <input type="text" id="id_tel" name="telephone"
+              <label for="id_tel" class="form-label fw-semibold small text-muted">Téléphone</label>
+              <input type="tel" id="id_tel" autocomplete="tel" name="telephone"
                      class="form-control {% if profil.telephone %}border-success{% endif %}"
                      value="{{ profil.telephone|default:'' }}" placeholder="+41 79 000 00 00"
                      data-preview="preview-tel">
@@ -172,23 +185,23 @@
 
             <div class="section-div"><span>Adresse</span></div>
             <div class="mt-1">
-              <label class="form-label fw-semibold small text-muted">Rue</label>
-              <input type="text" id="id_rue" name="rue"
+              <label for="id_rue" class="form-label fw-semibold small text-muted">Rue</label>
+              <input type="text" id="id_rue" autocomplete="address-line1" name="rue"
                      class="form-control {% if profil.rue %}border-success{% endif %}"
                      value="{{ profil.rue|default:'' }}" placeholder="Rue de la Prairie 25"
                      data-preview="preview-rue">
             </div>
             <div class="row g-3 mt-0">
               <div class="col-4">
-                <label class="form-label fw-semibold small text-muted">NPA</label>
-                <input type="text" id="id_npa" name="npa"
+                <label for="id_npa" class="form-label fw-semibold small text-muted">NPA</label>
+                <input type="text" id="id_npa" autocomplete="postal-code" name="npa"
                        class="form-control {% if profil.npa %}border-success{% endif %}"
                        value="{{ profil.npa|default:'' }}" placeholder="1202"
                        data-preview="preview-npa">
               </div>
               <div class="col-8">
-                <label class="form-label fw-semibold small text-muted">Ville</label>
-                <input type="text" id="id_ville" name="ville"
+                <label for="id_ville" class="form-label fw-semibold small text-muted">Ville</label>
+                <input type="text" id="id_ville" autocomplete="address-level2" name="ville"
                        class="form-control {% if profil.ville %}border-success{% endif %}"
                        value="{{ profil.ville|default:'' }}" placeholder="Genève"
                        data-preview="preview-ville">
@@ -196,7 +209,7 @@
             </div>
 
             <button type="submit" class="btn-save" id="btnSaveProfil">
-              <i class="bi bi-check2 btn-icon"></i>
+              <i class="bi bi-check2 btn-icon" aria-hidden="true"></i>
               <span class="btn-label">Sauvegarder les informations</span>
             </button>
             <div class="kbd-hint">
@@ -219,11 +232,11 @@
                 <span id="preview-nom">{{ profil.nom_lm|default:'' }}</span>
               </div>
               <div class="preview-email" id="preview-email-wrap"{% if not profil.email_lm %} style="display:none"{% endif %}>
-                <i class="bi bi-envelope-fill"></i>
+                <i class="bi bi-envelope-fill" aria-hidden="true"></i>
                 <span id="preview-email">{{ profil.email_lm|default:'' }}</span>
               </div>
               <div class="preview-phone" id="preview-tel-wrap"{% if not profil.telephone %} style="display:none"{% endif %}>
-                <i class="bi bi-telephone-fill"></i>
+                <i class="bi bi-telephone-fill" aria-hidden="true"></i>
                 <span id="preview-tel">{{ profil.telephone|default:'' }}</span>
               </div>
               <div class="preview-address" id="preview-address-wrap">
@@ -260,10 +273,10 @@
   </div>
 
   {# ══ TAB TEMPLATES LM ══ #}
-  <div class="tab-panel {% if active_tab == 'templates' %}active{% endif %}" id="tab-templates" role="tabpanel">
+  <div class="tab-panel {% if active_tab == 'templates' %}active{% endif %}" id="tab-templates" role="tabpanel" aria-labelledby="onglet-templates">
 
     <div class="alert alert-primary d-flex align-items-center gap-2 mb-4 border-0 shadow-sm">
-      <i class="bi bi-info-circle-fill flex-shrink-0"></i>
+      <i class="bi bi-info-circle-fill flex-shrink-0" aria-hidden="true"></i>
       <span><strong>Email</strong> = texte court du message Gmail (objet + corps). <strong>Chaque secteur</strong> = lettre de motivation jointe en PDF, mise en page au format suisse (adresse, lieu et date, signature et annexes sont ajoutés automatiquement). <strong>Paragraphe 1 obligatoire.</strong></span>
     </div>
 
@@ -272,18 +285,19 @@
       <button type="button"
               class="secteur-card {% if s not in secteurs_manquants %}done{% endif %} {% if s == active_secteur %}active{% endif %}"
               data-secteur="{{ s }}"
+              aria-pressed="{% if s == active_secteur %}true{% else %}false{% endif %}"
               onclick="selectSecteur('{{ s|escapejs }}')">
         {% if s == "Email" %}
-          <span class="sc-type"><i class="bi bi-envelope-fill me-1"></i>Corps email</span>
+          <span class="sc-type"><i class="bi bi-envelope-fill me-1" aria-hidden="true"></i>Corps email</span>
         {% else %}
-          <span class="sc-type"><i class="bi bi-file-pdf me-1"></i>PDF joint</span>
+          <span class="sc-type"><i class="bi bi-file-pdf me-1" aria-hidden="true"></i>PDF joint</span>
         {% endif %}
         <span class="sc-name">{{ s }}</span>
         <div class="sc-footer">
           {% if s not in secteurs_manquants %}
-            <span class="sc-badge ok"><i class="bi bi-check2"></i> Configuré</span>
+            <span class="sc-badge ok"><i class="bi bi-check2" aria-hidden="true"></i> Configuré</span>
           {% else %}
-            <span class="sc-badge missing"><i class="bi bi-pencil"></i> À remplir</span>
+            <span class="sc-badge missing"><i class="bi bi-pencil" aria-hidden="true"></i> À remplir</span>
           {% endif %}
           <span class="sc-para-count">—</span>
         </div>
@@ -305,13 +319,13 @@
       <div class="editor-zone">
         <div class="editor-header">
           <div class="rounded-3 p-2 d-flex align-items-center justify-content-center" style="background:rgba(13,110,253,.1);color:#0d6efd;width:34px;height:34px;flex-shrink:0">
-            <i class="bi bi-pencil-square" style="font-size:.85rem"></i>
+            <i class="bi bi-pencil-square" style="font-size:.85rem" aria-hidden="true"></i>
           </div>
           <span class="fw-bold" style="font-size:.9rem">Template</span>
           <span class="badge-editing" id="editorLabel">{{ active_secteur }}</span>
           <span id="editorStatus"></span>
           <button type="button" class="btn-dup" id="btnDuplicate" onclick="preremplirTrameLettre()" title="Préremplir avec une trame de lettre de motivation à personnaliser">
-            <i class="bi bi-file-earmark-text"></i> Trame de lettre
+            <i class="bi bi-file-earmark-text" aria-hidden="true"></i> Trame de lettre
           </button>
         </div>
 
@@ -319,9 +333,9 @@
         <div id="previewBlock" style="display:none">
           <div class="preview-block">
             <div class="preview-header">
-              <span class="ok-label"><i class="bi bi-check-circle-fill"></i> Template enregistré</span>
+              <span class="ok-label"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Template enregistré</span>
               <button type="button" class="btn-edit" onclick="showEditZone()">
-                <i class="bi bi-pencil"></i> Modifier
+                <i class="bi bi-pencil" aria-hidden="true"></i> Modifier
               </button>
             </div>
             <div class="preview-content" id="previewContent"></div>
@@ -331,18 +345,18 @@
         {# Formulaire édition #}
         <div id="editZone" class="editor-body" style="display:none">
           <div class="mb-3">
-            <label class="form-label fw-semibold small text-muted" id="lblObjet">Objet de la lettre</label>
+            <label for="f_objet" class="form-label fw-semibold small text-muted" id="lblObjet">Objet de la lettre</label>
             <input type="text" id="f_objet" name="objet" class="form-control" placeholder="Candidature spontanée — {entreprise}">
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold small text-muted">Salutation</label>
+            <label for="f_intro" class="form-label fw-semibold small text-muted">Salutation</label>
             <textarea id="f_intro" name="introduction" class="form-control auto-resize" rows="2" placeholder="Madame, Monsieur,"></textarea>
           </div>
 
           <div class="editor-grid">
             <div class="field-group full">
-              <label class="form-label fw-semibold small text-muted">Paragraphe 1 — À propos de moi <span class="text-primary">*</span></label>
-              <textarea id="f_p1" name="paragraph_1" class="form-control auto-resize" rows="4"
+              <label for="f_p1" class="form-label fw-semibold small text-muted">Paragraphe 1 — À propos de moi <span class="text-primary">*</span></label>
+              <textarea id="f_p1" name="paragraph_1" aria-required="true" class="form-control auto-resize" rows="4"
                         placeholder="Présentez-vous : formation, expérience, compétences…"
                         data-min="80" data-good="200"></textarea>
               <div class="d-flex align-items-center justify-content-between mt-1">
@@ -351,7 +365,7 @@
               </div>
             </div>
             <div class="field-group">
-              <label class="form-label fw-semibold small text-muted">Paragraphe 2 — Votre entreprise</label>
+              <label for="f_p2" class="form-label fw-semibold small text-muted">Paragraphe 2 — Votre entreprise</label>
               <textarea id="f_p2" name="paragraph_2" class="form-control auto-resize" rows="3"
                         placeholder="Ce qui vous attire chez {entreprise}…"
                         data-min="60" data-good="150"></textarea>
@@ -361,7 +375,7 @@
               </div>
             </div>
             <div class="field-group">
-              <label class="form-label fw-semibold small text-muted">Paragraphe 3 — Valeur ajoutée</label>
+              <label for="f_p3" class="form-label fw-semibold small text-muted">Paragraphe 3 — Valeur ajoutée</label>
               <textarea id="f_p3" name="paragraph_3" class="form-control auto-resize" rows="3"
                         placeholder="Ce que vous pouvez apporter…"
                         data-min="60" data-good="150"></textarea>
@@ -371,7 +385,7 @@
               </div>
             </div>
             <div class="field-group full">
-              <label class="form-label fw-semibold small text-muted">Paragraphe 4 — Disponibilité</label>
+              <label for="f_p4" class="form-label fw-semibold small text-muted">Paragraphe 4 — Disponibilité</label>
               <textarea id="f_p4" name="paragraph_4" class="form-control auto-resize" rows="3"
                         placeholder="Disponible pour un entretien…"
                         data-min="40" data-good="100"></textarea>
@@ -381,24 +395,24 @@
               </div>
             </div>
             <div class="field-group full">
-              <label class="form-label fw-semibold small text-muted">Formule de politesse</label>
+              <label for="f_conc" class="form-label fw-semibold small text-muted">Formule de politesse</label>
               <input type="text" id="f_conc" name="conclusion" class="form-control"
                      placeholder="Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.">
             </div>
           </div>
 
           <div class="vars-wrap">
-            <p class="mb-1"><i class="bi bi-braces text-primary me-1"></i>Variables dynamiques — cliquer pour insérer dans le champ actif</p>
-            <span class="var-badge" onclick="insertVar('{entreprise}')">{entreprise}</span>
-            <span class="var-badge" onclick="insertVar('{secteur}')">{secteur}</span>
-            <span class="var-badge" onclick="insertVar('{prenom}')">{prenom}</span>
-            <span class="var-badge" onclick="insertVar('{nom}')">{nom}</span>
-            <span class="var-badge" onclick="insertVar('{ville}')">{ville}</span>
-            <span class="var-badge" onclick="insertVar('{accroche}')">{accroche}</span>
+            <p class="mb-1"><i class="bi bi-braces text-primary me-1" aria-hidden="true"></i>Variables dynamiques — cliquer pour insérer dans le champ actif</p>
+            <button type="button" class="var-badge" onclick="insertVar('{entreprise}')" aria-label="Insérer la variable {entreprise}">{entreprise}</button>
+            <button type="button" class="var-badge" onclick="insertVar('{secteur}')" aria-label="Insérer la variable {secteur}">{secteur}</button>
+            <button type="button" class="var-badge" onclick="insertVar('{prenom}')" aria-label="Insérer la variable {prenom}">{prenom}</button>
+            <button type="button" class="var-badge" onclick="insertVar('{nom}')" aria-label="Insérer la variable {nom}">{nom}</button>
+            <button type="button" class="var-badge" onclick="insertVar('{ville}')" aria-label="Insérer la variable {ville}">{ville}</button>
+            <button type="button" class="var-badge" onclick="insertVar('{accroche}')" aria-label="Insérer la variable {accroche}">{accroche}</button>
           </div>
 
           <button type="submit" class="btn-save" id="btnSaveTemplate">
-            <i class="bi bi-check2-circle btn-icon"></i>
+            <i class="bi bi-check2-circle btn-icon" aria-hidden="true"></i>
             <span class="btn-label">Sauvegarder — <span id="saveLbl">{{ active_secteur }}</span></span>
           </button>
           <div class="kbd-hint">
@@ -411,11 +425,11 @@
   </div>
 
   {# ══ TAB CONNEXIONS ══ #}
-  <div class="tab-panel {% if active_tab == 'connexions' %}active{% endif %}" id="tab-connexions" role="tabpanel">
+  <div class="tab-panel {% if active_tab == 'connexions' %}active{% endif %}" id="tab-connexions" role="tabpanel" aria-labelledby="onglet-connexions">
     <div class="card p-4 fade-in-up" style="max-width:520px">
       <div class="d-flex align-items-center gap-2 mb-3">
         <div class="rounded-3 p-2 d-flex align-items-center justify-content-center" style="background:rgba(13,110,253,.1);color:#0d6efd;width:36px;height:36px">
-          <i class="bi bi-plug"></i>
+          <i class="bi bi-plug" aria-hidden="true"></i>
         </div>
         <div>
           <h2 class="fw-bold mb-0" style="font-size:.95rem">Connexions</h2>
@@ -425,7 +439,7 @@
 
       {% if not gmail_connected %}
       <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
-        <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
         <span class="small">Gmail non connecté — nécessaire pour créer des brouillons automatiquement.</span>
       </div>
       {% endif %}
@@ -434,7 +448,7 @@
         <div class="gmail-dot {% if gmail_connected %}on{% else %}off{% endif %}"></div>
         <div>
           <div class="fw-semibold small">
-            <i class="bi bi-google me-1 {% if gmail_connected %}text-success{% else %}text-muted{% endif %}"></i>Gmail
+            <i class="bi bi-google me-1 {% if gmail_connected %}text-success{% else %}text-muted{% endif %}" aria-hidden="true"></i>Gmail
           </div>
           <div class="text-muted" style="font-size:.75rem">{% if gmail_connected %}Connecté — brouillons activés{% else %}Non connecté{% endif %}</div>
         </div>
@@ -442,12 +456,12 @@
           <form method="POST" action="{% url 'gmail_disconnect' %}" class="ms-auto">
             {% csrf_token %}
             <button type="submit" class="btn btn-sm btn-outline-danger">
-              <i class="bi bi-x-lg me-1"></i>Déconnecter
+              <i class="bi bi-x-lg me-1" aria-hidden="true"></i>Déconnecter
             </button>
           </form>
         {% else %}
           <a href="{% url 'gmail_connect' %}" class="btn btn-sm btn-primary ms-auto">
-            <i class="bi bi-google me-1"></i>Connecter Gmail
+            <i class="bi bi-google me-1" aria-hidden="true"></i>Connecter Gmail
           </a>
         {% endif %}
       </div>
@@ -458,9 +472,9 @@
   <div class="cta-wrap {% if setup_complete %}complete{% endif %}">
     <h3 class="fw-bold mb-1" style="font-size:1rem">
       {% if setup_complete %}
-        <i class="bi bi-check-circle-fill text-success me-1"></i>Configuration terminée !
+        <i class="bi bi-check-circle-fill text-success me-1" aria-hidden="true"></i>Configuration terminée !
       {% else %}
-        <i class="bi bi-lock-fill text-muted me-1"></i>Dashboard verrouillé
+        <i class="bi bi-lock-fill text-muted me-1" aria-hidden="true"></i>Dashboard verrouillé
       {% endif %}
     </h3>
     <p class="text-muted small mb-3">
@@ -469,11 +483,11 @@
     </p>
     {% if setup_complete %}
       <a href="{% url 'dashboard' %}" class="btn btn-primary btn-mx px-4 py-2">
-        <i class="bi bi-arrow-right-circle-fill me-1"></i>Accéder au dashboard
+        <i class="bi bi-arrow-right-circle-fill me-1" aria-hidden="true"></i>Accéder au dashboard
       </a>
     {% else %}
       <button class="btn btn-secondary px-4 py-2 fw-bold" disabled>
-        <i class="bi bi-lock-fill me-1"></i>Dashboard verrouillé
+        <i class="bi bi-lock-fill me-1" aria-hidden="true"></i>Dashboard verrouillé
       </button>
     {% endif %}
   </div>
@@ -531,18 +545,17 @@ document.querySelectorAll('.btn-save').forEach(btn => {
 });
 
 /* Toast "sauvegarde avant de continuer" */
+const saveToast = document.createElement('div');
+saveToast.id = 'save-first-toast';
+saveToast.setAttribute('role', 'status');
+saveToast.style.cssText = 'position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:9999;background:#fff3cd;border:1px solid #ffc107;border-radius:10px;padding:10px 20px;font-size:.83rem;font-weight:600;color:#856404;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);transition:opacity .3s';
+saveToast.style.opacity = '0';
+document.body.appendChild(saveToast);
 function showSaveToast() {
-    let toast = document.getElementById('save-first-toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'save-first-toast';
-        toast.style.cssText = 'position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:9999;background:#fff3cd;border:1px solid #ffc107;border-radius:10px;padding:10px 20px;font-size:.83rem;font-weight:600;color:#856404;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);transition:opacity .3s';
-        toast.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Sauvegarde cet onglet avant de passer au suivant.';
-        document.body.appendChild(toast);
-    }
-    toast.style.opacity = '1';
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 2800);
+    saveToast.innerHTML = '<i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> Sauvegarde cet onglet avant de passer au suivant.';
+    saveToast.style.opacity = '1';
+    clearTimeout(saveToast._t);
+    saveToast._t = setTimeout(() => { saveToast.style.opacity = '0'; saveToast.textContent = ''; }, 2800);
 }
 
 /* Tabs */
@@ -550,11 +563,30 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         if (isDirty) { showSaveToast(); return; }
         const t = btn.dataset.tab;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+            b.tabIndex = -1;
+        });
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        btn.tabIndex = 0;
         document.getElementById('tab-' + t).classList.add('active');
     });
+});
+/* Onglets au clavier : flèches, Début et Fin déplacent le focus et ouvrent l'onglet. */
+document.querySelector('.tabs-nav').addEventListener('keydown', e => {
+    const onglets = Array.from(document.querySelectorAll('.tab-btn'));
+    const i = onglets.indexOf(document.activeElement);
+    if (i < 0) return;
+    const cible = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: onglets.length - 1 }[e.key];
+    if (cible === undefined || e.altKey || e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    if (isDirty) { showSaveToast(); return; }
+    const onglet = onglets[(cible + onglets.length) % onglets.length];
+    onglet.focus();
+    onglet.click();
 });
 
 /* Live profile preview */
@@ -744,9 +776,9 @@ function updateEditorMeta(name) {
     if (dupBtn) dupBtn.disabled = (name === 'Email');
     const statusEl = document.getElementById('editorStatus');
     if (hasTpl(name)) {
-        statusEl.innerHTML = '<span class="badge rounded-pill" style="background:rgba(25,135,84,.12);color:#198754;border:1px solid rgba(25,135,84,.25)"><i class="bi bi-check2"></i> Configuré</span>';
+        statusEl.innerHTML = '<span class="badge rounded-pill" style="background:rgba(25,135,84,.12);color:#146c43;border:1px solid rgba(25,135,84,.25)"><i class="bi bi-check2" aria-hidden="true"></i> Configuré</span>';
     } else {
-        statusEl.innerHTML = '<span class="badge rounded-pill" style="background:rgba(255,193,7,.12);color:#b45309;border:1px solid rgba(255,193,7,.3)"><i class="bi bi-pencil"></i> À remplir</span>';
+        statusEl.innerHTML = '<span class="badge rounded-pill" style="background:rgba(255,193,7,.12);color:#b45309;border:1px solid rgba(255,193,7,.3)"><i class="bi bi-pencil" aria-hidden="true"></i> À remplir</span>';
     }
 }
 
@@ -758,9 +790,10 @@ function selectSecteur(name) {
         if (!confirm('Les modifications de « ' + enCours + ' » ne sont pas sauvegardées. Les abandonner ?')) return;
         markClean();
     }
-    document.querySelectorAll('.secteur-card').forEach(c =>
-        c.classList.toggle('active', c.dataset.secteur === name)
-    );
+    document.querySelectorAll('.secteur-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.secteur === name);
+        c.setAttribute('aria-pressed', c.dataset.secteur === name ? 'true' : 'false');
+    });
     updateEditorMeta(name);
     fillEditFields(name);
     if (hasTpl(name)) showPreview(name); else showEditZone();
@@ -800,7 +833,8 @@ function preremplirTrameLettre() {
 /* Insert var */
 let lastFocusedField = null;
 document.querySelectorAll('#editZone .form-control').forEach(el => {
-    el.addEventListener('focus', () => { lastFocusedField = el; });
+    // Pas sur « focus » : atteindre les boutons de variable au clavier traverse tous les champs.
+    ['input', 'pointerdown'].forEach(evt => el.addEventListener(evt, () => { lastFocusedField = el; }));
 });
 function insertVar(text) {
     const target = lastFocusedField || document.getElementById('f_p1');

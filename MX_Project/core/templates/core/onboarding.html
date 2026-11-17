@@ -8,26 +8,27 @@
 {% block content %}
   <div class="onboard-card">
     <span class="logo-mx">M<span>X</span></span>
-    <h5 class="text-center mb-1 text-muted">Bienvenue</h5>
+    <h1 class="h5 text-center mb-1 text-muted">Bienvenue</h1>
     <p class="small text-muted text-center mb-3">
       Choisis les secteurs NOGA qui t'intéressent.<br>Le scan démarrera en arrière-plan dès validation.
     </p>
 
     <div class="d-flex justify-content-end mb-2 gap-3">
-      <span class="select-all-link" id="selectAll">Tout sélectionner</span>
-      <span class="select-all-link" id="clearAll">Tout désélectionner</span>
+      <button type="button" class="select-all-link" id="selectAll">Tout sélectionner</button>
+      <button type="button" class="select-all-link" id="clearAll">Tout désélectionner</button>
     </div>
 
     {% if erreur %}
     <div class="alert alert-danger py-2 small" role="alert">
-      <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ erreur }}
+      <i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>{{ erreur }}
     </div>
     {% endif %}
 
     <form method="post" id="onboardingForm" data-once>
       {% csrf_token %}
 
-      <p class="group-title"><i class="bi bi-tree me-1"></i>Secteur primaire</p>
+      <fieldset>
+      <legend class="group-title"><i class="bi bi-tree me-1" aria-hidden="true"></i>Secteur primaire</legend>
       <div class="check-grid">
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s01" value="01"><label class="form-check-label" for="s01">Agriculture et chasse (01)</label></div>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s02" value="02"><label class="form-check-label" for="s02">Sylviculture (02)</label></div>
@@ -38,8 +39,10 @@
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s08" value="08"><label class="form-check-label" for="s08">Autres industries extractives (08)</label></div>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s09" value="09"><label class="form-check-label" for="s09">Soutien aux industries extractives (09)</label></div>
       </div>
+      </fieldset>
 
-      <p class="group-title"><i class="bi bi-gear me-1"></i>Industrie &amp; Fabrication</p>
+      <fieldset>
+      <legend class="group-title"><i class="bi bi-gear me-1" aria-hidden="true"></i>Industrie &amp; Fabrication</legend>
       <div class="check-grid">
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s10" value="10"><label class="form-check-label" for="s10">Industrie alimentaire (10)</label></div>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s11" value="11"><label class="form-check-label" for="s11">Fabrication de boissons (11)</label></div>
@@ -66,8 +69,10 @@
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s32" value="32"><label class="form-check-label" for="s32">Autres industries manufacturières (32)</label></div>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s33" value="33"><label class="form-check-label" for="s33">Réparation de machines (33)</label></div>
       </div>
+      </fieldset>
 
-      <p class="group-title"><i class="bi bi-lightning me-1"></i>Énergie &amp; Construction</p>
+      <fieldset>
+      <legend class="group-title"><i class="bi bi-lightning me-1" aria-hidden="true"></i>Énergie &amp; Construction</legend>
       <div class="check-grid">
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s35" value="35"><label class="form-check-label" for="s35">Électricité et gaz (35)</label></div>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s36" value="36"><label class="form-check-label" for="s36">Distribution d'eau (36)</label></div>
@@ -78,8 +83,10 @@
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s42" value="42"><label class="form-check-label" for="s42">Génie civil (42)</label></div>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s43" value="43"><label class="form-check-label" for="s43">Travaux de construction spécialisés (43)</label></div>
       </div>
+      </fieldset>
 
-      <p class="group-title"><i class="bi bi-shop me-1"></i>Commerce &amp; Services</p>
+      <fieldset>
+      <legend class="group-title"><i class="bi bi-shop me-1" aria-hidden="true"></i>Commerce &amp; Services</legend>
       <div class="check-grid">
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s45" value="45"><label class="form-check-label" for="s45">Commerce automobile (45)</label></div>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s46" value="46"><label class="form-check-label" for="s46">Commerce de gros (46)</label></div>
@@ -115,8 +122,10 @@
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s81" value="81"><label class="form-check-label" for="s81">Services aux bâtiments (81)</label></div>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s82" value="82"><label class="form-check-label" for="s82">Administration et soutien bureau (82)</label></div>
       </div>
+      </fieldset>
 
-      <p class="group-title"><i class="bi bi-heart-pulse me-1"></i>Services publics &amp; Humains</p>
+      <fieldset>
+      <legend class="group-title"><i class="bi bi-heart-pulse me-1" aria-hidden="true"></i>Services publics &amp; Humains</legend>
       <div class="check-grid">
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s84" value="84"><label class="form-check-label" for="s84">Administration publique (84)</label></div>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s85" value="85"><label class="form-check-label" for="s85">Enseignement (85)</label></div>
@@ -131,6 +140,7 @@
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s95" value="95"><label class="form-check-label" for="s95">Réparation ordinateurs et biens (95)</label></div>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="secteurs" id="s96" value="96"><label class="form-check-label" for="s96">Autres services personnels / Esthétique (96)</label></div>
       </div>
+      </fieldset>
 
       <div class="d-grid mt-4">
         <button type="submit" class="btn btn-mx w-100 py-2">Lancer mon premier scan</button>
@@ -153,11 +163,14 @@
       if (checked === 0) {
         e.preventDefault();
         const existing = document.getElementById('js-error-secteurs');
-        if (!existing) {
+        // Recréée à chaque fois : une alerte déjà présente n'est pas relue.
+        if (existing) existing.remove();
+        {
           const alert = document.createElement('div');
           alert.id = 'js-error-secteurs';
           alert.className = 'alert alert-danger py-2 small mt-2';
-          alert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>Coche au moins un secteur pour continuer.';
+          alert.setAttribute('role', 'alert');
+          alert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>Coche au moins un secteur pour continuer.';
           this.prepend(alert);
         }
         document.getElementById('js-error-secteurs').scrollIntoView({ behavior: 'smooth', block: 'center' });

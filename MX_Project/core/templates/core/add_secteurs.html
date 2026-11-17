@@ -9,20 +9,20 @@
 {% block content %}
   <div class="onboard-card">
     <span class="logo-mx">M<span>X</span></span>
-    <h5 class="text-center mb-1 text-muted">Ajouter des secteurs</h5>
+    <h1 class="h5 text-center mb-1 text-muted">Ajouter des secteurs</h1>
     <p class="small text-muted text-center mb-3">
       Coche les nouveaux secteurs à scanner. Les secteurs <span class="text-success fw-bold">déjà actifs</span> sont pré-cochés.<br>
       Un nouveau scan démarrera et tu devras compléter les templates LM associés.
     </p>
 
     <div class="d-flex justify-content-end mb-2 gap-3">
-      <span class="select-all-link" id="selectAll">Tout sélectionner</span>
-      <span class="select-all-link" id="clearAll">Tout désélectionner</span>
+      <button type="button" class="select-all-link" id="selectAll">Tout sélectionner</button>
+      <button type="button" class="select-all-link" id="clearAll">Tout désélectionner</button>
     </div>
 
     {% if erreur %}
     <div class="alert alert-danger py-2 small" role="alert">
-      <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ erreur }}
+      <i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>{{ erreur }}
     </div>
     {% endif %}
 
@@ -30,7 +30,8 @@
       {% csrf_token %}
 
       {% for group_name, items in groups.items %}
-      <p class="group-title"><i class="bi bi-layers me-1"></i>{{ group_name }}</p>
+      <fieldset>
+      <legend class="group-title"><i class="bi bi-layers me-1" aria-hidden="true"></i>{{ group_name }}</legend>
       <div class="check-grid">
         {% for code, label in items %}
         <div class="form-check {% if code in existing_codes %}already-active{% endif %}">
@@ -44,18 +45,19 @@
         </div>
         {% endfor %}
       </div>
+      </fieldset>
       {% endfor %}
 
       <div class="d-grid mt-4">
         <button type="submit" class="btn btn-mx w-100 py-2">
-          <i class="bi bi-plus-circle me-1"></i>Confirmer la sélection
+          <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Confirmer la sélection
         </button>
       </div>
     </form>
 
     <div class="text-center mt-3">
       <a href="{% url 'dashboard' %}" class="small text-muted">
-        <i class="bi bi-arrow-left me-1"></i>Retour au dashboard
+        <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Retour au dashboard
       </a>
     </div>
   </div>
@@ -75,11 +77,14 @@
       if (checked === 0) {
         e.preventDefault();
         const existing = document.getElementById('js-error');
-        if (!existing) {
+        // Recréée à chaque fois : une alerte déjà présente n'est pas relue.
+        if (existing) existing.remove();
+        {
           const alert = document.createElement('div');
           alert.id = 'js-error';
           alert.className = 'alert alert-danger py-2 small mt-2';
-          alert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>Coche au moins un secteur pour continuer.';
+          alert.setAttribute('role', 'alert');
+          alert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>Coche au moins un secteur pour continuer.';
           this.prepend(alert);
         }
         document.getElementById('js-error').scrollIntoView({ behavior: 'smooth', block: 'center' });

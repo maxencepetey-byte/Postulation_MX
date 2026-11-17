@@ -5,7 +5,7 @@
     <link rel="stylesheet" href="{% static 'css/mx-app.css' %}">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 {% endblock %}
-{% block content %}
+{% block nav %}
     <div class="animated-bg">
         <div class="orbe orbe-1"></div>
         <div class="orbe orbe-2"></div>
@@ -13,7 +13,7 @@
     </div>
 
     {# ── Navbar ── #}
-    <nav class="navbar navbar-mx sticky-top">
+    <nav class="navbar navbar-mx sticky-top" aria-label="Navigation principale">
         <div class="container-fluid">
             <a href="{% url 'dashboard' %}" class="logo-mx">M<span>X</span></a>
             <div class="d-flex align-items-center gap-3">
@@ -22,23 +22,28 @@
                     <div class="text-muted" style="font-size:0.7rem;">{{ total_entreprises }} entreprises</div>
                 </div>
                 <a href="{% url 'settings_page' %}" class="btn btn-sm btn-light border px-3">
-                    <i class="bi bi-person-vcard-fill text-primary"></i>
+                    <i class="bi bi-person-vcard-fill text-primary" aria-hidden="true"></i>
                     <span class="small fw-bold">Profil & LM</span>
                 </a>
                 <a href="{% url 'historique_scans' %}" class="btn btn-sm btn-light border px-3">
-                    <i class="bi bi-clock-history text-secondary"></i>
+                    <i class="bi bi-clock-history text-secondary" aria-hidden="true"></i>
                     <span class="small fw-bold d-none d-md-inline">Historique</span>
                 </a>
                 <form action="{% url 'logout' %}" method="POST" class="m-0 p-0">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-link text-danger small p-0" title="Se déconnecter">
-                        <i class="bi bi-box-arrow-right fs-5"></i>
+                    <button type="submit" class="btn btn-link text-danger small p-0" title="Se déconnecter" aria-label="Se déconnecter">
+                        <i class="bi bi-box-arrow-right fs-5" aria-hidden="true"></i>
                     </button>
                 </form>
             </div>
         </div>
     </nav>
+{% endblock %}
+{% block content %}
 
+    <h1 class="visually-hidden">Tableau de bord</h1>
+    {# Zone d'annonce vide au chargement : seul un changement de son texte est lu par les lecteurs d'écran. #}
+    <div id="etatListe" class="visually-hidden" role="status"></div>
     <div class="container-fluid py-4 px-md-5">
 
         {# ── Messages flash ── #}
@@ -48,7 +53,7 @@
                     {% for message in messages %}
                         <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show mb-2" role="alert">
                             {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
                         </div>
                     {% endfor %}
                 </div>
@@ -75,35 +80,43 @@
                     <div class="card-body p-4">
 
                         {# ── Documents ── #}
-                        <h6 class="section-title mb-3"><i class="bi bi-folder-fill me-2"></i>Documents</h6>
+                        <h2 class="section-title mb-3"><i class="bi bi-folder-fill me-2" aria-hidden="true"></i>Documents</h2>
 
                         <div class="list-group list-group-flush mb-3">
                             {% for doc in tous_les_docs %}
                             <div class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent border-light doc-item"
                                  data-secteur="{{ doc.secteur_nom|default:'' }}">
-                                <div class="text-truncate{% if doc.secteur_nom %} doc-name-btn{% endif %}"
-                                     style="max-width: 140px;">
+                                {% if doc.secteur_nom %}
+                                <button type="button" class="btn btn-link p-0 text-start text-truncate doc-name-btn"
+                                        style="max-width: 140px;" title="{{ doc.nom_affichage }}">
+                                    <span class="fw-bold small">{{ doc.nom_affichage }}</span>
+                                </button>
+                                {% else %}
+                                <div class="text-truncate" style="max-width: 140px;" title="{{ doc.nom_affichage }}">
                                     <div class="fw-bold small">{{ doc.nom_affichage }}</div>
                                 </div>
+                                {% endif %}
                                 <div class="d-flex align-items-center gap-2">
-                                    <a href="{{ doc.fichier.url }}" target="_blank" class="text-primary" title="Voir">
-                                        <i class="bi bi-eye"></i>
+                                    <a href="{{ doc.fichier.url }}" target="_blank" rel="noopener" class="text-primary" title="Voir"
+                                       aria-label="Voir {{ doc.nom_affichage }} (nouvel onglet)">
+                                        <i class="bi bi-eye" aria-hidden="true"></i>
                                     </a>
                                     {% if doc.type_doc == 'PACK_LM' %}
                                     <form action="{% url 'delete_pack' doc.id %}" method="POST" class="m-0">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-link p-0 text-warning"
-                                                title="Supprimer le pack"
+                                        <button type="submit" class="btn btn-link p-0 icone-avertissement"
+                                                title="Supprimer le pack" aria-label="Supprimer le pack {{ doc.nom_affichage }}"
                                                 onclick="return confirm('Supprimer ce pack ?')">
-                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
                                         </button>
                                     </form>
                                     {% else %}
                                     <form action="{% url 'delete_document' doc.id %}" method="POST" class="m-0">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-link p-0 text-danger"
+                                                title="Supprimer le document" aria-label="Supprimer le document {{ doc.nom_affichage }}"
                                                 onclick="return confirm('Supprimer ce document ?')">
-                                            <i class="bi bi-x-circle"></i>
+                                            <i class="bi bi-x-circle" aria-hidden="true"></i>
                                         </button>
                                     </form>
                                     {% endif %}
@@ -117,7 +130,8 @@
                         <div class="hr-text">Nouveau CV / Doc</div>
                         <form action="{% url 'upload_cv' %}" method="POST" enctype="multipart/form-data" data-once>
                             {% csrf_token %}
-                            <input type="text" name="nom_doc" class="form-control form-control-sm mb-2"
+                            <label for="id_nom_doc" class="visually-hidden">Nom du document</label>
+                            <input type="text" name="nom_doc" id="id_nom_doc" class="form-control form-control-sm mb-2"
                                    placeholder="Nom du document (ex. CV, Certificat Migros)" required maxlength="100">
                             <select name="type_doc" class="form-select form-select-sm mb-2" aria-label="Type de document">
                                 <option value="CV" selected>CV</option>
@@ -125,10 +139,11 @@
                                 <option value="DIPLOME">Diplôme</option>
                                 <option value="AUTRE">Autre pièce jointe</option>
                             </select>
-                            <input type="file" name="cv_file" class="form-control form-control-sm mb-3"
+                            <label for="id_cv_file" class="visually-hidden">Fichier PDF à charger</label>
+                            <input type="file" name="cv_file" id="id_cv_file" class="form-control form-control-sm mb-3"
                                    accept=".pdf" required>
                             <button type="submit" class="btn btn-dark btn-sm w-100 btn-mx">
-                                <i class="bi bi-upload me-1"></i> Charger
+                                <i class="bi bi-upload me-1" aria-hidden="true"></i> Charger
                             </button>
                         </form>
 
@@ -141,7 +156,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="secteur" id="gmailSecteurField" value="">
                                 <button type="submit" class="btn btn-gmail w-100 py-2 btn-mx mb-2">
-                                    <i class="bi bi-google me-2"></i> Créer Brouillons
+                                    <i class="bi bi-google me-2" aria-hidden="true"></i> Créer Brouillons
                                 </button>
                             </form>
                             <form action="{% url 'gmail_disconnect' %}" method="POST">
@@ -152,7 +167,7 @@
                             </form>
                         {% else %}
                             <a href="{% url 'gmail_connect' %}" class="btn btn-gmail w-100 py-2 btn-mx">
-                                <i class="bi bi-google me-2"></i> Connecter Gmail
+                                <i class="bi bi-google me-2" aria-hidden="true"></i> Connecter Gmail
                             </a>
                         {% endif %}
                     </div>
@@ -166,13 +181,13 @@
                         {% if packs_actifs_secteurs %}
                         <div class="d-flex align-items-center gap-2 small mb-2 px-1 py-1 rounded-2"
                              style="background:rgba(255,193,7,.13); color:#856404;">
-                            <i class="bi bi-lock-fill"></i>
+                            <i class="bi bi-lock-fill" aria-hidden="true"></i>
                             <span>Pack actif sur <strong>{{ packs_actifs_secteurs|join:", " }}</strong> — supprime-le pour débloquer les autres secteurs.</span>
                         </div>
                         {% endif %}
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex align-items-center gap-2 flex-wrap" role="group" aria-label="Filtrer par secteur">
                             <span class="small fw-bold text-muted me-1">
-                                <i class="bi bi-funnel me-1"></i>Secteur :
+                                <i class="bi bi-funnel me-1" aria-hidden="true"></i>Secteur :
                             </span>
                             <button type="button" aria-pressed="{% if packs_actifs_secteurs %}false{% else %}true{% endif %}" class="btn btn-sm btn-mx secteur-filter-btn {% if packs_actifs_secteurs %}btn-secondary disabled{% else %}active btn-primary{% endif %}"
                                     data-secteur=""
@@ -184,7 +199,7 @@
                             <button type="button" class="btn btn-sm btn-outline-secondary btn-mx secteur-filter-btn disabled"
                                     data-secteur="{{ s }}" disabled
                                     title="Pack actif — supprime-le pour accéder à ce secteur">
-                                <i class="bi bi-lock" style="font-size:.7rem;"></i> {{ s }}
+                                <i class="bi bi-lock" style="font-size:.7rem;" aria-hidden="true"></i> {{ s }}
                             </button>
                             {% else %}
                             <button type="button" aria-pressed="false" class="btn btn-sm btn-outline-primary btn-mx secteur-filter-btn"
@@ -194,7 +209,7 @@
                             {% endif %}
                             {% endfor %}
                             <a href="{% url 'add_secteurs' %}" class="btn btn-success ms-auto fw-semibold px-3">
-                                <i class="bi bi-plus-circle-fill me-1"></i>Ajouter un secteur
+                                <i class="bi bi-plus-circle-fill me-1" aria-hidden="true"></i>Ajouter un secteur
                             </a>
                         </div>
                     </div>
@@ -203,10 +218,10 @@
                 {# ── Packs disponibles (affiché via JS quand secteur sélectionné) ── #}
                 <div id="packsSection" class="card mb-4 shadow-sm border-0" style="display:none;">
                     <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-                        <h6 class="section-title mb-0">
-                            <i class="bi bi-folder-zip me-2"></i>Packs disponibles
+                        <h2 class="section-title mb-0">
+                            <i class="bi bi-folder-zip me-2" aria-hidden="true"></i>Packs disponibles
                             <span id="packsSecteurLabel" class="text-primary ms-1"></span>
-                        </h6>
+                        </h2>
                     </div>
                     <div class="card-body p-4">
                         <div id="packsGrid" class="pack-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
@@ -216,21 +231,21 @@
                 {# ── Tableau entreprises ── #}
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-                        <h6 class="section-title mb-0">
-                            <i class="bi bi-building me-2"></i>
+                        <h2 class="section-title mb-0">
+                            <i class="bi bi-building me-2" aria-hidden="true"></i>
                             Base de données
                             <span id="tableauCount" class="ms-1">({{ total_entreprises }})</span>
-                        </h6>
+                        </h2>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="bg-light">
                                 <tr class="small text-muted text-uppercase" style="font-size: 0.65rem;">
-                                    <th class="ps-4">Entreprise & Contact</th>
-                                    <th>Secteur</th>
-                                    <th>Pack</th>
-                                    <th>Statut</th>
-                                    <th class="text-end pe-4">Action</th>
+                                    <th scope="col" class="ps-4">Entreprise & Contact</th>
+                                    <th scope="col">Secteur</th>
+                                    <th scope="col">Pack</th>
+                                    <th scope="col">Statut</th>
+                                    <th scope="col" class="text-end pe-4">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="entreprisesTbody" class="small" data-filter-url="{% url 'entreprises_filtrer_secteur' %}">
